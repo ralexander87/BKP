@@ -4,9 +4,9 @@ Bash scripts for backing up and restoring Linux user folders, service-related fi
 
 ## Scripts
 
-- `bkp-main.sh` / `restore-main.sh`: user folders and files.
+- `bkp-main.sh` / `restore-main.sh`: user folders, files, and dotfiles backup.
 - `bkp-serv.sh` / `restore-serv.sh`: service configuration/data paths.
-- `bkp-dots.sh` / `restore-dots.sh`: dotfiles and user config folders.
+- `restore-dots.sh`: dotfiles restore helper copied into backup `DOTS` folders.
 
 ## Requirements
 
@@ -40,6 +40,7 @@ BKP-<timestamp>/
   Pictures/
   Documents/
   .ssh/
+  DOTS/
   restore-main.sh
 ```
 
@@ -82,6 +83,8 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 - `.ssh`
 
 `Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
+
+`bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder.
 
 The files in `config/` are reserved for the other script pairs while the project grows.
 

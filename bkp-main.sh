@@ -26,6 +26,8 @@ RUN_ID="BKP-$(timestamp)"
 BACKUP_DIR="$MAIN_DIR/$RUN_ID"
 ARCHIVE_NAME="$MAIN_DIR/$RUN_ID.tar.gz"
 CREATE_ARCHIVE=false
+DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
+DOTS_DIR="$BACKUP_DIR/DOTS"
 
 if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N"; then
   require_cmd tar
@@ -74,6 +76,16 @@ done
 
 install -m 0755 "$PROJECT_ROOT/restore-main.sh" "$BACKUP_DIR/restore-main.sh"
 log "Copied restore script: $BACKUP_DIR/restore-main.sh"
+
+if [[ -d "$DOTS_SOURCE" ]]; then
+  log "Backing up dotfiles config: $DOTS_SOURCE"
+  mkdir -p "$DOTS_DIR"
+  rsync "${RSYNC_ARGS[@]}" "$DOTS_SOURCE/" "$DOTS_DIR/"
+  install -m 0755 "$PROJECT_ROOT/restore-dots.sh" "$DOTS_DIR/restore-dots.sh"
+  log "Copied restore script: $DOTS_DIR/restore-dots.sh"
+else
+  log "Skipping missing dotfiles config: $DOTS_SOURCE"
+fi
 
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   log "Creating archive: $ARCHIVE_NAME"

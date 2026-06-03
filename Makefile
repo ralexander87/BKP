@@ -1,6 +1,6 @@
 SHELL := bash
 
-SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh bkp-dots.sh restore-dots.sh lib/common.sh
+SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh restore-dots.sh lib/common.sh
 
 .PHONY: check deps list
 
