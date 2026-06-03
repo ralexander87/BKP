@@ -100,6 +100,7 @@ Current options:
 - `2 - Restore Wallpapers`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/wallpapers`, then copies `ml4w/wallpapers` from the current `DOTS` folder.
 - `3 - Restore FastFetch`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch`, then copies `fastfetch` from the current `DOTS` folder.
 - `4 - Restore KITTY`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/kitty`, then copies `kitty` from the current `DOTS` folder.
+- `5 - Restore ROFI`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/rofi`, then copies `rofi` from the current `DOTS` folder.
 
 The files in `config/` are reserved for the other script pairs while the project grows.
 

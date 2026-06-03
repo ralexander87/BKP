@@ -34,6 +34,7 @@ Select action:
   2 - Restore Wallpapers
   3 - Restore FastFetch
   4 - Restore KITTY
+  5 - Restore ROFI
 EOF
 }
 
@@ -98,6 +99,22 @@ restore_kitty() {
   log "Done: Restore KITTY"
 }
 
+restore_rofi() {
+  local source_dir="$SCRIPT_DIR/rofi"
+  local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/rofi"
+
+  require_cmd rsync
+  [[ -d "$source_dir" ]] || die "rofi source folder not found: $source_dir"
+
+  log "Deleting: $target_dir"
+  rm -rf -- "$target_dir"
+
+  log "Restoring ROFI from: $source_dir"
+  mkdir -p "$(dirname -- "$target_dir")"
+  rsync -aAXH --numeric-ids --info=progress2 "$source_dir/" "$target_dir/"
+  log "Done: Restore ROFI"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -122,6 +139,9 @@ case "$selection" in
     ;;
   4)
     restore_kitty
+    ;;
+  5)
+    restore_rofi
     ;;
   *)
     die "invalid selection: $selection"
