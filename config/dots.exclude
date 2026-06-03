@@ -1,0 +1,6 @@
+# Skip volatile user config/cache data.
+.cache/
+*/Cache/
+*/cache/
+*/logs/
+

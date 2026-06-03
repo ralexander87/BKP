@@ -1,0 +1,6 @@
+# Common noisy paths.
+*.tmp
+*.part
+.cache/
+node_modules/
+

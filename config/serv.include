@@ -1,0 +1,4 @@
+# Service-related paths to back up.
+# Many of these require sudo depending on ownership.
+/etc
+

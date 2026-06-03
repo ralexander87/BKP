@@ -1,0 +1,7 @@
+# Dotfiles and user config paths to back up.
+$HOME/.bashrc
+$HOME/.profile
+$HOME/.zshrc
+$HOME/.gitconfig
+$HOME/.config
+

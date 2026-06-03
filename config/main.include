@@ -1,0 +1,8 @@
+# User folders/files to back up.
+# Paths may use $HOME.
+$HOME/Documents
+$HOME/Downloads
+$HOME/Pictures
+$HOME/Music
+$HOME/Videos
+
