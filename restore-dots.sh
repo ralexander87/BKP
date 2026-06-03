@@ -1,44 +1,69 @@
 #!/usr/bin/env bash
 
-source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
+set -Eeuo pipefail
 
-LOG_FILE="$LOG_ROOT/restore-dots.log"
-DRY_RUN=false
-SOURCE=""
-DESTINATION="/"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-dots.log}"
+
+log() {
+  printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*" | tee -a "$LOG_FILE"
+}
+
+die() {
+  log "ERROR: $*"
+  exit 1
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
 
 usage() {
   cat <<'EOF'
-Usage: ./restore-dots.sh --source PATH [--destination PATH] [--dry-run]
+Usage: ./restore-dots.sh
 
-Restore a dotfiles backup directory. Use --dry-run first.
+Run dotfiles restore actions from the current DOTS folder.
 EOF
 }
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --source)
-      SOURCE="${2:-}"
-      shift
-      ;;
-    --destination)
-      DESTINATION="${2:-}"
-      shift
-      ;;
-    --dry-run) DRY_RUN=true ;;
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *) die "unknown option: $1" ;;
-  esac
-  shift
-done
+show_menu() {
+  cat <<'EOF'
+Select action:
+  0 - Exit
+  1 - Install DOTS
+EOF
+}
 
-ensure_dirs
-require_cmd rsync
-[[ -n "$SOURCE" ]] || die "missing required --source PATH"
+install_dots() {
+  require_cmd bash
+  require_cmd curl
 
-rsync_restore "$SOURCE" "$DESTINATION" "$DRY_RUN"
-log "Done: restore-dots"
+  log "DOTS source folder: $SCRIPT_DIR"
+  log "Deleting: $HOME/.config/hypr"
+  rm -rf -- "$HOME/.config/hypr"
 
+  log "Running ML4W stable installer"
+  bash <(curl -s https://ml4w.com/os/stable)
+  log "Done: Install DOTS"
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+show_menu
+read -r -p "Enter selection: " selection
+
+case "$selection" in
+  0)
+    log "Exit selected"
+    exit 0
+    ;;
+  1)
+    install_dots
+    ;;
+  *)
+    die "invalid selection: $selection"
+    ;;
+esac

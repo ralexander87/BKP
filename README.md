@@ -86,6 +86,18 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 
 `bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder.
 
+Run dotfiles restore actions from inside a backup `DOTS` folder:
+
+```bash
+cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
+./restore-dots.sh
+```
+
+Current options:
+
+- `0 - Exit`
+- `1 - Install DOTS`: deletes `$HOME/.config/hypr`, then runs `bash <(curl -s https://ml4w.com/os/stable)`.
+
 The files in `config/` are reserved for the other script pairs while the project grows.
 
 ## Development
