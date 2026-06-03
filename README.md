@@ -51,6 +51,8 @@ date +%j-%d-%m-%H-%M-%S
 
 After copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive. The default answer is `N`; when you answer `Y`, compression uses `pigz`.
 
+Terminal output is intentionally minimal. The scripts show top-level folder status and errors instead of printing every copied file.
+
 Restore the main backup:
 
 ```bash

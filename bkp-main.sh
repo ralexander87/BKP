@@ -40,7 +40,7 @@ HOME_ITEMS=(
 )
 
 RSYNC_ARGS=(
-  -aAXHv
+  -aAXH
   --numeric-ids
 )
 
