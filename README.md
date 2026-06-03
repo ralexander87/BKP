@@ -18,36 +18,54 @@ Bash scripts for backing up and restoring Linux user folders, service-related fi
 
 ## Quick Start
 
-Run a dry backup first:
-
-```bash
-./bkp-main.sh --dry-run
-./bkp-dots.sh --dry-run
-```
-
-Run a real backup:
+Run the main backup:
 
 ```bash
 ./bkp-main.sh
-./bkp-dots.sh
 ```
 
-Create a compressed archive after backup:
+The script lists external mounted devices. If one device is mounted, it is selected automatically. If multiple devices are mounted, select the destination by number.
+
+Each main backup is written to:
 
 ```bash
-./bkp-main.sh --compress
+/path/to/device/MAIN/BKP-<timestamp>
 ```
 
-Restore from a backup directory:
+The timestamp format is:
 
 ```bash
-./restore-main.sh --source backups/main/latest
-./restore-dots.sh --source backups/dots/latest
+date +%j-%d-%m-%H-%M-%S
 ```
+
+After copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive. The default answer is `N`; when you answer `Y`, compression uses `pigz`.
+
+Restore the main backup:
+
+```bash
+./restore-main.sh
+```
+
+The restore script uses the same mounted-device selection, then lists available `MAIN/BKP-*` backup folders and restores the selected backup to the original paths.
 
 ## Configuration
 
-Edit the files in `config/` to tune source and destination paths. Lines beginning with `#` and blank lines are ignored.
+The current `bkp-main.sh` backs up these `$HOME` folders:
+
+- `Downloads`
+- `Pictures`
+- `Videos`
+- `Music`
+- `Obsidian`
+- `Code`
+- `Documents`
+- `.themes`
+- `.icons`
+- `.ssh`
+
+`Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
+
+The files in `config/` are reserved for the other script pairs while the project grows.
 
 ## Development
 
@@ -71,4 +89,3 @@ This repository is ready for local git tracking. When you decide to publish it o
 git remote add origin git@github.com:YOUR_USER/BKPv3.git
 git push -u origin main
 ```
-

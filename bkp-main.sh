@@ -3,42 +3,74 @@
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 LOG_FILE="$LOG_ROOT/bkp-main.log"
-DRY_RUN=false
-COMPRESS=false
 
 usage() {
   cat <<'EOF'
-Usage: ./bkp-main.sh [--dry-run] [--compress]
+Usage: ./bkp-main.sh
 
-Back up user folders listed in config/main.include.
+Back up selected $HOME folders to an external mounted device.
 EOF
 }
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --dry-run) DRY_RUN=true ;;
-    --compress) COMPRESS=true ;;
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *) die "unknown option: $1" ;;
-  esac
-  shift
-done
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
 
 ensure_dirs
 require_cmd rsync
 
-RUN_ID="$(timestamp)"
-DEST="$BACKUP_ROOT/main/$RUN_ID"
+DEST_DEVICE="$(select_external_mount "Select backup destination device:")"
+MAIN_DIR="$DEST_DEVICE/MAIN"
+RUN_ID="BKP-$(timestamp)"
+BACKUP_DIR="$MAIN_DIR/$RUN_ID"
+ARCHIVE_NAME="$MAIN_DIR/$RUN_ID.tar.gz"
 
-rsync_backup "$PROJECT_ROOT/config/main.include" "$PROJECT_ROOT/config/main.exclude" "$DEST" "$DRY_RUN"
+HOME_ITEMS=(
+  "Downloads"
+  "Pictures"
+  "Videos"
+  "Music"
+  "Obsidian"
+  "Code"
+  "Documents"
+  ".themes"
+  ".icons"
+  ".ssh"
+)
 
-if [[ "$DRY_RUN" == "false" ]]; then
-  update_latest_link "$RUN_ID" "$BACKUP_ROOT/main/latest"
-  [[ "$COMPRESS" == "true" ]] && compress_backup "$DEST" "$PROJECT_ROOT/dist/bkp-main-$RUN_ID.tar.gz"
+RSYNC_ARGS=(
+  -aAXHv
+  --numeric-ids
+  --relative
+  --exclude='*.iso'
+  --exclude='.ssh/agent/'
+  --exclude='agent/'
+)
+
+mkdir -p "$BACKUP_DIR"
+log "Backup destination: $BACKUP_DIR"
+
+for item in "${HOME_ITEMS[@]}"; do
+  source_path="$HOME/$item"
+
+  if [[ -e "$source_path" ]]; then
+    log "Backing up: $source_path"
+    rsync "${RSYNC_ARGS[@]}" "$source_path" "$BACKUP_DIR/"
+  else
+    log "Skipping missing path: $source_path"
+  fi
+done
+
+if confirm_yes_no "Create compressed .tar.gz archive with pigz?" "N"; then
+  require_cmd tar
+  require_cmd pigz
+
+  log "Creating archive: $ARCHIVE_NAME"
+  tar -C "$MAIN_DIR" -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
+  log "Archive created: $ARCHIVE_NAME"
+else
+  log "Archive skipped"
 fi
 
 log "Done: bkp-main"
-

@@ -41,7 +41,7 @@ read_config_paths() {
 }
 
 timestamp() {
-  date '+%Y%m%d-%H%M%S'
+  date '+%j-%d-%m-%H-%M-%S'
 }
 
 rsync_backup() {
@@ -101,3 +101,61 @@ update_latest_link() {
   ln -sfn "$target" "$link"
 }
 
+list_external_mounts() {
+  require_cmd findmnt
+
+  findmnt -rn -o TARGET,SOURCE,FSTYPE |
+    awk '
+      $2 ~ "^/dev/" &&
+      $1 ~ "^(/media/|/run/media/|/mnt/)" &&
+      $3 !~ "^(swap|tmpfs|devtmpfs|proc|sysfs|cgroup|cgroup2|overlay|squashfs)$" {
+        print $1
+      }
+    '
+}
+
+select_external_mount() {
+  local prompt="${1:-Select destination device}"
+  local mounts=()
+
+  mapfile -t mounts < <(list_external_mounts)
+
+  case "${#mounts[@]}" in
+    0)
+      die "no external mounted devices found"
+      ;;
+    1)
+      printf 'Using mounted device: %s\n' "${mounts[0]}" >&2
+      printf '%s\n' "${mounts[0]}"
+      ;;
+    *)
+      printf '%s\n' "$prompt" >&2
+      local i
+      for i in "${!mounts[@]}"; do
+        printf '  %d) %s\n' "$((i + 1))" "${mounts[$i]}" >&2
+      done
+
+      local selection
+      while true; do
+        read -r -p "Enter number and press Enter: " selection
+        if [[ "$selection" =~ ^[0-9]+$ ]] &&
+          ((selection >= 1 && selection <= ${#mounts[@]})); then
+          printf '%s\n' "${mounts[$((selection - 1))]}"
+          return
+        fi
+        printf 'Invalid selection.\n' >&2
+      done
+      ;;
+  esac
+}
+
+confirm_yes_no() {
+  local prompt="$1"
+  local default="${2:-N}"
+  local answer
+
+  read -r -p "$prompt [$default]: " answer
+  answer="${answer:-$default}"
+
+  [[ "$answer" =~ ^[Yy]$ ]]
+}
