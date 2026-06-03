@@ -157,7 +157,7 @@ for item in "${HOME_ITEMS[@]}"; do
 
   if [[ -e "$source_path" ]]; then
     log "Restoring: $item"
-    rsync -aAXH --numeric-ids "$source_path" "$HOME/"
+    rsync -aAXH --numeric-ids --info=progress2 "$source_path" "$HOME/"
   else
     log "Skipping missing backup item: $item"
   fi

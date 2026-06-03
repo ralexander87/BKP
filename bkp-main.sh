@@ -42,6 +42,7 @@ HOME_ITEMS=(
 RSYNC_ARGS=(
   -aAXH
   --numeric-ids
+  --info=progress2
 )
 
 mkdir -p "$BACKUP_DIR"
