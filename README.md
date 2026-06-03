@@ -53,13 +53,18 @@ After copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz`
 
 Terminal output is intentionally minimal. The scripts show top-level folder status, current-folder transfer progress, and errors instead of printing every copied file.
 
-Restore the main backup:
+Restore the main backup from inside a backup folder:
 
 ```bash
+cd /path/to/device/MAIN/BKP-<timestamp>
 ./restore-main.sh
 ```
 
-Each backup also includes a copy of `restore-main.sh`. When run from inside a `BKP-*` folder, it restores from that current folder back into `$HOME`. When run from the project folder, it uses mounted-device selection and lists available `MAIN/BKP-*` backup folders.
+Each backup includes a copy of `restore-main.sh`. It restores from its current folder back into `$HOME` after you confirm with `Y`.
+
+Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes.
+
+After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`.
 
 ## Configuration
 

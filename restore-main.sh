@@ -31,111 +31,34 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
 }
 
+confirm_yes_no() {
+  local prompt="$1"
+  local default="${2:-N}"
+  local answer
+
+  read -r -p "$prompt [$default]: " answer
+  answer="${answer:-$default}"
+
+  [[ "$answer" =~ ^[Yy]$ ]]
+}
+
 usage() {
   cat <<'EOF'
 Usage: ./restore-main.sh
 
-Restore a MAIN/BKP-* backup to $HOME.
-
-When this script is inside a BKP-* folder, it restores from the current
-backup folder. Otherwise, it asks you to select an external mounted device
-and backup folder.
+Restore backup content from the current folder to $HOME.
 EOF
 }
 
-list_external_mounts() {
-  require_cmd findmnt
+fix_ssh_permissions() {
+  local ssh_dir="$HOME/.ssh"
 
-  findmnt -rn -o TARGET,SOURCE,FSTYPE |
-    awk '
-      $2 ~ "^/dev/" &&
-      $1 ~ "^(/media/|/run/media/|/mnt/)" &&
-      $3 !~ "^(swap|tmpfs|devtmpfs|proc|sysfs|cgroup|cgroup2|overlay|squashfs)$" {
-        print $1
-      }
-    '
-}
+  [[ -d "$ssh_dir" ]] || return
 
-select_external_mount() {
-  local mounts=()
-
-  mapfile -t mounts < <(list_external_mounts)
-
-  case "${#mounts[@]}" in
-    0)
-      die "no external mounted devices found"
-      ;;
-    1)
-      printf 'Using mounted device: %s\n' "${mounts[0]}" >&2
-      printf '%s\n' "${mounts[0]}"
-      ;;
-    *)
-      printf 'Select restore source device:\n' >&2
-      local i
-      for i in "${!mounts[@]}"; do
-        printf '  %d) %s\n' "$((i + 1))" "${mounts[$i]}" >&2
-      done
-
-      local selection
-      while true; do
-        read -r -p "Enter number and press Enter: " selection
-        if [[ "$selection" =~ ^[0-9]+$ ]] &&
-          ((selection >= 1 && selection <= ${#mounts[@]})); then
-          printf '%s\n' "${mounts[$((selection - 1))]}"
-          return
-        fi
-        printf 'Invalid selection.\n' >&2
-      done
-      ;;
-  esac
-}
-
-select_backup_dir() {
-  local main_dir="$1"
-  local backups=()
-
-  [[ -d "$main_dir" ]] || die "MAIN folder not found: $main_dir"
-
-  mapfile -t backups < <(find "$main_dir" -maxdepth 1 -mindepth 1 -type d -name 'BKP-*' | sort -r)
-
-  case "${#backups[@]}" in
-    0)
-      die "no BKP-* backup folders found in: $main_dir"
-      ;;
-    1)
-      printf 'Using backup: %s\n' "${backups[0]}" >&2
-      printf '%s\n' "${backups[0]}"
-      ;;
-    *)
-      printf 'Select backup to restore:\n' >&2
-      local i
-      for i in "${!backups[@]}"; do
-        printf '  %d) %s\n' "$((i + 1))" "$(basename -- "${backups[$i]}")" >&2
-      done
-
-      local selection
-      while true; do
-        read -r -p "Enter number and press Enter: " selection
-        if [[ "$selection" =~ ^[0-9]+$ ]] &&
-          ((selection >= 1 && selection <= ${#backups[@]})); then
-          printf '%s\n' "${backups[$((selection - 1))]}"
-          return
-        fi
-        printf 'Invalid selection.\n' >&2
-      done
-      ;;
-  esac
-}
-
-resolve_backup_dir() {
-  if [[ "$(basename -- "$SCRIPT_DIR")" == BKP-* ]]; then
-    printf '%s\n' "$SCRIPT_DIR"
-    return
-  fi
-
-  local device
-  device="$(select_external_mount)"
-  select_backup_dir "$device/MAIN"
+  log "Fixing SSH permissions"
+  find "$ssh_dir" -type d -exec chmod 700 {} +
+  find "$ssh_dir" -type f -name '*.pub' -exec chmod 644 {} +
+  find "$ssh_dir" -type f ! -name '*.pub' -exec chmod 600 {} +
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -146,14 +69,16 @@ fi
 require_cmd rsync
 require_cmd find
 
-BACKUP_DIR="$(resolve_backup_dir)"
-[[ -d "$BACKUP_DIR" ]] || die "backup folder not found: $BACKUP_DIR"
-
-log "Restore source: $BACKUP_DIR"
+log "Restore source: $SCRIPT_DIR"
 log "Restore target: $HOME"
 
+if ! confirm_yes_no "Start restore from current folder to \$HOME?" "N"; then
+  log "Restore cancelled"
+  exit 0
+fi
+
 for item in "${HOME_ITEMS[@]}"; do
-  source_path="$BACKUP_DIR/$item"
+  source_path="$SCRIPT_DIR/$item"
 
   if [[ -e "$source_path" ]]; then
     log "Restoring: $item"
@@ -163,4 +88,5 @@ for item in "${HOME_ITEMS[@]}"; do
   fi
 done
 
+fix_ssh_permissions
 log "Done: restore-main"
