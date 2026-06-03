@@ -31,6 +31,7 @@ show_menu() {
 Select action:
   0 - Exit
   1 - Install DOTS
+  2 - Restore Wallpapers
 EOF
 }
 
@@ -45,6 +46,22 @@ install_dots() {
   log "Running ML4W stable installer"
   bash <(curl -s https://ml4w.com/os/stable)
   log "Done: Install DOTS"
+}
+
+restore_wallpapers() {
+  local source_dir="$SCRIPT_DIR/ml4w/wallpapers"
+  local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/wallpapers"
+
+  require_cmd rsync
+  [[ -d "$source_dir" ]] || die "wallpapers source folder not found: $source_dir"
+
+  log "Deleting: $target_dir"
+  rm -rf -- "$target_dir"
+
+  log "Restoring wallpapers from: $source_dir"
+  mkdir -p "$(dirname -- "$target_dir")"
+  rsync -aAXH --numeric-ids --info=progress2 "$source_dir/" "$target_dir/"
+  log "Done: Restore Wallpapers"
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -62,6 +79,9 @@ case "$selection" in
     ;;
   1)
     install_dots
+    ;;
+  2)
+    restore_wallpapers
     ;;
   *)
     die "invalid selection: $selection"
