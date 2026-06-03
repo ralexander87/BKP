@@ -98,6 +98,7 @@ Current options:
 - `0 - Exit`
 - `1 - Install DOTS`: deletes `$HOME/.config/hypr`, then runs `bash <(curl -s https://ml4w.com/os/stable)`.
 - `2 - Restore Wallpapers`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/wallpapers`, then copies `ml4w/wallpapers` from the current `DOTS` folder.
+- `3 - Restore FastFetch`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch`, then copies `fastfetch` from the current `DOTS` folder.
 
 The files in `config/` are reserved for the other script pairs while the project grows.
 

@@ -32,6 +32,7 @@ Select action:
   0 - Exit
   1 - Install DOTS
   2 - Restore Wallpapers
+  3 - Restore FastFetch
 EOF
 }
 
@@ -64,6 +65,22 @@ restore_wallpapers() {
   log "Done: Restore Wallpapers"
 }
 
+restore_fastfetch() {
+  local source_dir="$SCRIPT_DIR/fastfetch"
+  local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch"
+
+  require_cmd rsync
+  [[ -d "$source_dir" ]] || die "fastfetch source folder not found: $source_dir"
+
+  log "Deleting: $target_dir"
+  rm -rf -- "$target_dir"
+
+  log "Restoring FastFetch from: $source_dir"
+  mkdir -p "$(dirname -- "$target_dir")"
+  rsync -aAXH --numeric-ids --info=progress2 "$source_dir/" "$target_dir/"
+  log "Done: Restore FastFetch"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -82,6 +99,9 @@ case "$selection" in
     ;;
   2)
     restore_wallpapers
+    ;;
+  3)
+    restore_fastfetch
     ;;
   *)
     die "invalid selection: $selection"
