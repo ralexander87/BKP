@@ -49,7 +49,7 @@ The timestamp format is:
 date +%j-%d-%m-%H-%M-%S
 ```
 
-After copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive. The default answer is `N`; when you answer `Y`, compression uses `pigz`.
+Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup. The default answer is `N`; when you answer `Y`, compression uses `pigz`.
 
 Terminal output is intentionally minimal. The scripts show top-level folder status, current-folder transfer progress, and errors instead of printing every copied file.
 

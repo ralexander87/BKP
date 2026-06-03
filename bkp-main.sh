@@ -25,6 +25,13 @@ MAIN_DIR="$DEST_DEVICE/MAIN"
 RUN_ID="BKP-$(timestamp)"
 BACKUP_DIR="$MAIN_DIR/$RUN_ID"
 ARCHIVE_NAME="$MAIN_DIR/$RUN_ID.tar.gz"
+CREATE_ARCHIVE=false
+
+if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N"; then
+  require_cmd tar
+  require_cmd pigz
+  CREATE_ARCHIVE=true
+fi
 
 HOME_ITEMS=(
   "Downloads"
@@ -68,10 +75,7 @@ done
 install -m 0755 "$PROJECT_ROOT/restore-main.sh" "$BACKUP_DIR/restore-main.sh"
 log "Copied restore script: $BACKUP_DIR/restore-main.sh"
 
-if confirm_yes_no "Create compressed .tar.gz archive with pigz?" "N"; then
-  require_cmd tar
-  require_cmd pigz
-
+if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   log "Creating archive: $ARCHIVE_NAME"
   tar -C "$MAIN_DIR" -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
   log "Archive created: $ARCHIVE_NAME"
