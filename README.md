@@ -32,6 +32,17 @@ Each main backup is written to:
 /path/to/device/MAIN/BKP-<timestamp>
 ```
 
+The backup folder contains the selected `$HOME` folders directly:
+
+```text
+BKP-<timestamp>/
+  Downloads/
+  Pictures/
+  Documents/
+  .ssh/
+  restore-main.sh
+```
+
 The timestamp format is:
 
 ```bash
@@ -46,7 +57,7 @@ Restore the main backup:
 ./restore-main.sh
 ```
 
-The restore script uses the same mounted-device selection, then lists available `MAIN/BKP-*` backup folders and restores the selected backup to the original paths.
+Each backup also includes a copy of `restore-main.sh`. When run from inside a `BKP-*` folder, it restores from that current folder back into `$HOME`. When run from the project folder, it uses mounted-device selection and lists available `MAIN/BKP-*` backup folders.
 
 ## Configuration
 

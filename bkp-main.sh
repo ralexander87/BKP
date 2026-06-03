@@ -42,10 +42,6 @@ HOME_ITEMS=(
 RSYNC_ARGS=(
   -aAXHv
   --numeric-ids
-  --relative
-  --exclude='*.iso'
-  --exclude='.ssh/agent/'
-  --exclude='agent/'
 )
 
 mkdir -p "$BACKUP_DIR"
@@ -53,14 +49,23 @@ log "Backup destination: $BACKUP_DIR"
 
 for item in "${HOME_ITEMS[@]}"; do
   source_path="$HOME/$item"
+  item_args=("${RSYNC_ARGS[@]}")
+
+  case "$item" in
+    "Downloads") item_args+=(--exclude='*.iso') ;;
+    ".ssh") item_args+=(--exclude='agent/') ;;
+  esac
 
   if [[ -e "$source_path" ]]; then
     log "Backing up: $source_path"
-    rsync "${RSYNC_ARGS[@]}" "$source_path" "$BACKUP_DIR/"
+    rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"
   else
     log "Skipping missing path: $source_path"
   fi
 done
+
+install -m 0755 "$PROJECT_ROOT/restore-main.sh" "$BACKUP_DIR/restore-main.sh"
+log "Copied restore script: $BACKUP_DIR/restore-main.sh"
 
 if confirm_yes_no "Create compressed .tar.gz archive with pigz?" "N"; then
   require_cmd tar
