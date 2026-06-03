@@ -35,6 +35,7 @@ Select action:
   3 - Restore FastFetch
   4 - Restore KITTY
   5 - Restore ROFI
+  6 - Restore WAYBAR
 EOF
 }
 
@@ -115,6 +116,28 @@ restore_rofi() {
   log "Done: Restore ROFI"
 }
 
+restore_waybar() {
+  local source_dir="$SCRIPT_DIR/waybar/themes"
+  local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes"
+  local backup_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes-bkp"
+
+  require_cmd rsync
+  [[ -d "$source_dir" ]] || die "waybar themes source folder not found: $source_dir"
+
+  if [[ -e "$target_dir" ]]; then
+    [[ ! -e "$backup_dir" ]] || die "backup folder already exists: $backup_dir"
+    log "Renaming: $target_dir -> $backup_dir"
+    mv -- "$target_dir" "$backup_dir"
+  else
+    log "Skipping rename; target folder not found: $target_dir"
+  fi
+
+  log "Restoring WAYBAR themes from: $source_dir"
+  mkdir -p "$(dirname -- "$target_dir")"
+  rsync -aAXH --numeric-ids --info=progress2 "$source_dir/" "$target_dir/"
+  log "Done: Restore WAYBAR"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -142,6 +165,9 @@ case "$selection" in
     ;;
   5)
     restore_rofi
+    ;;
+  6)
+    restore_waybar
     ;;
   *)
     die "invalid selection: $selection"

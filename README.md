@@ -101,6 +101,7 @@ Current options:
 - `3 - Restore FastFetch`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch`, then copies `fastfetch` from the current `DOTS` folder.
 - `4 - Restore KITTY`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/kitty`, then copies `kitty` from the current `DOTS` folder.
 - `5 - Restore ROFI`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/rofi`, then copies `rofi` from the current `DOTS` folder.
+- `6 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
 
 The files in `config/` are reserved for the other script pairs while the project grows.
 
