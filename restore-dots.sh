@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
 
+# Exit on errors, unset variables, and failed pipeline commands.
 set -Eeuo pipefail
 
+# DOTS actions operate from the folder where this script is located.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-dots.log}"
 
+# Write a timestamped message to screen and log file.
 log() {
   printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*" | tee -a "$LOG_FILE"
 }
 
+# Log an error and stop the script.
 die() {
   log "ERROR: $*"
   exit 1
 }
 
+# Ensure an external command exists before it is needed.
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
 }
 
+# Print command usage for help requests.
 usage() {
   cat <<'EOF'
 Usage: ./restore-dots.sh
@@ -26,6 +32,7 @@ Run dotfiles restore actions from the current DOTS folder.
 EOF
 }
 
+# Show the currently available dotfiles restore actions.
 show_menu() {
   cat <<'EOF'
 Select action:
@@ -39,6 +46,7 @@ Select action:
 EOF
 }
 
+# Install ML4W stable DOTS after removing the current Hypr configuration.
 install_dots() {
   require_cmd bash
   require_cmd curl
@@ -52,6 +60,7 @@ install_dots() {
   log "Done: Install DOTS"
 }
 
+# Replace the ML4W wallpapers folder from the current DOTS backup.
 restore_wallpapers() {
   local source_dir="$SCRIPT_DIR/ml4w/wallpapers"
   local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/wallpapers"
@@ -68,6 +77,7 @@ restore_wallpapers() {
   log "Done: Restore Wallpapers"
 }
 
+# Replace the FastFetch config folder from the current DOTS backup.
 restore_fastfetch() {
   local source_dir="$SCRIPT_DIR/fastfetch"
   local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch"
@@ -84,6 +94,7 @@ restore_fastfetch() {
   log "Done: Restore FastFetch"
 }
 
+# Replace the KITTY config folder from the current DOTS backup.
 restore_kitty() {
   local source_dir="$SCRIPT_DIR/kitty"
   local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/kitty"
@@ -100,6 +111,7 @@ restore_kitty() {
   log "Done: Restore KITTY"
 }
 
+# Replace the ROFI config folder from the current DOTS backup.
 restore_rofi() {
   local source_dir="$SCRIPT_DIR/rofi"
   local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/rofi"
@@ -116,6 +128,7 @@ restore_rofi() {
   log "Done: Restore ROFI"
 }
 
+# Save the current WAYBAR themes as themes-bkp, then restore backed-up themes.
 restore_waybar() {
   local source_dir="$SCRIPT_DIR/waybar/themes"
   local target_dir="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes"
@@ -143,9 +156,11 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
+# Read the user's menu selection and run the selected action.
 show_menu
 read -r -p "Enter selection: " selection
 
+# Dispatch menu options to their matching functions.
 case "$selection" in
   0)
     log "Exit selected"

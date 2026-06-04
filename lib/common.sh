@@ -1,28 +1,35 @@
 #!/usr/bin/env bash
 
+# Shared scripts fail fast on errors, unset variables, and failed pipelines.
 set -Eeuo pipefail
 
+# Resolve project paths relative to this helper file.
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_ROOT="${BACKUP_ROOT:-$PROJECT_ROOT/backups}"
 LOG_ROOT="${LOG_ROOT:-$PROJECT_ROOT/logs}"
 
+# Write a timestamped message to screen and the active script log.
 log() {
   printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*" | tee -a "$LOG_FILE"
 }
 
+# Log an error and stop the active script.
 die() {
   log "ERROR: $*"
   exit 1
 }
 
+# Ensure an external command exists before it is needed.
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
 }
 
+# Create local runtime directories used by scripts.
 ensure_dirs() {
   mkdir -p "$BACKUP_ROOT" "$LOG_ROOT"
 }
 
+# Expand simple $HOME and ~ prefixes from config files.
 expand_path() {
   local path="$1"
   path="${path/#\$HOME/$HOME}"
@@ -30,6 +37,7 @@ expand_path() {
   printf '%s\n' "$path"
 }
 
+# Read non-comment config lines and expand supported home prefixes.
 read_config_paths() {
   local file="$1"
   [[ -f "$file" ]] || die "missing config file: $file"
@@ -40,10 +48,12 @@ read_config_paths() {
   done <"$file"
 }
 
+# Generate the backup timestamp used in BKP folder names.
 timestamp() {
   date '+%j-%d-%m-%H-%M-%S'
 }
 
+# Copy configured paths into a backup destination with rsync metadata flags.
 rsync_backup() {
   local include_file="$1"
   local exclude_file="$2"
@@ -56,6 +66,7 @@ rsync_backup() {
 
   mkdir -p "$destination"
 
+  # Process each configured path independently so missing paths can be logged.
   while IFS= read -r source; do
     if [[ -e "$source" ]]; then
       log "Backing up: $source"
@@ -66,6 +77,7 @@ rsync_backup() {
   done < <(read_config_paths "$include_file")
 }
 
+# Restore a backup folder into the requested destination.
 rsync_restore() {
   local source="$1"
   local destination="$2"
@@ -80,6 +92,7 @@ rsync_restore() {
   rsync "${args[@]}" "$source/" "$destination/"
 }
 
+# Create a pigz-compressed tar archive from an existing backup folder.
 compress_backup() {
   local source_dir="$1"
   local archive="$2"
@@ -94,6 +107,7 @@ compress_backup() {
   tar -C "$(dirname -- "$source_dir")" -cf - "$(basename -- "$source_dir")" | pigz >"$archive"
 }
 
+# Point a latest symlink at a newly created backup folder.
 update_latest_link() {
   local target="$1"
   local link="$2"
@@ -101,6 +115,7 @@ update_latest_link() {
   ln -sfn "$target" "$link"
 }
 
+# Return likely external/removable mount points from real block devices.
 list_external_mounts() {
   require_cmd findmnt
 
@@ -114,6 +129,7 @@ list_external_mounts() {
     '
 }
 
+# Select an external mount automatically when one exists, or prompt by number.
 select_external_mount() {
   local prompt="${1:-Select destination device}"
   local mounts=()
@@ -149,6 +165,7 @@ select_external_mount() {
   esac
 }
 
+# Ask a yes/no question; pressing Enter uses the provided default.
 confirm_yes_no() {
   local prompt="$1"
   local default="${2:-N}"
