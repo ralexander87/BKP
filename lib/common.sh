@@ -53,6 +53,13 @@ timestamp() {
   date '+%j-%d-%m-%H-%M-%S'
 }
 
+# Convert a byte count into a compact human-readable size.
+human_bytes() {
+  local bytes="$1"
+
+  numfmt --to=iec --suffix=B "$bytes" 2>/dev/null || printf '%sB\n' "$bytes"
+}
+
 # Copy configured paths into a backup destination with rsync metadata flags.
 rsync_backup() {
   local include_file="$1"
@@ -115,7 +122,7 @@ update_latest_link() {
   ln -sfn "$target" "$link"
 }
 
-# Return likely external/removable mount points from real block devices.
+# Return likely external/removable mount details from real block devices.
 list_external_mounts() {
   require_cmd findmnt
 
@@ -126,7 +133,20 @@ list_external_mounts() {
       $3 !~ "^(swap|tmpfs|devtmpfs|proc|sysfs|cgroup|cgroup2|overlay|squashfs)$" {
         print $1
       }
-    '
+    ' |
+    while IFS= read -r target; do
+      local source fstype label avail
+      source="$(findmnt -rn -o SOURCE --target "$target")"
+      fstype="$(findmnt -rn -o FSTYPE --target "$target")"
+      label="-"
+      if command -v lsblk >/dev/null 2>&1; then
+        label="$(lsblk -no LABEL "$source" 2>/dev/null | head -n 1)"
+        label="${label:-"-"}"
+      fi
+      avail="$(df -hP "$target" 2>/dev/null | awk 'NR == 2 { print $4 " free" }')"
+      avail="${avail:-"unknown free"}"
+      printf '%s|%s|%s|%s|%s\n' "$target" "$source" "$fstype" "$label" "$avail"
+    done
 }
 
 # Select an external mount automatically when one exists, or prompt by number.
@@ -141,14 +161,16 @@ select_external_mount() {
       die "no external mounted devices found"
       ;;
     1)
-      printf 'Using mounted device: %s\n' "${mounts[0]}" >&2
-      printf '%s\n' "${mounts[0]}"
+      IFS='|' read -r target source fstype label avail <<<"${mounts[0]}"
+      printf 'Using mounted device: %s (%s, %s, label: %s, %s)\n' "$target" "$source" "$fstype" "$label" "$avail" >&2
+      printf '%s\n' "$target"
       ;;
     *)
       printf '%s\n' "$prompt" >&2
       local i
       for i in "${!mounts[@]}"; do
-        printf '  %d) %s\n' "$((i + 1))" "${mounts[$i]}" >&2
+        IFS='|' read -r target source fstype label avail <<<"${mounts[$i]}"
+        printf '  %d) %s (%s, %s, label: %s, %s)\n' "$((i + 1))" "$target" "$source" "$fstype" "$label" "$avail" >&2
       done
 
       local selection
@@ -156,7 +178,8 @@ select_external_mount() {
         read -r -p "Enter number and press Enter: " selection
         if [[ "$selection" =~ ^[0-9]+$ ]] &&
           ((selection >= 1 && selection <= ${#mounts[@]})); then
-          printf '%s\n' "${mounts[$((selection - 1))]}"
+          IFS='|' read -r target _ <<<"${mounts[$((selection - 1))]}"
+          printf '%s\n' "$target"
           return
         fi
         printf 'Invalid selection.\n' >&2

@@ -24,7 +24,7 @@ Run the main backup:
 ./bkp-main.sh
 ```
 
-The script lists external mounted devices. If one device is mounted, it is selected automatically. If multiple devices are mounted, select the destination by number.
+The script lists external mounted devices with source device, filesystem, label, and free space. If one device is mounted, it is selected automatically. If multiple devices are mounted, select the destination by number.
 
 Each main backup is written to:
 
@@ -52,6 +52,12 @@ date +%j-%d-%m-%H-%M-%S
 
 Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup. The default answer is `N`; when you answer `Y`, compression uses `pigz`.
 
+Before starting the backup, the script checks estimated source size against destination free space. If the destination appears too small, it warns and asks whether to continue.
+
+Only one main backup can run at a time. A lock file in `logs/` prevents accidental overlapping runs.
+
+Each backup includes `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied folder list, and git commit when available.
+
 Terminal output is intentionally minimal. The scripts show top-level folder status, current-folder transfer progress, and errors instead of printing every copied file.
 
 Restore the main backup from inside a backup folder:
@@ -64,6 +70,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 Each backup includes a copy of `restore-main.sh`. It restores from its current folder back into `$HOME` after you confirm with `Y`.
 
 Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes.
+
+Before restoring a folder into `$HOME`, `restore-main.sh` moves an existing target folder to `<name>-pre-restore-<timestamp>`.
 
 After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`.
 
@@ -96,12 +104,14 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 Current options:
 
 - `0 - Exit`
-- `1 - Install DOTS`: deletes `$HOME/.config/hypr`, then runs `bash <(curl -s https://ml4w.com/os/stable)`.
-- `2 - Restore Wallpapers`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/wallpapers`, then copies `ml4w/wallpapers` from the current `DOTS` folder.
-- `3 - Restore FastFetch`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch`, then copies `fastfetch` from the current `DOTS` folder.
-- `4 - Restore KITTY`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/kitty`, then copies `kitty` from the current `DOTS` folder.
-- `5 - Restore ROFI`: deletes `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/rofi`, then copies `rofi` from the current `DOTS` folder.
+- `1 - Install DOTS`: moves `$HOME/.config/hypr` to a safety snapshot, then runs `bash <(curl -s https://ml4w.com/os/stable)`.
+- `2 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot, then copies `ml4w/wallpapers` from the current `DOTS` folder.
+- `3 - Restore FastFetch`: moves the existing FastFetch folder to a safety snapshot, then copies `fastfetch` from the current `DOTS` folder.
+- `4 - Restore KITTY`: moves the existing KITTY folder to a safety snapshot, then copies `kitty` from the current `DOTS` folder.
+- `5 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder.
 - `6 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
+
+Each restore option asks for confirmation before changing local configuration.
 
 The files in `config/` are reserved for the other script pairs while the project grows.
 
@@ -118,6 +128,8 @@ Run shell checks:
 ```bash
 make check
 ```
+
+`shellcheck` is required for `make check`. `shfmt` remains optional.
 
 ## Publishing
 

@@ -6,6 +6,7 @@ set -Eeuo pipefail
 # The restore source is always the folder where this script is located.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-main.log}"
+RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 
 # Backup items expected inside the current backup folder.
 HOME_ITEMS=(
@@ -70,6 +71,18 @@ fix_ssh_permissions() {
   find "$ssh_dir" -type f ! -name '*.pub' -exec chmod 600 {} +
 }
 
+# Move an existing target aside before restore instead of overwriting it in place.
+snapshot_existing_target() {
+  local target="$1"
+  local snapshot="$target-pre-restore-$RESTORE_ID"
+
+  [[ -e "$target" ]] || return
+  [[ ! -e "$snapshot" ]] || die "snapshot already exists: $snapshot"
+
+  log "Moving existing target to safety snapshot: $snapshot"
+  mv -- "$target" "$snapshot"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -94,6 +107,7 @@ for item in "${HOME_ITEMS[@]}"; do
 
   if [[ -e "$source_path" ]]; then
     log "Restoring: $item"
+    snapshot_existing_target "$HOME/$item"
     rsync -aAXH --numeric-ids --info=progress2 "$source_path" "$HOME/"
   else
     log "Skipping missing backup item: $item"
