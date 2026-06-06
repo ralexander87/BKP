@@ -64,6 +64,7 @@ Select action:
   2 - Restore samba
   3 - Restore SSH
   4 - Create SMB
+  5 - Restore fstab
 EOF
 }
 
@@ -159,6 +160,25 @@ create_smb_tree() {
   log "Done: Create SMB"
 }
 
+# Load cifs module and append SMB mount entries to /etc/fstab.
+restore_fstab() {
+  confirm_action "Restore fstab"
+
+  log "Loading cifs kernel module"
+  sudo modprobe cifs
+
+  log "Appending SMB mount entries to /etc/fstab"
+  sudo sh -c 'printf "\n" >> /etc/fstab'
+  cat <<'EOF' | sudo tee -a /etc/fstab >/dev/null
+//192.168.8.20/d   /SMB/euclid   cifs   _netdev,credentials=/etc/samba/creds-euclid,uid=1000,gid=1000   0 0
+//192.168.8.101/hd-01   /SMB/SCP/HDD-01   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0
+//192.168.8.101/hd-02   /SMB/SCP/HDD-02   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0
+//192.168.8.101/hd-03   /SMB/SCP/HDD-03   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0
+EOF
+
+  log "Done: Restore fstab"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -192,6 +212,9 @@ case "$selection" in
     ;;
   4)
     create_smb_tree
+    ;;
+  5)
+    restore_fstab
     ;;
   *)
     die "invalid selection: $selection"
