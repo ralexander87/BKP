@@ -5,7 +5,7 @@ Bash scripts for backing up and restoring Linux user folders, service-related fi
 ## Scripts
 
 - `bkp-main.sh` / `restore-main.sh`: user folders, files, and dotfiles backup.
-- `bkp-serv.sh` / `restore-serv.sh`: service configuration/data paths.
+- `bkp-serv.sh` / `restore-serv.sh`: service/system config backup and restore.
 - `restore-dots.sh`: dotfiles restore helper copied into backup `DOTS` folders.
 
 ## Requirements
@@ -74,6 +74,43 @@ Restore uses `rsync` metadata-preserving options for permissions, ownership, ACL
 Before restoring a folder into `$HOME`, `restore-main.sh` moves an existing target folder to `<name>-pre-restore-<timestamp>`.
 
 After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`.
+
+Service backup:
+
+```bash
+./bkp-serv.sh
+```
+
+`bkp-serv.sh` uses the mounted-device selector and writes backups to:
+
+```bash
+/path/to/device/SERV/BKP-<timestamp>
+```
+
+It requests root authentication at startup, then backs up:
+
+- `/etc/samba/smb.conf`
+- `/etc/samba/creds*`
+- `/etc/ssh/sshd_config`
+- `/boot/grub/themes/lateralus/`
+- `/etc/default/grub`
+- `/etc/mkinitcpio.conf`
+
+Each service backup includes a copy of `restore-serv.sh` inside the backup folder and supports optional `.tar.gz` compression with `pigz`.
+
+Restore service backup from inside a `SERV/BKP-*` folder:
+
+```bash
+cd /path/to/device/SERV/BKP-<timestamp>
+./restore-serv.sh
+```
+
+Current options:
+
+- `0 - Exit`
+- `1 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`.
+- `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`.
+- `3 - Restore SSH`: restores `sshd_config` to `/etc/ssh/`.
 
 ## Configuration
 

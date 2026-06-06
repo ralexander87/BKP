@@ -1,52 +1,186 @@
 #!/usr/bin/env bash
 
-# Load shared helpers for config parsing, rsync, compression, and logging.
+# Load shared helpers for logging, prompts, mount selection, and timestamps.
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
-# Service backup runtime state.
+# Service backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp-serv.log"
-DRY_RUN=false
-COMPRESS=false
+
+# Fixed critical service files/folders for this backup profile.
+SERVICE_PATHS=(
+  "/etc/samba/smb.conf"
+  "/etc/ssh/sshd_config"
+  "/boot/grub/themes/lateralus"
+  "/etc/default/grub"
+  "/etc/mkinitcpio.conf"
+)
 
 # Print command usage for help requests.
 usage() {
   cat <<'EOF'
-Usage: ./bkp-serv.sh [--dry-run] [--compress]
+Usage: ./bkp-serv.sh
 
-Back up service paths listed in config/serv.include.
-Some paths may require sudo.
+Back up selected service files to an external mounted device.
+Root privileges are required.
 EOF
 }
 
-# Parse optional dry-run/compression flags.
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --dry-run) DRY_RUN=true ;;
-    --compress) COMPRESS=true ;;
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *) die "unknown option: $1" ;;
-  esac
-  shift
-done
+# Estimate a path's size in bytes; missing paths count as zero.
+path_size_bytes() {
+  local path="$1"
 
-# Prepare runtime folders and verify the main copy tool exists.
+  [[ -e "$path" ]] || {
+    printf '0\n'
+    return
+  }
+
+  sudo du -sb "$path" 2>/dev/null | awk '{ print $1 }'
+}
+
+# Estimate source size for selected service paths and samba creds* files.
+estimate_backup_size_bytes() {
+  local total=0
+  local item size
+  local -a creds_files=()
+
+  for item in "${SERVICE_PATHS[@]}"; do
+    size="$(path_size_bytes "$item")"
+    total=$((total + size))
+  done
+
+  mapfile -t creds_files < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' 2>/dev/null || true)
+  for item in "${creds_files[@]}"; do
+    size="$(path_size_bytes "$item")"
+    total=$((total + size))
+  done
+
+  printf '%s\n' "$total"
+}
+
+# Warn if the selected destination appears too small for the backup.
+check_destination_space() {
+  local destination="$1"
+  local required available
+
+  require_cmd df
+
+  required="$(estimate_backup_size_bytes)"
+  available="$(df -PB1 "$destination" | awk 'NR == 2 { print $4 }')"
+
+  log "Estimated source size: $(human_bytes "$required")"
+  log "Destination free space: $(human_bytes "$available")"
+
+  if ((required > available)); then
+    log "WARNING: estimated backup size is larger than available destination space"
+    confirm_yes_no "Continue anyway?" "N" || die "backup cancelled because destination may be too small"
+  fi
+}
+
+# Write backup metadata that helps identify what this run copied.
+write_manifest() {
+  local manifest="$BACKUP_DIR/backup-manifest.txt"
+  local git_commit="unknown"
+
+  if command -v git >/dev/null 2>&1; then
+    git_commit="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+  fi
+
+  {
+    printf 'backup_type=serv\n'
+    printf 'created_at=%s\n' "$(date -Is)"
+    printf 'hostname=%s\n' "$(hostname)"
+    printf 'user=%s\n' "${USER:-unknown}"
+    printf 'project_root=%s\n' "$PROJECT_ROOT"
+    printf 'git_commit=%s\n' "$git_commit"
+    printf 'destination_device=%s\n' "$DEST_DEVICE"
+    printf 'backup_dir=%s\n' "$BACKUP_DIR"
+    printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
+    printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
+    printf 'samba_creds_glob=%s\n' "/etc/samba/creds*"
+  } >"$manifest"
+
+  log "Wrote manifest: $manifest"
+}
+
+# Copy a single path with preserved metadata into the backup root using --relative.
+backup_path() {
+  local source_path="$1"
+
+  if [[ -e "$source_path" ]]; then
+    log "Backing up: $source_path"
+    sudo rsync -aAXH --numeric-ids --info=progress2 --relative "$source_path" "$BACKUP_DIR/"
+  else
+    log "Skipping missing path: $source_path"
+  fi
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+# Prepare runtime folders and required commands.
 ensure_dirs
 require_cmd rsync
+require_cmd sudo
+require_cmd flock
 
-# Create a timestamped service backup destination under backups/serv.
-RUN_ID="$(timestamp)"
-DEST="$BACKUP_ROOT/serv/$RUN_ID"
+# Prevent two service backups from running at the same time.
+LOCK_FILE="$LOG_ROOT/bkp-serv.lock"
+exec 9>"$LOCK_FILE"
+flock -n 9 || die "another bkp-serv.sh run is already active"
 
-# Back up configured service paths with exclusions from config/serv.exclude.
-rsync_backup "$PROJECT_ROOT/config/serv.include" "$PROJECT_ROOT/config/serv.exclude" "$DEST" "$DRY_RUN"
+# Ask for sudo auth up front to avoid mid-backup prompts.
+log "Requesting root authentication"
+sudo -v || die "sudo authentication failed"
 
-# For real runs, update latest and optionally create a compressed archive.
-if [[ "$DRY_RUN" == "false" ]]; then
-  update_latest_link "$RUN_ID" "$BACKUP_ROOT/serv/latest"
-  [[ "$COMPRESS" == "true" ]] && compress_backup "$DEST" "$PROJECT_ROOT/dist/bkp-serv-$RUN_ID.tar.gz"
+# Ask the user which external mounted device should receive the backup.
+DEST_DEVICE="$(select_external_mount "Select backup destination device:")"
+
+# Build the backup folder names and archive path for this run.
+SERV_DIR="$DEST_DEVICE/SERV"
+RUN_ID="BKP-$(timestamp)"
+BACKUP_DIR="$SERV_DIR/$RUN_ID"
+ARCHIVE_NAME="$SERV_DIR/$RUN_ID.tar.gz"
+CREATE_ARCHIVE=false
+
+# Ask for archive creation before copying starts so required tools fail early.
+if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N"; then
+  require_cmd tar
+  require_cmd pigz
+  CREATE_ARCHIVE=true
+fi
+
+# Check destination free space before creating the backup folder.
+check_destination_space "$DEST_DEVICE"
+
+mkdir -p "$BACKUP_DIR"
+log "Backup destination: $BACKUP_DIR"
+
+# Back up fixed service paths.
+for path in "${SERVICE_PATHS[@]}"; do
+  backup_path "$path"
+done
+
+# Back up all samba creds* files.
+while IFS= read -r creds_file; do
+  backup_path "$creds_file"
+done < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' 2>/dev/null || true)
+
+# Store the portable service restore script inside the backup folder.
+install -m 0755 "$PROJECT_ROOT/restore-serv.sh" "$BACKUP_DIR/restore-serv.sh"
+log "Copied restore script: $BACKUP_DIR/restore-serv.sh"
+
+# Add a manifest to the backup before optional compression.
+write_manifest
+
+# Compress the finished backup folder only if selected at startup.
+if [[ "$CREATE_ARCHIVE" == "true" ]]; then
+  log "Creating archive: $ARCHIVE_NAME"
+  sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
+  log "Archive created: $ARCHIVE_NAME"
+else
+  log "Archive skipped"
 fi
 
 log "Done: bkp-serv"
