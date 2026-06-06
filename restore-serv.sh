@@ -63,6 +63,7 @@ Select action:
   1 - Restore grub theme
   2 - Restore samba
   3 - Restore SSH
+  4 - Create SMB
 EOF
 }
 
@@ -128,6 +129,36 @@ restore_ssh() {
   log "Done: Restore SSH"
 }
 
+# Create SMB folders and set ownership/perms for the local non-root user.
+create_smb_tree() {
+  local local_user="${SUDO_USER:-${USER:-}}"
+  local dir
+  local -a smb_dirs=(
+    "/SMB"
+    "/SMB/euclid"
+    "/SMB/pneuma"
+    "/SMB/lateralus"
+    "/SMB/SCP"
+    "/SMB/SCP/HDD-01"
+    "/SMB/SCP/HDD-02"
+    "/SMB/SCP/HDD-03"
+  )
+
+  [[ -n "$local_user" ]] || local_user="$(id -un)"
+  [[ "$local_user" != "root" ]] || die "could not determine a non-root user for ownership"
+
+  confirm_action "Create SMB"
+
+  for dir in "${smb_dirs[@]}"; do
+    log "Ensuring SMB directory: $dir"
+    sudo mkdir -p "$dir"
+    sudo chown "$local_user:$local_user" "$dir"
+    sudo chmod 750 "$dir"
+  done
+
+  log "Done: Create SMB"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -158,6 +189,9 @@ case "$selection" in
     ;;
   3)
     restore_ssh
+    ;;
+  4)
+    create_smb_tree
     ;;
   *)
     die "invalid selection: $selection"

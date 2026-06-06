@@ -113,6 +113,7 @@ Current options:
 - `1 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`.
 - `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`.
 - `3 - Restore SSH`: restores `sshd_config` to `/etc/ssh/`.
+- `4 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`, then sets ownership to the local non-root user and permissions to `750`.
 
 ## Configuration
 
