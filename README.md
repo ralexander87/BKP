@@ -110,6 +110,7 @@ Current options:
 - `4 - Restore KITTY`: moves the existing KITTY folder to a safety snapshot, then copies `kitty` from the current `DOTS` folder.
 - `5 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder.
 - `6 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
+- `7 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/keybindings/`, copies `hypr/conf/monitor.lua` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/`, copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`, and copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`.
 
 Each restore option asks for confirmation before changing local configuration.
 

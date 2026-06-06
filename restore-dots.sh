@@ -57,6 +57,7 @@ Select action:
   4 - Restore KITTY
   5 - Restore ROFI
   6 - Restore WAYBAR
+  7 - Restore HYPR
 EOF
 }
 
@@ -116,6 +117,21 @@ restore_config_path() {
   log "Done: Restore $label"
 }
 
+# Restore one file from DOTS into the matching ML4W config path.
+restore_config_file() {
+  local label="$1"
+  local source_rel="$2"
+  local target_rel="$3"
+  local source_file="$SCRIPT_DIR/$source_rel"
+  local target_file="$ML4W_CONFIG_ROOT/$target_rel"
+
+  [[ -f "$source_file" ]] || die "$label source file not found: $source_file"
+
+  log "Restoring $label file: $source_rel"
+  mkdir -p "$(dirname -- "$target_file")"
+  cp -a -- "$source_file" "$target_file"
+}
+
 # Replace the ML4W wallpapers folder from the current DOTS backup.
 restore_wallpapers() {
   restore_config_path "Wallpapers" "ml4w/wallpapers" "ml4w/wallpapers"
@@ -160,6 +176,18 @@ restore_waybar() {
   log "Done: Restore WAYBAR"
 }
 
+# Restore selected Hypr files from DOTS into the ML4W hypr config tree.
+restore_hypr() {
+  confirm_action "Restore HYPR"
+  restore_config_file "HYPR" "hypr/conf/keybindings/default.lua" "hypr/conf/keybindings/default.lua"
+  restore_config_file "HYPR" "hypr/conf/monitor.lua" "hypr/conf/monitor.lua"
+  restore_config_file "HYPR" "hypr/hypridle.conf" "hypr/hypridle.conf"
+  restore_config_file "HYPR" "hypr/hyprlock.conf" "hypr/hyprlock.conf"
+  restore_config_file "HYPR" "hypr/logo-2.png" "hypr/logo-2.png"
+  restore_config_file "HYPR" "hypr/scripts/uptime.sh" "hypr/scripts/uptime.sh"
+  log "Done: Restore HYPR"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -192,6 +220,9 @@ case "$selection" in
     ;;
   6)
     restore_waybar
+    ;;
+  7)
+    restore_hypr
     ;;
   *)
     die "invalid selection: $selection"
