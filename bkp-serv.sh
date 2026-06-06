@@ -102,13 +102,20 @@ write_manifest() {
   log "Wrote manifest: $manifest"
 }
 
-# Copy a single path with preserved metadata into the backup root using --relative.
+# Copy one path into the backup root as a standalone file/folder.
 backup_path() {
   local source_path="$1"
+  local base_name
 
   if [[ -e "$source_path" ]]; then
+    base_name="$(basename -- "$source_path")"
     log "Backing up: $source_path"
-    sudo rsync -aAXH --numeric-ids --info=progress2 --relative "$source_path" "$BACKUP_DIR/"
+
+    if [[ -d "$source_path" ]]; then
+      sudo rsync -aAXH --numeric-ids --info=progress2 "$source_path/" "$BACKUP_DIR/$base_name/"
+    else
+      sudo rsync -aAXH --numeric-ids --info=progress2 "$source_path" "$BACKUP_DIR/"
+    fi
   else
     log "Skipping missing path: $source_path"
   fi

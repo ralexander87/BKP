@@ -82,7 +82,7 @@ restore_file_to_dir() {
 
 # Restore the lateralus grub theme folder into /boot/grub/themes/.
 restore_grub_theme() {
-  local source_dir="$SCRIPT_DIR/boot/grub/themes/lateralus"
+  local source_dir="$SCRIPT_DIR/lateralus"
   local target_dir="/boot/grub/themes/lateralus"
 
   [[ -d "$source_dir" ]] || die "grub theme source folder not found: $source_dir"
@@ -96,8 +96,8 @@ restore_grub_theme() {
 
 # Restore samba smb.conf and creds-* files into /etc/samba/.
 restore_samba() {
-  local source_smb="etc/samba/smb.conf"
-  local source_samba_dir="$SCRIPT_DIR/etc/samba"
+  local source_smb="smb.conf"
+  local source_samba_dir="$SCRIPT_DIR"
   local target_dir="/etc/samba"
   local -a creds_files=()
   local creds_file
@@ -124,7 +124,7 @@ restore_samba() {
 # Restore sshd_config into /etc/ssh/.
 restore_ssh() {
   confirm_action "Restore SSH"
-  restore_file_to_dir "SSH" "etc/ssh/sshd_config" "/etc/ssh"
+  restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
   log "Done: Restore SSH"
 }
 

@@ -98,6 +98,8 @@ It requests root authentication at startup, then backs up:
 
 Each service backup includes a copy of `restore-serv.sh` inside the backup folder and supports optional `.tar.gz` compression with `pigz`.
 
+Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `lateralus/`, `grub`, `mkinitcpio.conf`, `creds-*`), not as full `/etc/...` or `/boot/...` directory trees.
+
 Restore service backup from inside a `SERV/BKP-*` folder:
 
 ```bash
