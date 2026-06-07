@@ -287,6 +287,7 @@ SERV_DIR="$DEST_DEVICE/SERV"
 RUN_ID="BKP-$(timestamp)"
 BACKUP_DIR="$SERV_DIR/$RUN_ID"
 ARCHIVE_NAME="$SERV_DIR/$RUN_ID.tar.gz"
+ARCHIVE_IN_BACKUP="$BACKUP_DIR/$RUN_ID.tar.gz"
 CREATE_ARCHIVE=false
 
 # Ask for archive creation before copying starts so required tools fail early.
@@ -333,9 +334,11 @@ verify_backup_contents
 
 # Compress the finished backup folder only if selected at startup.
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
+  local_archive_tmp="$SERV_DIR/.${RUN_ID}.tar.gz"
   log "Creating archive: $ARCHIVE_NAME"
-  sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz | sudo tee "$ARCHIVE_NAME" >/dev/null
-  log "Archive created: $ARCHIVE_NAME"
+  sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz | sudo tee "$local_archive_tmp" >/dev/null
+  sudo mv "$local_archive_tmp" "$ARCHIVE_IN_BACKUP"
+  log "Archive created: $ARCHIVE_IN_BACKUP"
 else
   log "Archive skipped"
 fi
