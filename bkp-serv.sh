@@ -11,6 +11,7 @@ BACKUP_COMPLETE=false
 RUN_RESULT="failed"
 LUKS_DEVICE_PATH=""
 LUKS_HEADER_FILE="luks.bin"
+LUKS_HEADER_CREATED=false
 
 # Fixed critical service files/folders for this backup profile.
 SERVICE_PATHS=(
@@ -132,6 +133,7 @@ write_manifest() {
     printf 'run_result=%s\n' "$RUN_RESULT"
     printf 'luks_device=%s\n' "$LUKS_DEVICE_PATH"
     printf 'luks_header_file=%s\n' "$LUKS_HEADER_FILE"
+    printf 'luks_header_created=%s\n' "$LUKS_HEADER_CREATED"
     printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
     printf 'samba_creds_glob=%s\n' "/etc/samba/creds*"
   } >"$manifest"
@@ -185,14 +187,26 @@ detect_luks_device() {
     fi
   fi
 
-  die "could not detect a LUKS source device (set LUKS_DEVICE=/dev/...)"
+  return 1
 }
 
 # Back up LUKS header into the current service backup folder as luks.bin.
 backup_luks_header() {
-  LUKS_DEVICE_PATH="$(detect_luks_device)"
+  local detected
+
+  if [[ -n "${LUKS_DEVICE:-}" ]]; then
+    detected="$(detect_luks_device)" || die "LUKS_DEVICE is set but not usable: $LUKS_DEVICE"
+  else
+    detected="$(detect_luks_device)" || {
+      log "WARNING: skipping LUKS header backup (no LUKS source detected)"
+      return
+    }
+  fi
+
+  LUKS_DEVICE_PATH="$detected"
   log "Backing up LUKS header from: $LUKS_DEVICE_PATH"
   sudo cryptsetup luksHeaderBackup "$LUKS_DEVICE_PATH" --header-backup-file "$BACKUP_DIR/$LUKS_HEADER_FILE"
+  LUKS_HEADER_CREATED=true
   log "Saved LUKS header backup: $BACKUP_DIR/$LUKS_HEADER_FILE"
 }
 
@@ -217,7 +231,6 @@ verify_backup_contents() {
     "lateralus"
     "grub"
     "mkinitcpio.conf"
-    "$LUKS_HEADER_FILE"
     "restore-serv.sh"
     "backup-manifest.txt"
   )
@@ -225,6 +238,10 @@ verify_backup_contents() {
   for required_item in "${required_items[@]}"; do
     [[ -e "$BACKUP_DIR/$required_item" ]] || die "missing expected backup item: $required_item"
   done
+
+  if [[ "$LUKS_HEADER_CREATED" == "true" ]]; then
+    [[ -f "$BACKUP_DIR/$LUKS_HEADER_FILE" ]] || die "missing expected backup item: $LUKS_HEADER_FILE"
+  fi
 }
 
 # Finalize backup status even on failure.
@@ -278,6 +295,7 @@ if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N
   require_cmd pigz
   CREATE_ARCHIVE=true
 fi
+log "Archive selection: $CREATE_ARCHIVE"
 
 # Check destination free space before creating the backup folder.
 check_destination_space "$DEST_DEVICE"

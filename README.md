@@ -107,7 +107,7 @@ Service backup fail-safes:
 - `backup.status` marker (`in_progress`, `complete`, `failed`) for restore safety
 - completeness verification of expected backup content before marking complete
 - backup audit log entries in `backup-audit.log`
-- LUKS header backup saved as `luks.bin` (device autodetected, or use `LUKS_DEVICE=/dev/...`)
+- LUKS header backup saved as `luks.bin` when a LUKS source is detected; set `LUKS_DEVICE=/dev/...` to force a specific source device
 
 Restore service backup from inside a `SERV/BKP-*` folder:
 
