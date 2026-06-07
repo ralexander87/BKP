@@ -65,6 +65,7 @@ Select action:
   3 - Restore SSH
   4 - Create SMB
   5 - Restore fstab
+  6 - Restore GRUB
 EOF
 }
 
@@ -179,6 +180,22 @@ EOF
   log "Done: Restore fstab"
 }
 
+# Update GRUB defaults in /etc/default/grub to the expected values.
+restore_grub_defaults() {
+  confirm_action "Restore GRUB"
+
+  log "Updating GRUB config: /etc/default/grub"
+  sudo sed -i -E \
+    -e 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet splash"|' \
+    -e 's|^GRUB_TERMINAL_INPUT=console|#GRUB_TERMINAL_INPUT=console|' \
+    -e 's|^#?GRUB_TERMINAL_OUTPUT=.*|GRUB_TERMINAL_OUTPUT=gfxterm|' \
+    -e 's|^GRUB_GFXMODE=.*|GRUB_GFXMODE=1440x1080x32|' \
+    -e 's|^#GRUB_THEME="/path/to/gfxtheme"|GRUB_THEME="/boot/grub/themes/lateralus/theme.txt"|' \
+    /etc/default/grub
+
+  log "Done: Restore GRUB"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -215,6 +232,9 @@ case "$selection" in
     ;;
   5)
     restore_fstab
+    ;;
+  6)
+    restore_grub_defaults
     ;;
   *)
     die "invalid selection: $selection"
