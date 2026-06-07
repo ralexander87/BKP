@@ -316,7 +316,7 @@ verify_backup_contents
 # Compress the finished backup folder only if selected at startup.
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   log "Creating archive: $ARCHIVE_NAME"
-  sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
+  sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz | sudo tee "$ARCHIVE_NAME" >/dev/null
   log "Archive created: $ARCHIVE_NAME"
 else
   log "Archive skipped"

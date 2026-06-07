@@ -196,6 +196,7 @@ confirm_yes_no() {
 
   read -r -p "$prompt [$default]: " answer
   answer="${answer:-$default}"
+  answer="$(printf '%s' "$answer" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
 
-  [[ "$answer" =~ ^[Yy]$ ]]
+  [[ "$answer" == "y" || "$answer" == "yes" ]]
 }
