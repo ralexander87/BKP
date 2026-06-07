@@ -29,25 +29,6 @@ ensure_dirs() {
   mkdir -p "$BACKUP_ROOT" "$LOG_ROOT"
 }
 
-# Expand simple $HOME and ~ prefixes from config files.
-expand_path() {
-  local path="$1"
-  path="${path/#\$HOME/$HOME}"
-  path="${path/#\~/$HOME}"
-  printf '%s\n' "$path"
-}
-
-# Read non-comment config lines and expand supported home prefixes.
-read_config_paths() {
-  local file="$1"
-  [[ -f "$file" ]] || die "missing config file: $file"
-
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-    expand_path "$line"
-  done <"$file"
-}
-
 # Generate the backup timestamp used in BKP folder names.
 timestamp() {
   date '+%j-%d-%m-%H-%M-%S'
@@ -58,68 +39,6 @@ human_bytes() {
   local bytes="$1"
 
   numfmt --to=iec --suffix=B "$bytes" 2>/dev/null || printf '%sB\n' "$bytes"
-}
-
-# Copy configured paths into a backup destination with rsync metadata flags.
-rsync_backup() {
-  local include_file="$1"
-  local exclude_file="$2"
-  local destination="$3"
-  local dry_run="$4"
-
-  local args=(-aAXHv --numeric-ids --delete --relative)
-  [[ "$dry_run" == "true" ]] && args+=(--dry-run)
-  [[ -f "$exclude_file" ]] && args+=(--exclude-from="$exclude_file")
-
-  mkdir -p "$destination"
-
-  # Process each configured path independently so missing paths can be logged.
-  while IFS= read -r source; do
-    if [[ -e "$source" ]]; then
-      log "Backing up: $source"
-      rsync "${args[@]}" "$source" "$destination/"
-    else
-      log "Skipping missing path: $source"
-    fi
-  done < <(read_config_paths "$include_file")
-}
-
-# Restore a backup folder into the requested destination.
-rsync_restore() {
-  local source="$1"
-  local destination="$2"
-  local dry_run="$3"
-
-  [[ -d "$source" ]] || die "restore source is not a directory: $source"
-
-  local args=(-aAXHv --numeric-ids)
-  [[ "$dry_run" == "true" ]] && args+=(--dry-run)
-
-  log "Restoring from $source to $destination"
-  rsync "${args[@]}" "$source/" "$destination/"
-}
-
-# Create a pigz-compressed tar archive from an existing backup folder.
-compress_backup() {
-  local source_dir="$1"
-  local archive="$2"
-
-  require_cmd tar
-  require_cmd pigz
-
-  [[ -d "$source_dir" ]] || die "cannot compress missing directory: $source_dir"
-  mkdir -p "$(dirname -- "$archive")"
-
-  log "Creating archive: $archive"
-  tar -C "$(dirname -- "$source_dir")" -cf - "$(basename -- "$source_dir")" | pigz >"$archive"
-}
-
-# Point a latest symlink at a newly created backup folder.
-update_latest_link() {
-  local target="$1"
-  local link="$2"
-
-  ln -sfn "$target" "$link"
 }
 
 # Return likely external/removable mount details from real block devices.

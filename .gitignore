@@ -3,6 +3,8 @@ backups/*
 dist/*
 logs/*
 *.log
+*.lock
+restore-serv-rollback-*.sh
 
 # Keep project directories visible
 !backups/.gitkeep
@@ -33,4 +35,3 @@ Thumbs.db
 *.tgz
 *.tar.zst
 *.zip
-
