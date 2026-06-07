@@ -9,6 +9,8 @@ AUDIT_FILE=""
 BACKUP_STATUS_FILE=""
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
+LUKS_DEVICE_PATH=""
+LUKS_HEADER_FILE="luks.bin"
 
 # Fixed critical service files/folders for this backup profile.
 SERVICE_PATHS=(
@@ -46,6 +48,7 @@ preflight_checks() {
   require_cmd findmnt
   require_cmd df
   require_cmd du
+  require_cmd cryptsetup
 
   for path in "${SERVICE_PATHS[@]}"; do
     sudo test -e "$path" || die "required source path missing: $path"
@@ -127,6 +130,8 @@ write_manifest() {
     printf 'backup_dir=%s\n' "$BACKUP_DIR"
     printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
     printf 'run_result=%s\n' "$RUN_RESULT"
+    printf 'luks_device=%s\n' "$LUKS_DEVICE_PATH"
+    printf 'luks_header_file=%s\n' "$LUKS_HEADER_FILE"
     printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
     printf 'samba_creds_glob=%s\n' "/etc/samba/creds*"
   } >"$manifest"
@@ -153,6 +158,44 @@ backup_path() {
   fi
 }
 
+# Resolve the device that holds the LUKS header (supports mapper roots).
+detect_luks_device() {
+  local root_source candidate pkname
+
+  if [[ -n "${LUKS_DEVICE:-}" ]]; then
+    sudo cryptsetup isLuks "$LUKS_DEVICE" >/dev/null 2>&1 || die "LUKS_DEVICE is not a LUKS device: $LUKS_DEVICE"
+    printf '%s\n' "$LUKS_DEVICE"
+    return
+  fi
+
+  root_source="$(findmnt -rn -o SOURCE --target /)"
+  [[ -n "$root_source" ]] || die "could not determine root source for LUKS detection"
+
+  if sudo cryptsetup isLuks "$root_source" >/dev/null 2>&1; then
+    printf '%s\n' "$root_source"
+    return
+  fi
+
+  pkname="$(lsblk -no PKNAME "$root_source" 2>/dev/null | head -n 1)"
+  if [[ -n "$pkname" ]]; then
+    candidate="/dev/$pkname"
+    if sudo cryptsetup isLuks "$candidate" >/dev/null 2>&1; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  fi
+
+  die "could not detect a LUKS source device (set LUKS_DEVICE=/dev/...)"
+}
+
+# Back up LUKS header into the current service backup folder as luks.bin.
+backup_luks_header() {
+  LUKS_DEVICE_PATH="$(detect_luks_device)"
+  log "Backing up LUKS header from: $LUKS_DEVICE_PATH"
+  sudo cryptsetup luksHeaderBackup "$LUKS_DEVICE_PATH" --header-backup-file "$BACKUP_DIR/$LUKS_HEADER_FILE"
+  log "Saved LUKS header backup: $BACKUP_DIR/$LUKS_HEADER_FILE"
+}
+
 # Ensure destination mount is still writable before backup begins.
 verify_destination_mount() {
   findmnt -rn --target "$DEST_DEVICE" >/dev/null 2>&1 || die "destination is not mounted: $DEST_DEVICE"
@@ -174,6 +217,7 @@ verify_backup_contents() {
     "lateralus"
     "grub"
     "mkinitcpio.conf"
+    "$LUKS_HEADER_FILE"
     "restore-serv.sh"
     "backup-manifest.txt"
   )
@@ -261,6 +305,9 @@ done < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' 2>/dev/null || 
 # Store the portable service restore script inside the backup folder.
 install -m 0755 "$PROJECT_ROOT/restore-serv.sh" "$BACKUP_DIR/restore-serv.sh"
 log "Copied restore script: $BACKUP_DIR/restore-serv.sh"
+
+# Back up LUKS header into luks.bin in this backup folder.
+backup_luks_header
 
 # Add a manifest to the backup before optional compression.
 write_manifest

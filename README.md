@@ -98,7 +98,7 @@ It requests root authentication at startup, then backs up:
 
 Each service backup includes a copy of `restore-serv.sh` inside the backup folder and supports optional `.tar.gz` compression with `pigz`.
 
-Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `lateralus/`, `grub`, `mkinitcpio.conf`, `creds-*`), not as full `/etc/...` or `/boot/...` directory trees.
+Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `lateralus/`, `grub`, `mkinitcpio.conf`, `creds-*`, `luks.bin`), not as full `/etc/...` or `/boot/...` directory trees.
 
 Service backup fail-safes:
 
@@ -107,6 +107,7 @@ Service backup fail-safes:
 - `backup.status` marker (`in_progress`, `complete`, `failed`) for restore safety
 - completeness verification of expected backup content before marking complete
 - backup audit log entries in `backup-audit.log`
+- LUKS header backup saved as `luks.bin` (device autodetected, or use `LUKS_DEVICE=/dev/...`)
 
 Restore service backup from inside a `SERV/BKP-*` folder:
 
