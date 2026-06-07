@@ -100,6 +100,14 @@ Each service backup includes a copy of `restore-serv.sh` inside the backup folde
 
 Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `lateralus/`, `grub`, `mkinitcpio.conf`, `creds-*`), not as full `/etc/...` or `/boot/...` directory trees.
 
+Service backup fail-safes:
+
+- preflight checks for required commands and source paths
+- destination mount/writable verification before copy
+- `backup.status` marker (`in_progress`, `complete`, `failed`) for restore safety
+- completeness verification of expected backup content before marking complete
+- backup audit log entries in `backup-audit.log`
+
 Restore service backup from inside a `SERV/BKP-*` folder:
 
 ```bash
@@ -116,6 +124,17 @@ Current options:
 - `4 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`, then sets ownership to the local non-root user and permissions to `750`.
 - `5 - Restore fstab`: runs `sudo modprobe cifs`, adds one blank line, then appends the SMB mount entries to `/etc/fstab`.
 - `6 - Restore GRUB`: updates `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path.
+
+Service restore fail-safes:
+
+- restore is blocked unless `backup.status` is `complete`
+- per-action confirmation prompts
+- automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
+- generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
+- idempotent `fstab` updates (only missing lines are appended)
+- post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
+- permission hardening for sensitive files (`/etc/samba/creds-*`, `/etc/ssh/sshd_config`)
+- restore audit log entries in `restore-serv-audit.log`
 
 ## Configuration
 

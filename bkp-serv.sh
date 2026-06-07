@@ -5,6 +5,10 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # Service backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp-serv.log"
+AUDIT_FILE=""
+BACKUP_STATUS_FILE=""
+BACKUP_COMPLETE=false
+RUN_RESULT="failed"
 
 # Fixed critical service files/folders for this backup profile.
 SERVICE_PATHS=(
@@ -23,6 +27,33 @@ Usage: ./bkp-serv.sh
 Back up selected service files to an external mounted device.
 Root privileges are required.
 EOF
+}
+
+# Record structured audit entries for this backup run.
+audit_log() {
+  local event="$1"
+  [[ -n "$AUDIT_FILE" ]] || return
+  printf '%s event=%s backup_dir=%s result=%s\n' "$(date -Is)" "$event" "$BACKUP_DIR" "$RUN_RESULT" >>"$AUDIT_FILE"
+}
+
+# Ensure this host can run backup safely before writing destination data.
+preflight_checks() {
+  local path
+
+  require_cmd rsync
+  require_cmd sudo
+  require_cmd flock
+  require_cmd findmnt
+  require_cmd df
+  require_cmd du
+
+  for path in "${SERVICE_PATHS[@]}"; do
+    sudo test -e "$path" || die "required source path missing: $path"
+  done
+
+  if ! sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' | grep -q .; then
+    log "WARNING: no /etc/samba/creds* files found"
+  fi
 }
 
 # Estimate a path's size in bytes; missing paths count as zero.
@@ -95,6 +126,7 @@ write_manifest() {
     printf 'destination_device=%s\n' "$DEST_DEVICE"
     printf 'backup_dir=%s\n' "$BACKUP_DIR"
     printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
+    printf 'run_result=%s\n' "$RUN_RESULT"
     printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
     printf 'samba_creds_glob=%s\n' "/etc/samba/creds*"
   } >"$manifest"
@@ -121,6 +153,53 @@ backup_path() {
   fi
 }
 
+# Ensure destination mount is still writable before backup begins.
+verify_destination_mount() {
+  findmnt -rn --target "$DEST_DEVICE" >/dev/null 2>&1 || die "destination is not mounted: $DEST_DEVICE"
+  [[ -w "$DEST_DEVICE" ]] || die "destination is not writable: $DEST_DEVICE"
+}
+
+# Mark backup status for restore-side safety checks.
+set_backup_status() {
+  local status="$1"
+  printf '%s\n' "$status" >"$BACKUP_STATUS_FILE"
+}
+
+# Verify expected standalone backup content exists before marking complete.
+verify_backup_contents() {
+  local required_item
+  local -a required_items=(
+    "smb.conf"
+    "sshd_config"
+    "lateralus"
+    "grub"
+    "mkinitcpio.conf"
+    "restore-serv.sh"
+    "backup-manifest.txt"
+  )
+
+  for required_item in "${required_items[@]}"; do
+    [[ -e "$BACKUP_DIR/$required_item" ]] || die "missing expected backup item: $required_item"
+  done
+}
+
+# Finalize backup status even on failure.
+finalize_status() {
+  local exit_code="$1"
+
+  if [[ -n "$BACKUP_STATUS_FILE" && -d "$BACKUP_DIR" ]]; then
+    if [[ "$BACKUP_COMPLETE" == "true" && "$exit_code" -eq 0 ]]; then
+      RUN_RESULT="success"
+      set_backup_status "complete"
+      audit_log "completed"
+    else
+      RUN_RESULT="failed"
+      set_backup_status "failed"
+      audit_log "failed"
+    fi
+  fi
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -128,9 +207,7 @@ fi
 
 # Prepare runtime folders and required commands.
 ensure_dirs
-require_cmd rsync
-require_cmd sudo
-require_cmd flock
+preflight_checks
 
 # Prevent two service backups from running at the same time.
 LOCK_FILE="$LOG_ROOT/bkp-serv.lock"
@@ -160,9 +237,16 @@ fi
 
 # Check destination free space before creating the backup folder.
 check_destination_space "$DEST_DEVICE"
+verify_destination_mount
 
 mkdir -p "$BACKUP_DIR"
 log "Backup destination: $BACKUP_DIR"
+AUDIT_FILE="$BACKUP_DIR/backup-audit.log"
+BACKUP_STATUS_FILE="$BACKUP_DIR/backup.status"
+RUN_RESULT="in_progress"
+set_backup_status "in_progress"
+audit_log "started"
+trap 'finalize_status $?' EXIT
 
 # Back up fixed service paths.
 for path in "${SERVICE_PATHS[@]}"; do
@@ -180,6 +264,7 @@ log "Copied restore script: $BACKUP_DIR/restore-serv.sh"
 
 # Add a manifest to the backup before optional compression.
 write_manifest
+verify_backup_contents
 
 # Compress the finished backup folder only if selected at startup.
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
@@ -190,4 +275,5 @@ else
   log "Archive skipped"
 fi
 
+BACKUP_COMPLETE=true
 log "Done: bkp-serv"
