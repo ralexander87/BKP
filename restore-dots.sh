@@ -20,7 +20,7 @@ EOF
 
 # Ensure base dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync cp mv mkdir
+  require_all_cmds rsync cp mv mkdir mktemp
 }
 
 # Show the currently available dotfiles restore actions.
@@ -68,12 +68,22 @@ install_dots() {
   require_cmd bash
   require_cmd curl
 
+  local installer_url="https://ml4w.com/os/stable"
+  local installer_file
+
   confirm_action "Install DOTS" || return
   log "DOTS source folder: $SCRIPT_DIR"
   snapshot_existing_target "$HOME/.config/hypr"
 
+  installer_file="$(mktemp)"
+  register_temp_path "$installer_file"
+  log "Downloading ML4W stable installer: $installer_url"
+  curl --fail --show-error --location --proto '=https' --tlsv1.2 \
+    --output "$installer_file" \
+    "$installer_url"
+
   log "Running ML4W stable installer"
-  bash <(curl -s https://ml4w.com/os/stable)
+  bash "$installer_file"
   log "Done: Install DOTS"
 }
 
