@@ -473,3 +473,30 @@ ui_report_error() {
   local cmd="$2"
   log_error "command failed at line $line_no: $cmd"
 }
+
+# Run a command while refreshing a task row every second until it finishes.
+ui_run_command() {
+  local task_id="$1"
+  local detail="$2"
+  shift 2
+  local pid start now elapsed
+
+  if [[ "$UI_ENABLED" != "true" ]]; then
+    "$@"
+    return
+  fi
+
+  start="$(date +%s)"
+  "$@" &
+  pid=$!
+
+  while kill -0 "$pid" 2>/dev/null; do
+    now="$(date +%s)"
+    elapsed=$((now - start))
+    ui_update_task "$task_id" "RUNNING" "$detail (${elapsed}s)"
+    ui_render "force"
+    sleep 1
+  done
+
+  wait "$pid"
+}

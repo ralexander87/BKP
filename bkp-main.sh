@@ -251,7 +251,7 @@ for item in "${HOME_ITEMS[@]}"; do
     log "Backing up: $source_path"
     ui_update_task "main-$item" "RUNNING" "copying from $source_path"
     ui_render
-    rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"
+    ui_run_command "main-$item" "copying from $source_path" rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"
     ui_update_task "main-$item" "DONE" "copied"
     ui_render
   else
@@ -275,7 +275,7 @@ if [[ -d "$DOTS_SOURCE" ]]; then
   ui_update_task "main-dots" "RUNNING" "copying dotfiles config"
   ui_render
   mkdir -p "$DOTS_DIR"
-  rsync_backup_copy "$DOTS_SOURCE/" "$DOTS_DIR/"
+  ui_run_command "main-dots" "copying dotfiles config" rsync_backup_copy "$DOTS_SOURCE/" "$DOTS_DIR/"
   ui_update_task "main-dots" "DONE" "copied"
   ui_update_task "main-dots-restore" "RUNNING" "copying restore-dots.sh"
   ui_render
