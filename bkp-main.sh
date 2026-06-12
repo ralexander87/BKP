@@ -25,6 +25,7 @@ prompt_skip_home_items() {
     "Downloads"
     "Pictures"
     "Music"
+    "Videos"
     "Obsidian"
     "Code"
   )
@@ -34,8 +35,9 @@ prompt_skip_home_items() {
   printf '  2 - Downloads\n'
   printf '  3 - Pictures\n'
   printf '  4 - Music\n'
-  printf '  5 - Obsidian\n'
-  printf '  6 - Code\n'
+  printf '  5 - Videos\n'
+  printf '  6 - Obsidian\n'
+  printf '  7 - Code\n'
   read -r -p "Skip selection (Enter for none): " answer
 
   # Empty input means no exclusions; keep full backup behavior.
@@ -44,7 +46,7 @@ prompt_skip_home_items() {
   normalized="${answer//,/ }"
   for token in $normalized; do
     [[ "$token" =~ ^[0-9]+$ ]] || die "invalid skip selection value: $token"
-    ((token >= 1 && token <= 6)) || die "skip selection out of range: $token"
+    ((token >= 1 && token <= 7)) || die "skip selection out of range: $token"
     selected["$token"]=1
   done
 
