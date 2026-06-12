@@ -38,6 +38,7 @@ declare -A UI_TASK_DETAIL=()
 RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids --info=progress2)
 RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids --info=progress2)
 TEMP_PATHS=()
+EXIT_TRAP_COMMAND=""
 
 # Convert log level names to comparable numeric severity.
 log_level_value() {
@@ -165,20 +166,29 @@ cleanup_temp_paths() {
   done
 }
 
+# Run preserved EXIT trap command (if any), then common cleanup handlers.
+run_registered_exit_trap() {
+  local exit_code="$?"
+
+  if [[ -n "$EXIT_TRAP_COMMAND" ]]; then
+    eval "$EXIT_TRAP_COMMAND"
+  fi
+
+  cleanup_temp_paths
+  ui_cleanup
+  return "$exit_code"
+}
+
 # Add a cleanup trap while preserving an existing EXIT trap.
 setup_cleanup_trap() {
   local current_trap
   current_trap="$(trap -p EXIT)"
   if [[ "$current_trap" =~ ^trap[[:space:]]--[[:space:]]\'(.*)\'[[:space:]]EXIT$ ]]; then
-    current_trap="${BASH_REMATCH[1]}"
+    EXIT_TRAP_COMMAND="${BASH_REMATCH[1]}"
   else
-    current_trap=""
+    EXIT_TRAP_COMMAND=""
   fi
-  if [[ -n "$current_trap" ]]; then
-    trap "$current_trap; cleanup_temp_paths; ui_cleanup" EXIT
-  else
-    trap 'cleanup_temp_paths; ui_cleanup' EXIT
-  fi
+  trap 'run_registered_exit_trap' EXIT
 }
 
 # Run rsync using the standard backup profile.
