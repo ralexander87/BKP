@@ -171,7 +171,11 @@ run_registered_exit_trap() {
   local exit_code="$?"
 
   if [[ -n "$EXIT_HOOK_FUNC" ]]; then
-    "$EXIT_HOOK_FUNC" "$exit_code"
+    if declare -F "$EXIT_HOOK_FUNC" >/dev/null 2>&1; then
+      "$EXIT_HOOK_FUNC" "$exit_code"
+    else
+      log_warn "registered EXIT hook function not found: $EXIT_HOOK_FUNC"
+    fi
   fi
 
   cleanup_temp_paths
@@ -182,6 +186,9 @@ run_registered_exit_trap() {
 # Add a cleanup trap with an optional callback function name.
 setup_cleanup_trap() {
   EXIT_HOOK_FUNC="${1:-}"
+  if [[ -n "$EXIT_HOOK_FUNC" && ! "$EXIT_HOOK_FUNC" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    die "invalid EXIT hook function name: $EXIT_HOOK_FUNC"
+  fi
   trap 'run_registered_exit_trap' EXIT
 }
 
