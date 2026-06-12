@@ -20,7 +20,7 @@ EOF
 
 # Ensure base dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync cp mv mkdir mktemp
+  require_all_cmds rsync cp mv mkdir mktemp sed
 }
 
 # Show the currently available dotfiles restore actions.
@@ -81,6 +81,14 @@ install_dots() {
   curl --fail --show-error --location --proto '=https' --tlsv1.2 \
     --output "$installer_file" \
     "$installer_url"
+
+  log "Downloaded installer to: $installer_file"
+  log "Installer preview (first 20 lines):"
+  sed -n '1,20p' "$installer_file"
+  confirm_yes_no "Execute downloaded installer now?" "N" || {
+    log "Installer execution cancelled by user"
+    return
+  }
 
   log "Running ML4W stable installer"
   bash "$installer_file"
