@@ -154,6 +154,7 @@ fi
 ensure_dirs
 preflight_checks
 setup_cleanup_trap
+trap 'ui_report_error "$LINENO" "$BASH_COMMAND"' ERR
 
 # Prevent two main backups from running at the same time.
 LOCK_FILE="$LOG_ROOT/bkp-main.lock"
@@ -207,6 +208,27 @@ check_destination_space "$DEST_DEVICE"
 mkdir -p "$BACKUP_DIR"
 log "Backup destination: $BACKUP_DIR"
 
+# Start terminal dashboard for visual progress and selected options.
+ui_init "MAIN Backup Progress"
+skip_display="$(printf '%s\n' "${!SKIP_HOME_ITEMS[@]}" | paste -sd ',' -)"
+skip_display="${skip_display:-none}"
+ui_add_meta "Destination" "$DEST_DEVICE"
+ui_add_meta "Backup Dir" "$BACKUP_DIR"
+ui_add_meta "Archive" "$CREATE_ARCHIVE"
+ui_add_meta "Skipped Folders" "$skip_display"
+
+for item in "${HOME_ITEMS[@]}"; do
+  ui_add_task "main-$item" "$item"
+done
+ui_add_task "main-restore-script" "copy restore-main.sh"
+ui_add_task "main-dots" "backup DOTS"
+ui_add_task "main-dots-restore" "copy restore-dots.sh"
+ui_add_task "main-manifest" "write manifest"
+if [[ "$CREATE_ARCHIVE" == "true" ]]; then
+  ui_add_task "main-archive" "create archive"
+fi
+ui_render "force"
+
 # Copy each requested $HOME item into BACKUP_DIR, with per-folder exclusions.
 for item in "${HOME_ITEMS[@]}"; do
   source_path="$HOME/$item"
@@ -214,6 +236,8 @@ for item in "${HOME_ITEMS[@]}"; do
 
   if [[ -n "${SKIP_HOME_ITEMS[$item]:-}" ]]; then
     log "Skipping user-selected folder: $source_path"
+    ui_update_task "main-$item" "SKIPPED" "user excluded"
+    ui_render
     continue
   fi
 
@@ -225,37 +249,67 @@ for item in "${HOME_ITEMS[@]}"; do
 
   if [[ -e "$source_path" ]]; then
     log "Backing up: $source_path"
+    ui_update_task "main-$item" "RUNNING" "copying from $source_path"
+    ui_render
     rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"
+    ui_update_task "main-$item" "DONE" "copied"
+    ui_render
   else
     log "Skipping missing path: $source_path"
+    ui_update_task "main-$item" "SKIPPED" "missing path"
+    ui_render
   fi
 done
 
 # Store the portable main restore script inside the backup folder.
+ui_update_task "main-restore-script" "RUNNING" "copying restore-main.sh"
+ui_render
 install -m 0755 "$PROJECT_ROOT/restore-main.sh" "$BACKUP_DIR/restore-main.sh"
 log "Copied restore script: $BACKUP_DIR/restore-main.sh"
+ui_update_task "main-restore-script" "DONE" "copied"
+ui_render
 
 # Copy the ML4W dotfiles .config tree into DOTS and include its restore helper.
 if [[ -d "$DOTS_SOURCE" ]]; then
   log "Backing up dotfiles config: $DOTS_SOURCE"
+  ui_update_task "main-dots" "RUNNING" "copying dotfiles config"
+  ui_render
   mkdir -p "$DOTS_DIR"
   rsync_backup_copy "$DOTS_SOURCE/" "$DOTS_DIR/"
+  ui_update_task "main-dots" "DONE" "copied"
+  ui_update_task "main-dots-restore" "RUNNING" "copying restore-dots.sh"
+  ui_render
   install -m 0755 "$PROJECT_ROOT/restore-dots.sh" "$DOTS_DIR/restore-dots.sh"
   log "Copied restore script: $DOTS_DIR/restore-dots.sh"
+  ui_update_task "main-dots-restore" "DONE" "copied"
+  ui_render
 else
   log "Skipping missing dotfiles config: $DOTS_SOURCE"
+  ui_update_task "main-dots" "SKIPPED" "dotfiles path missing"
+  ui_update_task "main-dots-restore" "SKIPPED" "dotfiles path missing"
+  ui_render
 fi
 
 # Add a manifest to the backup before optional compression.
+ui_update_task "main-manifest" "RUNNING" "writing manifest"
+ui_render
 write_manifest
+ui_update_task "main-manifest" "DONE" "written"
+ui_render
 
 # Compress the finished backup folder only if the user selected that at startup.
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   log "Creating archive: $ARCHIVE_NAME"
+  ui_update_task "main-archive" "RUNNING" "compressing backup"
+  ui_render
   tar -C "$MAIN_DIR" -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
   log "Archive created: $ARCHIVE_NAME"
+  ui_update_task "main-archive" "DONE" "created"
+  ui_render "force"
 else
   log "Archive skipped"
 fi
 
 log "Done: bkp-main"
+ui_add_message "INFO" "Backup finished successfully"
+ui_render "force"

@@ -10,6 +10,27 @@ LOG_ROOT="${LOG_ROOT:-$PROJECT_ROOT/logs}"
 QUIET="${QUIET:-false}"
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 SCRIPT_NAME="${SCRIPT_NAME:-$(basename -- "${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}")}"
+UI_ENABLED=false
+UI_TITLE=""
+UI_STARTED_AT=""
+UI_LAST_RENDER_TS=0
+UI_RENDER_MIN_INTERVAL=1
+UI_USE_COLOR=false
+UI_COLOR_RESET=""
+UI_COLOR_TITLE=""
+UI_COLOR_INFO=""
+UI_COLOR_WARN=""
+UI_COLOR_ERROR=""
+UI_COLOR_DONE=""
+UI_COLOR_RUNNING=""
+UI_COLOR_PENDING=""
+UI_COLOR_SKIPPED=""
+declare -a UI_META_LINES=()
+declare -a UI_TASK_ORDER=()
+declare -a UI_MESSAGES=()
+declare -A UI_TASK_LABELS=()
+declare -A UI_TASK_STATUS=()
+declare -A UI_TASK_DETAIL=()
 
 # Shared rsync argument profiles for backup and restore operations.
 RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids --info=progress2)
@@ -39,6 +60,14 @@ log_message() {
 
   if [[ -n "${LOG_FILE:-}" ]]; then
     printf '%s\n' "$line" >>"$LOG_FILE"
+  fi
+
+  if [[ "$UI_ENABLED" == "true" ]]; then
+    if [[ "$level" == "WARN" || "$level" == "ERROR" ]]; then
+      ui_add_message "$level" "$text"
+      ui_render "force"
+    fi
+    return
   fi
 
   if [[ "$QUIET" != "true" || "$level" != "INFO" ]]; then
@@ -144,9 +173,9 @@ setup_cleanup_trap() {
     current_trap=""
   fi
   if [[ -n "$current_trap" ]]; then
-    trap "$current_trap; cleanup_temp_paths" EXIT
+    trap "$current_trap; cleanup_temp_paths; ui_cleanup" EXIT
   else
-    trap 'cleanup_temp_paths' EXIT
+    trap 'cleanup_temp_paths; ui_cleanup' EXIT
   fi
 }
 
@@ -260,4 +289,187 @@ confirm_yes_no() {
   answer="$(printf '%s' "$answer" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
 
   [[ "$answer" == "y" || "$answer" == "yes" ]]
+}
+
+# Render a lightweight terminal dashboard for backup scripts.
+ui_init() {
+  UI_TITLE="$1"
+  UI_STARTED_AT="$(date '+%H:%M:%S')"
+  UI_LAST_RENDER_TS=0
+  UI_META_LINES=()
+  UI_TASK_ORDER=()
+  UI_MESSAGES=()
+  UI_TASK_LABELS=()
+  UI_TASK_STATUS=()
+  UI_TASK_DETAIL=()
+
+  if [[ "$QUIET" == "true" || ! -t 1 ]]; then
+    UI_ENABLED=false
+    return
+  fi
+
+  UI_ENABLED=true
+  if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
+    UI_USE_COLOR=true
+    UI_COLOR_RESET=$'\033[0m'
+    UI_COLOR_TITLE=$'\033[1;36m'
+    UI_COLOR_INFO=$'\033[0;37m'
+    UI_COLOR_WARN=$'\033[38;5;208m'
+    UI_COLOR_ERROR=$'\033[0;31m'
+    UI_COLOR_DONE=$'\033[0;32m'
+    UI_COLOR_RUNNING=$'\033[0;34m'
+    UI_COLOR_PENDING=$'\033[0;37m'
+    UI_COLOR_SKIPPED=$'\033[38;5;208m'
+  fi
+  RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids)
+  RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)
+  tput civis 2>/dev/null || true
+}
+
+# Restore terminal cursor state after dashboard usage.
+ui_cleanup() {
+  if [[ "$UI_ENABLED" == "true" ]]; then
+    tput cnorm 2>/dev/null || true
+    printf '\n'
+  fi
+}
+
+# Add one selected-option row in the dashboard header.
+ui_add_meta() {
+  local key="$1"
+  local value="$2"
+  UI_META_LINES+=("$key|$value")
+}
+
+# Add a dashboard task row.
+ui_add_task() {
+  local task_id="$1"
+  local label="$2"
+  local status="${3:-PENDING}"
+  local detail="${4:-waiting}"
+
+  UI_TASK_ORDER+=("$task_id")
+  UI_TASK_LABELS["$task_id"]="$label"
+  UI_TASK_STATUS["$task_id"]="$status"
+  UI_TASK_DETAIL["$task_id"]="$detail"
+}
+
+# Update status and detail for an existing dashboard task.
+ui_update_task() {
+  local task_id="$1"
+  local status="$2"
+  local detail="${3:-}"
+
+  [[ -n "${UI_TASK_LABELS[$task_id]:-}" ]] || return
+  UI_TASK_STATUS["$task_id"]="$status"
+  [[ -n "$detail" ]] && UI_TASK_DETAIL["$task_id"]="$detail"
+}
+
+# Store warning/error lines visible at bottom of dashboard.
+ui_add_message() {
+  local level="$1"
+  local text="$2"
+  local ts
+
+  ts="$(date '+%H:%M:%S')"
+  UI_MESSAGES+=("[$ts] [$level] $text")
+  if [[ "${#UI_MESSAGES[@]}" -gt 4 ]]; then
+    UI_MESSAGES=("${UI_MESSAGES[@]: -4}")
+  fi
+}
+
+# Apply a color code to text only when dashboard colors are enabled.
+ui_color() {
+  local color="$1"
+  local text="$2"
+  if [[ "$UI_USE_COLOR" == "true" ]]; then
+    printf '%s%s%s' "$color" "$text" "$UI_COLOR_RESET"
+  else
+    printf '%s' "$text"
+  fi
+}
+
+# Return colorized status label used in task table.
+ui_colorize_status() {
+  local status="$1"
+  case "$status" in
+    DONE) ui_color "$UI_COLOR_DONE" "$status" ;;
+    RUNNING) ui_color "$UI_COLOR_RUNNING" "$status" ;;
+    SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$status" ;;
+    ERROR) ui_color "$UI_COLOR_ERROR" "$status" ;;
+    *) ui_color "$UI_COLOR_PENDING" "$status" ;;
+  esac
+}
+
+# Draw dashboard if enabled (rate-limited unless forced).
+ui_render() {
+  local mode="${1:-}"
+  local now
+  local line
+  local task_id
+  local done=0 running=0 skipped=0 failed=0 pending=0 total=0
+
+  [[ "$UI_ENABLED" == "true" ]] || return
+
+  now="$(date +%s)"
+  if [[ "$mode" != "force" ]] && ((now - UI_LAST_RENDER_TS < UI_RENDER_MIN_INTERVAL)); then
+    return
+  fi
+  UI_LAST_RENDER_TS="$now"
+
+  for task_id in "${UI_TASK_ORDER[@]}"; do
+    case "${UI_TASK_STATUS[$task_id]}" in
+      DONE) ((done += 1)) ;;
+      RUNNING) ((running += 1)) ;;
+      SKIPPED) ((skipped += 1)) ;;
+      ERROR) ((failed += 1)) ;;
+      *) ((pending += 1)) ;;
+    esac
+  done
+  total="${#UI_TASK_ORDER[@]}"
+
+  printf '\033[H\033[2J'
+  printf '%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== $UI_TITLE ===")"
+  printf 'Started: %s | Time: %s | Total: %d  Done: %d  Running: %d  Skipped: %d  Errors: %d  Pending: %d\n' \
+    "$UI_STARTED_AT" "$(date '+%H:%M:%S')" "$total" "$done" "$running" "$skipped" "$failed" "$pending"
+  printf '\n'
+  printf 'Selected Options\n'
+  printf '%-18s | %s\n' "Option" "Value"
+  printf '%-18s-+-%s\n' "------------------" "----------------------------------------------"
+  for line in "${UI_META_LINES[@]}"; do
+    printf '%-18s | %s\n' "${line%%|*}" "${line#*|}"
+  done
+
+  printf '\nTasks\n'
+  printf '%-3s | %-24s | %-8s | %s\n' "#" "Item" "Status" "Details"
+  printf '%-3s-+-%-24s-+-%-8s-+-%s\n' "---" "------------------------" "--------" "----------------------------------------------"
+  local i=1
+  for task_id in "${UI_TASK_ORDER[@]}"; do
+    printf '%-3d | %-24s | %-8s | %s\n' \
+      "$i" \
+      "${UI_TASK_LABELS[$task_id]:0:24}" \
+      "$(ui_colorize_status "${UI_TASK_STATUS[$task_id]:0:8}")" \
+      "${UI_TASK_DETAIL[$task_id]:0:80}"
+    ((i += 1))
+  done
+
+  if [[ "${#UI_MESSAGES[@]}" -gt 0 ]]; then
+    printf '\nRecent Warnings/Errors\n'
+    for line in "${UI_MESSAGES[@]}"; do
+      if [[ "$line" == *"[ERROR]"* ]]; then
+        printf '  %s\n' "$(ui_color "$UI_COLOR_ERROR" "$line")"
+      elif [[ "$line" == *"[WARN]"* ]]; then
+        printf '  %s\n' "$(ui_color "$UI_COLOR_WARN" "$line")"
+      else
+        printf '  %s\n' "$(ui_color "$UI_COLOR_INFO" "$line")"
+      fi
+    done
+  fi
+}
+
+# Record failed command context in the dashboard and logs.
+ui_report_error() {
+  local line_no="$1"
+  local cmd="$2"
+  log_error "command failed at line $line_no: $cmd"
 }

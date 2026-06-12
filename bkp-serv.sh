@@ -137,20 +137,27 @@ write_manifest() {
 
 # Copy one path into the backup root as a standalone file/folder.
 backup_path() {
-  local source_path="$1"
+  local task_id="$1"
+  local source_path="$2"
   local base_name
 
   if [[ -e "$source_path" ]]; then
     base_name="$(basename -- "$source_path")"
     log "Backing up: $source_path"
+    ui_update_task "$task_id" "RUNNING" "copying $source_path"
+    ui_render
 
     if [[ -d "$source_path" ]]; then
       sudo_rsync_backup_copy "$source_path/" "$BACKUP_DIR/$base_name/"
     else
       sudo_rsync_backup_copy "$source_path" "$BACKUP_DIR/"
     fi
+    ui_update_task "$task_id" "DONE" "copied"
+    ui_render
   else
     log "Skipping missing path: $source_path"
+    ui_update_task "$task_id" "SKIPPED" "missing path"
+    ui_render
   fi
 }
 
@@ -199,9 +206,13 @@ backup_luks_header() {
 
   LUKS_DEVICE_PATH="$detected"
   log "Backing up LUKS header from: $LUKS_DEVICE_PATH"
+  ui_update_task "serv-luks" "RUNNING" "reading header from $LUKS_DEVICE_PATH"
+  ui_render
   sudo cryptsetup luksHeaderBackup "$LUKS_DEVICE_PATH" --header-backup-file "$BACKUP_DIR/$LUKS_HEADER_FILE"
   LUKS_HEADER_CREATED=true
   log "Saved LUKS header backup: $BACKUP_DIR/$LUKS_HEADER_FILE"
+  ui_update_task "serv-luks" "DONE" "saved as $LUKS_HEADER_FILE"
+  ui_render
 }
 
 # Ensure destination mount is still writable before backup begins.
@@ -264,6 +275,7 @@ fi
 # Prepare runtime folders and required commands.
 ensure_dirs
 preflight_checks
+trap 'ui_report_error "$LINENO" "$BASH_COMMAND"' ERR
 
 # Prevent two service backups from running at the same time.
 LOCK_FILE="$LOG_ROOT/bkp-serv.lock"
@@ -307,37 +319,89 @@ audit_log "started"
 trap 'finalize_status $?' EXIT
 setup_cleanup_trap
 
+# Start terminal dashboard for visual progress and selected options.
+ui_init "SERV Backup Progress"
+ui_add_meta "Destination" "$DEST_DEVICE"
+ui_add_meta "Backup Dir" "$BACKUP_DIR"
+ui_add_meta "Archive" "$CREATE_ARCHIVE"
+ui_add_meta "LUKS Device" "${LUKS_DEVICE:-auto-detect}"
+ui_add_task "serv-smbconf" "smb.conf"
+ui_add_task "serv-sshd" "sshd_config"
+ui_add_task "serv-theme" "grub theme lateralus"
+ui_add_task "serv-grub" "default grub config"
+ui_add_task "serv-mkinitcpio" "mkinitcpio.conf"
+ui_add_task "serv-creds" "samba creds-*"
+ui_add_task "serv-restore-script" "copy restore-serv.sh"
+ui_add_task "serv-luks" "backup luks.bin"
+ui_add_task "serv-manifest" "write manifest"
+if [[ "$CREATE_ARCHIVE" == "true" ]]; then
+  ui_add_task "serv-archive" "create archive"
+fi
+ui_render "force"
+
 # Back up fixed service paths.
-for path in "${SERVICE_PATHS[@]}"; do
-  backup_path "$path"
-done
+backup_path "serv-smbconf" "/etc/samba/smb.conf"
+backup_path "serv-sshd" "/etc/ssh/sshd_config"
+backup_path "serv-theme" "/boot/grub/themes/lateralus"
+backup_path "serv-grub" "/etc/default/grub"
+backup_path "serv-mkinitcpio" "/etc/mkinitcpio.conf"
 
 # Back up all samba creds* files.
+ui_update_task "serv-creds" "RUNNING" "scanning /etc/samba/creds*"
+ui_render
+creds_found=false
 while IFS= read -r creds_file; do
-  backup_path "$creds_file"
+  [[ -n "$creds_file" ]] || continue
+  creds_found=true
+  backup_path "serv-creds" "$creds_file"
 done < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' 2>/dev/null || true)
+if [[ "$creds_found" == "false" ]]; then
+  ui_update_task "serv-creds" "SKIPPED" "no creds-* files found"
+  ui_render
+else
+  ui_update_task "serv-creds" "DONE" "copied available creds-* files"
+  ui_render
+fi
 
 # Store the portable service restore script inside the backup folder.
+ui_update_task "serv-restore-script" "RUNNING" "copying restore-serv.sh"
+ui_render
 install -m 0755 "$PROJECT_ROOT/restore-serv.sh" "$BACKUP_DIR/restore-serv.sh"
 log "Copied restore script: $BACKUP_DIR/restore-serv.sh"
+ui_update_task "serv-restore-script" "DONE" "copied"
+ui_render
 
 # Back up LUKS header into luks.bin in this backup folder.
 backup_luks_header
+if [[ "$LUKS_HEADER_CREATED" != "true" ]]; then
+  ui_update_task "serv-luks" "SKIPPED" "no luks source detected"
+  ui_render
+fi
 
 # Add a manifest to the backup before optional compression.
+ui_update_task "serv-manifest" "RUNNING" "writing manifest"
+ui_render
 write_manifest
 verify_backup_contents
+ui_update_task "serv-manifest" "DONE" "written"
+ui_render
 
 # Compress the finished backup folder only if selected at startup.
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   local_archive_tmp="$SERV_DIR/.${RUN_ID}.tar.gz"
   log "Creating archive: $ARCHIVE_NAME"
+  ui_update_task "serv-archive" "RUNNING" "compressing backup"
+  ui_render
   sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz | sudo tee "$local_archive_tmp" >/dev/null
   sudo mv "$local_archive_tmp" "$ARCHIVE_IN_BACKUP"
   log "Archive created: $ARCHIVE_IN_BACKUP"
+  ui_update_task "serv-archive" "DONE" "created"
+  ui_render "force"
 else
   log "Archive skipped"
 fi
 
 BACKUP_COMPLETE=true
 log "Done: bkp-serv"
+ui_add_message "INFO" "Backup finished successfully"
+ui_render "force"
