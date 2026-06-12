@@ -5,6 +5,7 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # Main backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp-main.log"
+MANIFEST_FILE=""
 
 # Print command usage for help requests.
 usage() {
@@ -141,6 +142,7 @@ write_manifest() {
     printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
   } >"$manifest"
 
+  MANIFEST_FILE="$manifest"
   log "Wrote manifest: $manifest"
 }
 
@@ -313,3 +315,5 @@ fi
 log "Done: bkp-main"
 ui_add_message "INFO" "Backup finished successfully"
 ui_finalize "SUCCESS" "All selected MAIN backup tasks completed."
+ui_append_final_status "$MANIFEST_FILE"
+log_ui_final_status

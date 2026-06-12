@@ -569,6 +569,76 @@ ui_finalize() {
   ui_render "force"
 }
 
+# Compute task counters from the current dashboard state.
+ui_compute_counts() {
+  UI_COUNT_TOTAL=0
+  UI_COUNT_DONE=0
+  UI_COUNT_RUNNING=0
+  UI_COUNT_SKIPPED=0
+  UI_COUNT_ERRORS=0
+  UI_COUNT_PENDING=0
+
+  local task_id status
+  for task_id in "${UI_TASK_ORDER[@]}"; do
+    status="${UI_TASK_STATUS[$task_id]}"
+    ((UI_COUNT_TOTAL += 1))
+    case "$status" in
+      DONE) ((UI_COUNT_DONE += 1)) ;;
+      RUNNING) ((UI_COUNT_RUNNING += 1)) ;;
+      SKIPPED) ((UI_COUNT_SKIPPED += 1)) ;;
+      ERROR) ((UI_COUNT_ERRORS += 1)) ;;
+      *) ((UI_COUNT_PENDING += 1)) ;;
+    esac
+  done
+}
+
+# Build one-line message summary from recent warning/error list.
+ui_messages_summary() {
+  if [[ "${#UI_MESSAGES[@]}" -eq 0 ]]; then
+    printf 'none\n'
+    return
+  fi
+
+  local joined
+  joined="$(printf '%s || ' "${UI_MESSAGES[@]}")"
+  joined="${joined% || }"
+  printf '%s\n' "$joined"
+}
+
+# Append final dashboard status snapshot into a manifest-style file.
+ui_append_final_status() {
+  local output_file="$1"
+  local finished_at messages
+
+  [[ -n "$output_file" ]] || return
+  [[ -f "$output_file" ]] || return
+
+  ui_compute_counts
+  finished_at="$(date -Is)"
+  messages="$(ui_messages_summary)"
+
+  {
+    printf '\n'
+    printf 'ui_final_state=%s\n' "${UI_FINAL_STATE:-unknown}"
+    printf 'ui_final_message=%s\n' "${UI_FINAL_MESSAGE:-none}"
+    printf 'ui_started_at=%s\n' "${UI_STARTED_AT:-unknown}"
+    printf 'ui_finished_at=%s\n' "$finished_at"
+    printf 'ui_total_tasks=%s\n' "$UI_COUNT_TOTAL"
+    printf 'ui_done=%s\n' "$UI_COUNT_DONE"
+    printf 'ui_running=%s\n' "$UI_COUNT_RUNNING"
+    printf 'ui_skipped=%s\n' "$UI_COUNT_SKIPPED"
+    printf 'ui_errors=%s\n' "$UI_COUNT_ERRORS"
+    printf 'ui_pending=%s\n' "$UI_COUNT_PENDING"
+    printf 'ui_recent_messages=%s\n' "$messages"
+  } >>"$output_file"
+}
+
+# Write final dashboard status snapshot to logs in one compact line.
+log_ui_final_status() {
+  ui_compute_counts
+  log_info "Final UI status: state=${UI_FINAL_STATE:-unknown} total=$UI_COUNT_TOTAL done=$UI_COUNT_DONE running=$UI_COUNT_RUNNING skipped=$UI_COUNT_SKIPPED errors=$UI_COUNT_ERRORS pending=$UI_COUNT_PENDING"
+}
+
 # Run a command while refreshing a task row every second until it finishes.
 ui_run_command() {
   local task_id="$1"

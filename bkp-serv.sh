@@ -12,6 +12,7 @@ RUN_RESULT="failed"
 LUKS_DEVICE_PATH=""
 LUKS_HEADER_FILE="luks.bin"
 LUKS_HEADER_CREATED=false
+MANIFEST_FILE=""
 
 # Fixed critical service files/folders for this backup profile.
 SERVICE_PATHS=(
@@ -132,6 +133,7 @@ write_manifest() {
     printf 'samba_creds_glob=%s\n' "/etc/samba/creds*"
   } >"$manifest"
 
+  MANIFEST_FILE="$manifest"
   log "Wrote manifest: $manifest"
 }
 
@@ -405,3 +407,5 @@ BACKUP_COMPLETE=true
 log "Done: bkp-serv"
 ui_add_message "INFO" "Backup finished successfully"
 ui_finalize "SUCCESS" "All selected SERV backup tasks completed."
+ui_append_final_status "$MANIFEST_FILE"
+log_ui_final_status
