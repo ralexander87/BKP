@@ -165,7 +165,8 @@ backup_path() {
 
 # Resolve the device that holds the LUKS header (supports mapper roots).
 detect_luks_device() {
-  local root_source candidate pkname
+  local root_source candidate pkname current mapper_name mapped_device
+  local -a luks_devices=()
 
   if [[ -n "${LUKS_DEVICE:-}" ]]; then
     sudo cryptsetup isLuks "$LUKS_DEVICE" >/dev/null 2>&1 || die "LUKS_DEVICE is not a LUKS device: $LUKS_DEVICE"
@@ -181,13 +182,39 @@ detect_luks_device() {
     return
   fi
 
-  pkname="$(lsblk -no PKNAME "$root_source" 2>/dev/null | head -n 1)"
-  if [[ -n "$pkname" ]]; then
+  # Resolve mapper devices via "cryptsetup status" to find the backing block device.
+  if [[ "$root_source" == /dev/mapper/* ]]; then
+    mapper_name="$(basename -- "$root_source")"
+    mapped_device="$(sudo cryptsetup status "$mapper_name" 2>/dev/null | awk -F': *' '/^[[:space:]]*device:/ { print $2; exit }')"
+    if [[ -n "$mapped_device" ]] && sudo cryptsetup isLuks "$mapped_device" >/dev/null 2>&1; then
+      printf '%s\n' "$mapped_device"
+      return
+    fi
+  fi
+
+  # Walk up the parent device chain (dm -> partition -> disk) and find first LUKS device.
+  current="$root_source"
+  for _ in {1..8}; do
+    pkname="$(lsblk -no PKNAME "$current" 2>/dev/null | head -n 1)"
+    [[ -n "$pkname" ]] || break
     candidate="/dev/$pkname"
     if sudo cryptsetup isLuks "$candidate" >/dev/null 2>&1; then
       printf '%s\n' "$candidate"
       return
     fi
+    current="$candidate"
+  done
+
+  # Fallback: detect devices with crypto_LUKS filesystem type.
+  mapfile -t luks_devices < <(lsblk -pnro NAME,FSTYPE | awk '$2 == "crypto_LUKS" { print $1 }')
+  if [[ "${#luks_devices[@]}" -eq 1 ]]; then
+    printf '%s\n' "${luks_devices[0]}"
+    return
+  fi
+
+  if [[ "${#luks_devices[@]}" -gt 1 ]]; then
+    log_warn "multiple LUKS devices detected: ${luks_devices[*]}"
+    log_warn "set LUKS_DEVICE=/dev/<device> to choose one"
   fi
 
   return 1
