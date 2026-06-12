@@ -312,4 +312,4 @@ fi
 
 log "Done: bkp-main"
 ui_add_message "INFO" "Backup finished successfully"
-ui_render "force"
+ui_finalize "SUCCESS" "All selected MAIN backup tasks completed."

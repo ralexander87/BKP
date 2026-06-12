@@ -404,4 +404,4 @@ fi
 BACKUP_COMPLETE=true
 log "Done: bkp-serv"
 ui_add_message "INFO" "Backup finished successfully"
-ui_render "force"
+ui_finalize "SUCCESS" "All selected SERV backup tasks completed."

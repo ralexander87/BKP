@@ -25,6 +25,8 @@ UI_COLOR_DONE=""
 UI_COLOR_RUNNING=""
 UI_COLOR_PENDING=""
 UI_COLOR_SKIPPED=""
+UI_FINAL_STATE=""
+UI_FINAL_MESSAGE=""
 declare -a UI_META_LINES=()
 declare -a UI_TASK_ORDER=()
 declare -a UI_MESSAGES=()
@@ -302,6 +304,8 @@ ui_init() {
   UI_TASK_LABELS=()
   UI_TASK_STATUS=()
   UI_TASK_DETAIL=()
+  UI_FINAL_STATE=""
+  UI_FINAL_MESSAGE=""
 
   if [[ "$QUIET" == "true" || ! -t 1 ]]; then
     UI_ENABLED=false
@@ -315,9 +319,9 @@ ui_init() {
     UI_COLOR_TITLE=$'\033[1;36m'
     UI_COLOR_INFO=$'\033[0;37m'
     UI_COLOR_WARN=$'\033[38;5;208m'
-    UI_COLOR_ERROR=$'\033[0;31m'
-    UI_COLOR_DONE=$'\033[0;32m'
-    UI_COLOR_RUNNING=$'\033[0;34m'
+    UI_COLOR_ERROR=$'\033[1;91m'
+    UI_COLOR_DONE=$'\033[1;92m'
+    UI_COLOR_RUNNING=$'\033[1;96m'
     UI_COLOR_PENDING=$'\033[0;37m'
     UI_COLOR_SKIPPED=$'\033[38;5;208m'
   fi
@@ -401,6 +405,33 @@ ui_colorize_status() {
   esac
 }
 
+# Render padded status text so colors stay visible and stable in the status column.
+ui_status_cell() {
+  local status="$1"
+  local padded
+  padded="$(printf '%-8s' "$status")"
+  case "$status" in
+    DONE) ui_color "$UI_COLOR_DONE" "$padded" ;;
+    RUNNING) ui_color "$UI_COLOR_RUNNING" "$padded" ;;
+    SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$padded" ;;
+    ERROR) ui_color "$UI_COLOR_ERROR" "$padded" ;;
+    *) ui_color "$UI_COLOR_PENDING" "$padded" ;;
+  esac
+}
+
+# Colorize details text with the same semantic color as the task status.
+ui_colorize_detail() {
+  local status="$1"
+  local detail="$2"
+  case "$status" in
+    DONE) ui_color "$UI_COLOR_DONE" "$detail" ;;
+    RUNNING) ui_color "$UI_COLOR_RUNNING" "$detail" ;;
+    SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$detail" ;;
+    ERROR) ui_color "$UI_COLOR_ERROR" "$detail" ;;
+    *) ui_color "$UI_COLOR_PENDING" "$detail" ;;
+  esac
+}
+
 # Draw dashboard if enabled (rate-limited unless forced).
 ui_render() {
   local mode="${1:-}"
@@ -444,12 +475,15 @@ ui_render() {
   printf '%-3s | %-24s | %-8s | %s\n' "#" "Item" "Status" "Details"
   printf '%-3s-+-%-24s-+-%-8s-+-%s\n' "---" "------------------------" "--------" "----------------------------------------------"
   local i=1
+  local status_raw detail_raw
   for task_id in "${UI_TASK_ORDER[@]}"; do
-    printf '%-3d | %-24s | %-8s | %s\n' \
+    status_raw="${UI_TASK_STATUS[$task_id]:0:8}"
+    detail_raw="${UI_TASK_DETAIL[$task_id]:0:80}"
+    printf '%-3d | %-24s | %s | %s\n' \
       "$i" \
       "${UI_TASK_LABELS[$task_id]:0:24}" \
-      "$(ui_colorize_status "${UI_TASK_STATUS[$task_id]:0:8}")" \
-      "${UI_TASK_DETAIL[$task_id]:0:80}"
+      "$(ui_status_cell "$status_raw")" \
+      "$(ui_colorize_detail "$status_raw" "$detail_raw")"
     ((i += 1))
   done
 
@@ -465,6 +499,22 @@ ui_render() {
       fi
     done
   fi
+
+  if [[ -n "$UI_FINAL_STATE" ]]; then
+    printf '\n'
+    case "$UI_FINAL_STATE" in
+      SUCCESS)
+        printf '%s\n' "$(ui_color "$UI_COLOR_DONE" "Final Result: SUCCESS")"
+        ;;
+      FAILED)
+        printf '%s\n' "$(ui_color "$UI_COLOR_ERROR" "Final Result: FAILED")"
+        ;;
+      *)
+        printf 'Final Result: %s\n' "$UI_FINAL_STATE"
+        ;;
+    esac
+    [[ -n "$UI_FINAL_MESSAGE" ]] && printf '%s\n' "$UI_FINAL_MESSAGE"
+  fi
 }
 
 # Record failed command context in the dashboard and logs.
@@ -472,6 +522,15 @@ ui_report_error() {
   local line_no="$1"
   local cmd="$2"
   log_error "command failed at line $line_no: $cmd"
+}
+
+# Set final panel state and force one full render.
+ui_finalize() {
+  local state="$1"
+  local message="${2:-}"
+  UI_FINAL_STATE="$state"
+  UI_FINAL_MESSAGE="$message"
+  ui_render "force"
 }
 
 # Run a command while refreshing a task row every second until it finishes.
