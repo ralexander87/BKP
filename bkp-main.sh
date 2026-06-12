@@ -21,6 +21,17 @@ preflight_checks() {
   require_all_cmds rsync flock findmnt df du install
 }
 
+# Treat rsync "vanished source files" (exit 24) as warning, not hard failure.
+run_rsync_main() {
+  local rc=0
+  "$@" || rc=$?
+  if [[ "$rc" -eq 24 ]]; then
+    log_warn "rsync reported vanished source files (exit 24), continuing"
+    return 0
+  fi
+  return "$rc"
+}
+
 # Let the user choose top-level folders to skip by entering menu numbers.
 prompt_skip_home_items() {
   local answer normalized token idx
@@ -253,7 +264,7 @@ for item in "${HOME_ITEMS[@]}"; do
     log "Backing up: $source_path"
     ui_update_task "main-$item" "RUNNING" "copying from $source_path"
     ui_render
-    ui_run_command "main-$item" "copying from $source_path" rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"
+    ui_run_command "main-$item" "copying from $source_path" run_rsync_main rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"
     ui_update_task "main-$item" "DONE" "copied"
     ui_render
   else
@@ -277,7 +288,7 @@ if [[ -d "$DOTS_SOURCE" ]]; then
   ui_update_task "main-dots" "RUNNING" "copying dotfiles config"
   ui_render
   mkdir -p "$DOTS_DIR"
-  ui_run_command "main-dots" "copying dotfiles config" rsync_backup_copy "$DOTS_SOURCE/" "$DOTS_DIR/"
+  ui_run_command "main-dots" "copying dotfiles config" run_rsync_main rsync_backup_copy "$DOTS_SOURCE/" "$DOTS_DIR/"
   ui_update_task "main-dots" "DONE" "copied"
   ui_update_task "main-dots-restore" "RUNNING" "copying restore-dots.sh"
   ui_render

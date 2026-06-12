@@ -644,7 +644,7 @@ ui_run_command() {
   local task_id="$1"
   local detail="$2"
   shift 2
-  local pid start now elapsed
+  local pid start now elapsed exit_code
 
   if [[ "$UI_ENABLED" != "true" ]]; then
     "$@"
@@ -663,5 +663,13 @@ ui_run_command() {
     sleep 1
   done
 
-  wait "$pid"
+  if wait "$pid"; then
+    return 0
+  fi
+
+  exit_code="$?"
+  ui_update_task "$task_id" "ERROR" "failed (exit $exit_code)"
+  ui_add_message "ERROR" "Task ${UI_TASK_LABELS[$task_id]:-$task_id} failed (exit $exit_code)"
+  ui_render "force"
+  return "$exit_code"
 }
