@@ -432,6 +432,33 @@ ui_colorize_detail() {
   esac
 }
 
+# Colorize metric values in the top progress table.
+ui_metric_value() {
+  local key="$1"
+  local value="$2"
+
+  case "$key" in
+    Done)
+      ui_color "$UI_COLOR_DONE" "$value"
+      ;;
+    Running)
+      ui_color "$UI_COLOR_RUNNING" "$value"
+      ;;
+    Skipped)
+      ui_color "$UI_COLOR_SKIPPED" "$value"
+      ;;
+    Errors)
+      ui_color "$UI_COLOR_ERROR" "$value"
+      ;;
+    Pending)
+      ui_color "$UI_COLOR_PENDING" "$value"
+      ;;
+    *)
+      ui_color "$UI_COLOR_INFO" "$value"
+      ;;
+  esac
+}
+
 # Draw dashboard if enabled (rate-limited unless forced).
 ui_render() {
   local mode="${1:-}"
@@ -461,8 +488,17 @@ ui_render() {
 
   printf '\033[H\033[2J'
   printf '%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== $UI_TITLE ===")"
-  printf 'Started: %s | Time: %s | Total: %d  Done: %d  Running: %d  Skipped: %d  Errors: %d  Pending: %d\n' \
-    "$UI_STARTED_AT" "$(date '+%H:%M:%S')" "$total" "$done" "$running" "$skipped" "$failed" "$pending"
+  printf 'Run Metrics\n'
+  printf '%-16s | %s\n' "Metric" "Value"
+  printf '%-16s-+-%s\n' "----------------" "------------------------------"
+  printf '%-16s | %s\n' "Started" "$(ui_metric_value "Started" "$UI_STARTED_AT")"
+  printf '%-16s | %s\n' "Time" "$(ui_metric_value "Time" "$(date '+%H:%M:%S')")"
+  printf '%-16s | %s\n' "Total" "$(ui_metric_value "Total" "$total")"
+  printf '%-16s | %s\n' "Done" "$(ui_metric_value "Done" "$done")"
+  printf '%-16s | %s\n' "Running" "$(ui_metric_value "Running" "$running")"
+  printf '%-16s | %s\n' "Skipped" "$(ui_metric_value "Skipped" "$skipped")"
+  printf '%-16s | %s\n' "Errors" "$(ui_metric_value "Errors" "$failed")"
+  printf '%-16s | %s\n' "Pending" "$(ui_metric_value "Pending" "$pending")"
   printf '\n'
   printf 'Selected Options\n'
   printf '%-18s | %s\n' "Option" "Value"
