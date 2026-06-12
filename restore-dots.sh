@@ -35,7 +35,7 @@ Select action:
   5 - Restore ROFI
   6 - Restore WAYBAR
   7 - Restore HYPR
-  8 - Install fonts
+  8 - Install FONTS
 EOF
 }
 
