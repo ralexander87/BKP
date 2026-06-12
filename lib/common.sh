@@ -41,6 +41,19 @@ human_bytes() {
   numfmt --to=iec --suffix=B "$bytes" 2>/dev/null || printf '%sB\n' "$bytes"
 }
 
+# Resolve the current host name, preferring hostnamectl on systemd-based hosts.
+system_hostname() {
+  local name=""
+
+  if command -v hostnamectl >/dev/null 2>&1; then
+    name="$(hostnamectl --static 2>/dev/null || true)"
+    [[ -n "$name" ]] || name="$(hostnamectl --transient 2>/dev/null || true)"
+  fi
+
+  [[ -n "$name" ]] || name="${HOSTNAME:-unknown}"
+  printf '%s\n' "$name"
+}
+
 # Return likely external/removable mount details from real block devices.
 list_external_mounts() {
   require_cmd findmnt

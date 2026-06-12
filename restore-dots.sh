@@ -58,6 +58,7 @@ Select action:
   5 - Restore ROFI
   6 - Restore WAYBAR
   7 - Restore HYPR
+  8 - Install fonts
 EOF
 }
 
@@ -188,6 +189,32 @@ restore_hypr() {
   log "Done: Restore HYPR"
 }
 
+# Run BIG/fonts/install.sh from the backup device root to install fonts.
+install_fonts() {
+  local device_root=""
+  local candidate_local="$SCRIPT_DIR/BIG/fonts/install.sh"
+  local candidate_device=""
+  local installer=""
+
+  if device_root="$(cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)"; then
+    candidate_device="$device_root/BIG/fonts/install.sh"
+  fi
+
+  if [[ -f "$candidate_device" ]]; then
+    installer="$candidate_device"
+  elif [[ -f "$candidate_local" ]]; then
+    installer="$candidate_local"
+  else
+    die "fonts installer not found. Expected BIG/fonts/install.sh on backup device"
+  fi
+
+  require_cmd bash
+  confirm_action "Install fonts"
+  log "Running fonts installer: $installer"
+  bash "$installer"
+  log "Done: Install fonts"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -223,6 +250,9 @@ case "$selection" in
     ;;
   7)
     restore_hypr
+    ;;
+  8)
+    install_fonts
     ;;
   *)
     die "invalid selection: $selection"

@@ -123,7 +123,7 @@ write_manifest() {
   {
     printf 'backup_type=serv\n'
     printf 'created_at=%s\n' "$(date -Is)"
-    printf 'hostname=%s\n' "$(hostname)"
+    printf 'hostname=%s\n' "$(system_hostname)"
     printf 'user=%s\n' "${USER:-unknown}"
     printf 'project_root=%s\n' "$PROJECT_ROOT"
     printf 'git_commit=%s\n' "$git_commit"
