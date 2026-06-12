@@ -38,7 +38,6 @@ declare -A UI_TASK_DETAIL=()
 RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids --info=progress2)
 RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids --info=progress2)
 TEMP_PATHS=()
-EXIT_HOOK_FUNC=""
 
 # Convert log level names to comparable numeric severity.
 log_level_value() {
@@ -166,30 +165,9 @@ cleanup_temp_paths() {
   done
 }
 
-# Run registered EXIT hook (if any), then common cleanup handlers.
-run_registered_exit_trap() {
-  local exit_code="$?"
-
-  if [[ -n "$EXIT_HOOK_FUNC" ]]; then
-    if declare -F "$EXIT_HOOK_FUNC" >/dev/null 2>&1; then
-      "$EXIT_HOOK_FUNC" "$exit_code"
-    else
-      log_warn "registered EXIT hook function not found: $EXIT_HOOK_FUNC"
-    fi
-  fi
-
-  cleanup_temp_paths
-  ui_cleanup
-  return "$exit_code"
-}
-
-# Add a cleanup trap with an optional callback function name.
+# Add a cleanup trap for temp paths and terminal UI teardown.
 setup_cleanup_trap() {
-  EXIT_HOOK_FUNC="${1:-}"
-  if [[ -n "$EXIT_HOOK_FUNC" && ! "$EXIT_HOOK_FUNC" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-    die "invalid EXIT hook function name: $EXIT_HOOK_FUNC"
-  fi
-  trap 'run_registered_exit_trap' EXIT
+  trap 'cleanup_temp_paths; ui_cleanup' EXIT
 }
 
 # Run rsync using the standard backup profile.
