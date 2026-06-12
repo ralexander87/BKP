@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Exit on errors, unset variables, and failed pipeline commands.
-set -Eeuo pipefail
+# Load shared helpers for logging, prompts, rsync profiles, and cleanup traps.
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # DOTS actions operate from the folder where this script is located.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,41 +9,18 @@ LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-dots.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 ML4W_CONFIG_ROOT="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 
-# Write a timestamped message to screen and log file.
-log() {
-  printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*" | tee -a "$LOG_FILE"
-}
-
-# Log an error and stop the script.
-die() {
-  log "ERROR: $*"
-  exit 1
-}
-
-# Ensure an external command exists before it is needed.
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
-}
-
-# Ask a yes/no question; pressing Enter uses the provided default.
-confirm_yes_no() {
-  local prompt="$1"
-  local default="${2:-N}"
-  local answer
-
-  read -r -p "$prompt [$default]: " answer
-  answer="${answer:-$default}"
-
-  [[ "$answer" =~ ^[Yy]$ ]]
-}
-
 # Print command usage for help requests.
 usage() {
   cat <<'EOF'
-Usage: ./restore-dots.sh
+Usage: ./restore-dots.sh [--quiet]
 
 Run dotfiles restore actions from the current DOTS folder.
 EOF
+}
+
+# Ensure base dependencies exist before menu actions start.
+preflight_checks() {
+  require_all_cmds rsync cp mv mkdir
 }
 
 # Show the currently available dotfiles restore actions.
@@ -116,7 +93,7 @@ restore_config_path() {
 
   log "Restoring $label from: $source_dir"
   mkdir -p "$(dirname -- "$target_dir")"
-  rsync -aAXH --numeric-ids --info=progress2 "$source_dir/" "$target_dir/"
+  rsync_restore_copy "$source_dir/" "$target_dir/"
   log "Done: Restore $label"
 }
 
@@ -175,7 +152,7 @@ restore_waybar() {
 
   log "Restoring WAYBAR themes from: $source_dir"
   mkdir -p "$(dirname -- "$target_dir")"
-  rsync -aAXH --numeric-ids --info=progress2 "$source_dir/" "$target_dir/"
+  rsync_restore_copy "$source_dir/" "$target_dir/"
   log "Done: Restore WAYBAR"
 }
 
@@ -217,10 +194,14 @@ install_fonts() {
   log "Done: Install fonts"
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+parse_common_args "$@"
+if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
   exit 0
 fi
+
+preflight_checks
+setup_cleanup_trap
 
 # Keep showing menu until user selects Exit.
 while true; do

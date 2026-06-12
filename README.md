@@ -24,6 +24,12 @@ Run the main backup:
 ./bkp-main.sh
 ```
 
+Use `--quiet` to hide INFO-level terminal output while still writing full logs:
+
+```bash
+./bkp-main.sh --quiet
+```
+
 The script lists external mounted devices with source device, filesystem, label, and free space. If one device is mounted, it is selected automatically. If multiple devices are mounted, select the destination by number.
 
 Each main backup is written to:
@@ -52,6 +58,8 @@ date +%j-%d-%m-%H-%M-%S
 
 Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup. The default answer is `N`; when you answer `Y`, compression uses `pigz`.
 
+Before backup starts, `bkp-main.sh` also offers a numbered skip list for `Documents`, `Downloads`, `Pictures`, `Music`, `Videos`, `Obsidian`, and `Code`. Enter one or more numbers separated by spaces or commas (for example `7 3` or `7,3`) to exclude those folders.
+
 Before starting the backup, the script checks estimated source size against destination free space. If the destination appears too small, it warns and asks whether to continue.
 
 Only one main backup can run at a time. A lock file in `logs/` prevents accidental overlapping runs.
@@ -67,6 +75,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 ./restore-main.sh
 ```
 
+`restore-main.sh` also supports `--quiet`.
+
 Each backup includes a copy of `restore-main.sh`. It restores from its current folder back into `$HOME` after you confirm with `Y`.
 
 Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes.
@@ -80,6 +90,8 @@ Service backup:
 ```bash
 ./bkp-serv.sh
 ```
+
+`bkp-serv.sh` also supports `--quiet`.
 
 `bkp-serv.sh` uses the mounted-device selector and writes backups to:
 
@@ -116,6 +128,8 @@ cd /path/to/device/SERV/BKP-<timestamp>
 ./restore-serv.sh
 ```
 
+`restore-serv.sh` also supports `--quiet`.
+
 Current options:
 
 - `0 - Exit`
@@ -133,6 +147,7 @@ Service restore fail-safes:
 - automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
 - generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
 - idempotent `fstab` updates (only missing lines are appended)
+- atomic file update flow for `/etc/fstab` and `/etc/default/grub` (temp file + install)
 - post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
 - permission hardening for sensitive files (`/etc/samba/creds-*`, `/etc/ssh/sshd_config`)
 - restore audit log entries in `restore-serv-audit.log`
@@ -163,6 +178,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 ./restore-dots.sh
 ```
 
+`restore-dots.sh` also supports `--quiet`.
+
 Current options:
 
 - `0 - Exit`
@@ -173,8 +190,10 @@ Current options:
 - `5 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder.
 - `6 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
 - `7 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/keybindings/`, copies `hypr/conf/monitor.lua` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/`, copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`, and copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`.
+- `8 - Install fonts`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup).
 
 Each restore option asks for confirmation before changing local configuration.
+If you answer `N`, the action is cancelled and the script returns to the menu.
 
 The files in `config/` are reserved for the other script pairs while the project grows.
 
@@ -193,6 +212,28 @@ make check
 ```
 
 `shellcheck` is required for `make check`. `shfmt` remains optional.
+
+For CI-equivalent local checks:
+
+```bash
+make ci-check
+```
+
+## Versioning
+
+Current version is tracked in the `VERSION` file.
+
+## Changelog
+
+### 0.4.0
+
+- centralized common script helpers (logging, prompts, rsync profiles, dependency checks)
+- added log levels and `--quiet` mode across backup/restore scripts
+- standardized rsync execution paths for backup and restore operations
+- added script-specific preflight dependency checks
+- improved restore menu behavior to return to menu after cancelled actions
+- switched critical config writes to atomic temp-file updates in service restore
+- added GitHub Actions shell CI (`bash -n`, `shellcheck`, `shfmt -d`)
 
 ## Publishing
 

@@ -9,10 +9,15 @@ LOG_FILE="$LOG_ROOT/bkp-main.log"
 # Print command usage for help requests.
 usage() {
   cat <<'EOF'
-Usage: ./bkp-main.sh
+Usage: ./bkp-main.sh [--quiet]
 
 Back up selected $HOME folders to an external mounted device.
 EOF
+}
+
+# Ensure required user-space dependencies exist before backup starts.
+preflight_checks() {
+  require_all_cmds rsync flock findmnt df du install
 }
 
 # Let the user choose top-level folders to skip by entering menu numbers.
@@ -108,7 +113,7 @@ check_destination_space() {
   log "Destination free space: $(human_bytes "$available")"
 
   if ((required > available)); then
-    log "WARNING: estimated backup size is larger than available destination space"
+    log_warn "estimated backup size is larger than available destination space"
     confirm_yes_no "Continue anyway?" "N" || die "backup cancelled because destination may be too small"
   fi
 }
@@ -139,15 +144,16 @@ write_manifest() {
   log "Wrote manifest: $manifest"
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+parse_common_args "$@"
+if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
   exit 0
 fi
 
 # Prepare local runtime folders and verify required tools exist.
 ensure_dirs
-require_cmd rsync
-require_cmd flock
+preflight_checks
+setup_cleanup_trap
 
 # Prevent two main backups from running at the same time.
 LOCK_FILE="$LOG_ROOT/bkp-main.lock"
@@ -195,13 +201,6 @@ declare -A SKIP_HOME_ITEMS=()
 # Ask for optional folder exclusions before backup starts.
 prompt_skip_home_items
 
-# Base rsync flags preserve permissions, ownership metadata, ACLs, and xattrs.
-RSYNC_ARGS=(
-  -aAXH
-  --numeric-ids
-  --info=progress2
-)
-
 # Check destination free space before creating the backup folder.
 check_destination_space "$DEST_DEVICE"
 
@@ -211,7 +210,7 @@ log "Backup destination: $BACKUP_DIR"
 # Copy each requested $HOME item into BACKUP_DIR, with per-folder exclusions.
 for item in "${HOME_ITEMS[@]}"; do
   source_path="$HOME/$item"
-  item_args=("${RSYNC_ARGS[@]}")
+  item_args=("${RSYNC_BACKUP_ARGS[@]}")
 
   if [[ -n "${SKIP_HOME_ITEMS[$item]:-}" ]]; then
     log "Skipping user-selected folder: $source_path"
@@ -240,7 +239,7 @@ log "Copied restore script: $BACKUP_DIR/restore-main.sh"
 if [[ -d "$DOTS_SOURCE" ]]; then
   log "Backing up dotfiles config: $DOTS_SOURCE"
   mkdir -p "$DOTS_DIR"
-  rsync "${RSYNC_ARGS[@]}" "$DOTS_SOURCE/" "$DOTS_DIR/"
+  rsync_backup_copy "$DOTS_SOURCE/" "$DOTS_DIR/"
   install -m 0755 "$PROJECT_ROOT/restore-dots.sh" "$DOTS_DIR/restore-dots.sh"
   log "Copied restore script: $DOTS_DIR/restore-dots.sh"
 else

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Exit on errors, unset variables, and failed pipeline commands.
-set -Eeuo pipefail
+# Load shared helpers for logging, prompts, rsync profiles, and cleanup traps.
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # The restore source is always the folder where this script is located.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,41 +22,18 @@ HOME_ITEMS=(
   ".ssh"
 )
 
-# Write a timestamped message to screen and log file.
-log() {
-  printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*" | tee -a "$LOG_FILE"
-}
-
-# Log an error and stop the script.
-die() {
-  log "ERROR: $*"
-  exit 1
-}
-
-# Ensure an external command exists before it is needed.
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
-}
-
-# Ask a yes/no question; pressing Enter uses the provided default.
-confirm_yes_no() {
-  local prompt="$1"
-  local default="${2:-N}"
-  local answer
-
-  read -r -p "$prompt [$default]: " answer
-  answer="${answer:-$default}"
-
-  [[ "$answer" =~ ^[Yy]$ ]]
-}
-
 # Print command usage for help requests.
 usage() {
   cat <<'EOF'
-Usage: ./restore-main.sh
+Usage: ./restore-main.sh [--quiet]
 
 Restore backup content from the current folder to $HOME.
 EOF
+}
+
+# Ensure required dependencies exist before restore starts.
+preflight_checks() {
+  require_all_cmds rsync find mv
 }
 
 # Enforce SSH's strict permission expectations after restoring .ssh.
@@ -83,13 +60,14 @@ snapshot_existing_target() {
   mv -- "$target" "$snapshot"
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+parse_common_args "$@"
+if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
   exit 0
 fi
 
-require_cmd rsync
-require_cmd find
+preflight_checks
+setup_cleanup_trap
 
 # Show the restore source and target before asking for confirmation.
 log "Restore source: $SCRIPT_DIR"
@@ -108,7 +86,7 @@ for item in "${HOME_ITEMS[@]}"; do
   if [[ -e "$source_path" ]]; then
     log "Restoring: $item"
     snapshot_existing_target "$HOME/$item"
-    rsync -aAXH --numeric-ids --info=progress2 "$source_path" "$HOME/"
+    rsync_restore_copy "$source_path" "$HOME/"
   else
     log "Skipping missing backup item: $item"
   fi

@@ -25,7 +25,7 @@ SERVICE_PATHS=(
 # Print command usage for help requests.
 usage() {
   cat <<'EOF'
-Usage: ./bkp-serv.sh
+Usage: ./bkp-serv.sh [--quiet]
 
 Back up selected service files to an external mounted device.
 Root privileges are required.
@@ -43,20 +43,14 @@ audit_log() {
 preflight_checks() {
   local path
 
-  require_cmd rsync
-  require_cmd sudo
-  require_cmd flock
-  require_cmd findmnt
-  require_cmd df
-  require_cmd du
-  require_cmd cryptsetup
+  require_all_cmds rsync sudo flock findmnt df du cryptsetup install lsblk
 
   for path in "${SERVICE_PATHS[@]}"; do
     sudo test -e "$path" || die "required source path missing: $path"
   done
 
   if ! sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' | grep -q .; then
-    log "WARNING: no /etc/samba/creds* files found"
+    log_warn "no /etc/samba/creds* files found"
   fi
 }
 
@@ -106,7 +100,7 @@ check_destination_space() {
   log "Destination free space: $(human_bytes "$available")"
 
   if ((required > available)); then
-    log "WARNING: estimated backup size is larger than available destination space"
+    log_warn "estimated backup size is larger than available destination space"
     confirm_yes_no "Continue anyway?" "N" || die "backup cancelled because destination may be too small"
   fi
 }
@@ -151,9 +145,9 @@ backup_path() {
     log "Backing up: $source_path"
 
     if [[ -d "$source_path" ]]; then
-      sudo rsync -aAXH --numeric-ids --info=progress2 "$source_path/" "$BACKUP_DIR/$base_name/"
+      sudo_rsync_backup_copy "$source_path/" "$BACKUP_DIR/$base_name/"
     else
-      sudo rsync -aAXH --numeric-ids --info=progress2 "$source_path" "$BACKUP_DIR/"
+      sudo_rsync_backup_copy "$source_path" "$BACKUP_DIR/"
     fi
   else
     log "Skipping missing path: $source_path"
@@ -198,7 +192,7 @@ backup_luks_header() {
     detected="$(detect_luks_device)" || die "LUKS_DEVICE is set but not usable: $LUKS_DEVICE"
   else
     detected="$(detect_luks_device)" || {
-      log "WARNING: skipping LUKS header backup (no LUKS source detected)"
+      log_warn "skipping LUKS header backup (no LUKS source detected)"
       return
     }
   fi
@@ -261,7 +255,8 @@ finalize_status() {
   fi
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+parse_common_args "$@"
+if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
   exit 0
 fi
@@ -310,6 +305,7 @@ RUN_RESULT="in_progress"
 set_backup_status "in_progress"
 audit_log "started"
 trap 'finalize_status $?' EXIT
+setup_cleanup_trap
 
 # Back up fixed service paths.
 for path in "${SERVICE_PATHS[@]}"; do

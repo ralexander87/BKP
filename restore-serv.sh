@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Exit on errors, unset variables, and failed pipeline commands.
-set -Eeuo pipefail
+# Load shared helpers for logging, prompts, rsync profiles, and cleanup traps.
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # Service restore runs from the backup folder where this script is located.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,39 +13,12 @@ RUN_RESULT="failed"
 CURRENT_ACTION="none"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
 
-# Write a timestamped message to screen and log file.
-log() {
-  printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*" | tee -a "$LOG_FILE"
-}
-
 # Record structured audit entries for this restore run.
 audit_log() {
   local event="$1"
   printf '%s event=%s action=%s result=%s rollback=%s\n' "$(date -Is)" "$event" "$CURRENT_ACTION" "$RUN_RESULT" "$ROLLBACK_FILE" >>"$AUDIT_FILE"
 }
 
-# Log an error and stop the script.
-die() {
-  log "ERROR: $*"
-  exit 1
-}
-
-# Ensure an external command exists before it is needed.
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
-}
-
-# Ask a yes/no question; pressing Enter uses the provided default.
-confirm_yes_no() {
-  local prompt="$1"
-  local default="${2:-N}"
-  local answer
-
-  read -r -p "$prompt [$default]: " answer
-  answer="${answer:-$default}"
-
-  [[ "$answer" =~ ^[Yy]$ ]]
-}
 
 # Confirm an action before it changes local configuration.
 confirm_action() {
@@ -53,23 +26,28 @@ confirm_action() {
 
   CURRENT_ACTION="$label"
   confirm_yes_no "Start $label?" "N" || {
-    RUN_RESULT="cancelled"
     audit_log "cancelled"
     log "$label cancelled"
-    exit 0
+    return 1
   }
 
   audit_log "action_started"
+  return 0
 }
 
 # Print command usage for help requests.
 usage() {
   cat <<'EOF'
-Usage: ./restore-serv.sh
+Usage: ./restore-serv.sh [--quiet]
 
 Restore backed-up service files from the current folder to their system paths.
 Root privileges are required.
 EOF
+}
+
+# Ensure required dependencies exist before menu actions start.
+preflight_checks() {
+  require_all_cmds rsync sudo cp sed grep tee modprobe findmnt install mktemp
 }
 
 # Show currently available service restore actions.
@@ -103,7 +81,7 @@ restore_file_to_dir() {
 
   log "Restoring $label file: $source_rel -> $target_dir"
   sudo mkdir -p "$target_dir"
-  sudo rsync -aAXH --numeric-ids --info=progress2 "$source_file" "$target_dir/"
+  sudo_rsync_restore_copy "$source_file" "$target_dir/"
 }
 
 # Snapshot target path before modifying it and register rollback command.
@@ -127,11 +105,11 @@ restore_grub_theme() {
 
   [[ -d "$source_dir" ]] || die "grub theme source folder not found: $source_dir"
 
-  confirm_action "Restore grub theme"
+  confirm_action "Restore grub theme" || return
   snapshot_target "$target_dir"
   log "Restoring grub theme: $source_dir -> /boot/grub/themes/"
   sudo mkdir -p "$target_dir"
-  sudo rsync -aAXH --numeric-ids --info=progress2 "$source_dir/" "$target_dir/"
+  sudo_rsync_restore_copy "$source_dir/" "$target_dir/"
 
   if command -v grub-script-check >/dev/null 2>&1; then
     sudo grub-script-check "$target_dir/theme.txt" >/dev/null 2>&1 || die "grub theme validation failed"
@@ -149,7 +127,7 @@ restore_samba() {
   local -a creds_files=()
   local creds_file
 
-  confirm_action "Restore samba"
+  confirm_action "Restore samba" || return
   snapshot_target "/etc/samba/smb.conf"
   restore_file_to_dir "samba" "$source_smb" "$target_dir"
 
@@ -163,7 +141,7 @@ restore_samba() {
     for creds_file in "${creds_files[@]}"; do
       log "Restoring samba creds file: $(basename -- "$creds_file") -> $target_dir"
       snapshot_target "$target_dir/$(basename -- "$creds_file")"
-      sudo rsync -aAXH --numeric-ids --info=progress2 "$creds_file" "$target_dir/"
+      sudo_rsync_restore_copy "$creds_file" "$target_dir/"
     done
   fi
 
@@ -186,7 +164,7 @@ restore_samba() {
 
 # Restore sshd_config into /etc/ssh/.
 restore_ssh() {
-  confirm_action "Restore SSH"
+  confirm_action "Restore SSH" || return
   snapshot_target "/etc/ssh/sshd_config"
   restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
   sudo chown root:root /etc/ssh/sshd_config
@@ -216,7 +194,7 @@ create_smb_tree() {
   [[ -n "$local_user" ]] || local_user="$(id -un)"
   [[ "$local_user" != "root" ]] || die "could not determine a non-root user for ownership"
 
-  confirm_action "Create SMB"
+  confirm_action "Create SMB" || return
 
   for dir in "${smb_dirs[@]}"; do
     log "Ensuring SMB directory: $dir"
@@ -233,6 +211,7 @@ create_smb_tree() {
 restore_fstab() {
   local line
   local -a new_lines=()
+  local temp_fstab
   local -a fstab_lines=(
     '//192.168.8.20/d   /SMB/euclid   cifs   _netdev,credentials=/etc/samba/creds-euclid,uid=1000,gid=1000   0 0'
     '//192.168.8.101/hd-01   /SMB/SCP/HDD-01   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
@@ -240,7 +219,7 @@ restore_fstab() {
     '//192.168.8.101/hd-03   /SMB/SCP/HDD-03   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
   )
 
-  confirm_action "Restore fstab"
+  confirm_action "Restore fstab" || return
   snapshot_target "/etc/fstab"
 
   log "Loading cifs kernel module"
@@ -255,11 +234,17 @@ restore_fstab() {
   if [[ "${#new_lines[@]}" -eq 0 ]]; then
     log "All SMB fstab entries already exist; no append needed"
   else
-    log "Appending missing SMB mount entries to /etc/fstab"
-    sudo sh -c 'printf "\n" >> /etc/fstab'
+    temp_fstab="$(mktemp)"
+    register_temp_path "$temp_fstab"
+    sudo cp /etc/fstab "$temp_fstab"
+
+    log "Appending missing SMB mount entries to /etc/fstab (atomic update)"
+    printf '\n' >>"$temp_fstab"
     for line in "${new_lines[@]}"; do
-      printf '%s\n' "$line" | sudo tee -a /etc/fstab >/dev/null
+      printf '%s\n' "$line" >>"$temp_fstab"
     done
+
+    sudo install -m 0644 "$temp_fstab" /etc/fstab
   fi
 
   if command -v findmnt >/dev/null 2>&1; then
@@ -272,19 +257,26 @@ restore_fstab() {
 
 # Update GRUB defaults in /etc/default/grub to the expected values.
 restore_grub_defaults() {
-  confirm_action "Restore GRUB"
+  local temp_grub
+
+  confirm_action "Restore GRUB" || return
   snapshot_target "/etc/default/grub"
 
+  temp_grub="$(mktemp)"
+  register_temp_path "$temp_grub"
+  sudo cp /etc/default/grub "$temp_grub"
+
   log "Updating GRUB config: /etc/default/grub"
-  sudo sed -i -E \
+  sed -i -E \
     -e 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet splash"|' \
     -e 's|^GRUB_TERMINAL_INPUT=console|#GRUB_TERMINAL_INPUT=console|' \
     -e 's|^#?GRUB_TERMINAL_OUTPUT=.*|GRUB_TERMINAL_OUTPUT=gfxterm|' \
     -e 's|^GRUB_GFXMODE=.*|GRUB_GFXMODE=1440x1080x32|' \
     -e 's|^#GRUB_THEME="/path/to/gfxtheme"|GRUB_THEME="/boot/grub/themes/lateralus/theme.txt"|' \
-    /etc/default/grub
+    "$temp_grub"
 
-  sudo grep -q '^GRUB_THEME="/boot/grub/themes/lateralus/theme.txt"' /etc/default/grub || die "grub theme line validation failed"
+  grep -q '^GRUB_THEME="/boot/grub/themes/lateralus/theme.txt"' "$temp_grub" || die "grub theme line validation failed"
+  sudo install -m 0644 "$temp_grub" /etc/default/grub
   audit_log "action_completed"
   log "Done: Restore GRUB"
 }
@@ -303,10 +295,6 @@ EOF
 finalize_restore() {
   local exit_code="$1"
 
-  if [[ "$RUN_RESULT" == "cancelled" ]]; then
-    return
-  fi
-
   if [[ "$exit_code" -eq 0 ]]; then
     RUN_RESULT="success"
     audit_log "completed"
@@ -316,51 +304,54 @@ finalize_restore() {
   fi
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+parse_common_args "$@"
+if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
   exit 0
 fi
 
-require_cmd rsync
-require_cmd sudo
+preflight_checks
 
 log "Restore source: $SCRIPT_DIR"
 verify_backup_status
 init_rollback_script
 audit_log "started"
 trap 'finalize_restore $?' EXIT
+setup_cleanup_trap
 log "Requesting root authentication"
 sudo -v || die "sudo authentication failed"
 
-# Read the user's menu selection and run the selected action.
-show_menu
-read -r -p "Enter selection: " selection
+# Keep showing menu until user selects Exit.
+while true; do
+  show_menu
+  read -r -p "Enter selection: " selection
 
-# Dispatch menu options to their matching functions.
-case "$selection" in
-  0)
-    log "Exit selected"
-    exit 0
-    ;;
-  1)
-    restore_grub_theme
-    ;;
-  2)
-    restore_samba
-    ;;
-  3)
-    restore_ssh
-    ;;
-  4)
-    create_smb_tree
-    ;;
-  5)
-    restore_fstab
-    ;;
-  6)
-    restore_grub_defaults
-    ;;
-  *)
-    die "invalid selection: $selection"
-    ;;
-esac
+  # Dispatch menu options to their matching functions.
+  case "$selection" in
+    0)
+      log "Exit selected"
+      exit 0
+      ;;
+    1)
+      restore_grub_theme
+      ;;
+    2)
+      restore_samba
+      ;;
+    3)
+      restore_ssh
+      ;;
+    4)
+      create_smb_tree
+      ;;
+    5)
+      restore_fstab
+      ;;
+    6)
+      restore_grub_defaults
+      ;;
+    *)
+      log_warn "invalid selection: $selection"
+      ;;
+  esac
+done

@@ -2,11 +2,20 @@ SHELL := bash
 
 SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh restore-dots.sh lib/common.sh
 
-.PHONY: check deps list
+.PHONY: check deps list syntax fmt-check ci-check
 
 check:
 	@command -v shellcheck >/dev/null || { echo "missing: shellcheck"; exit 1; }
 	@shellcheck $(SCRIPTS)
+
+syntax:
+	@bash -n $(SCRIPTS)
+
+fmt-check:
+	@command -v shfmt >/dev/null || { echo "missing: shfmt"; exit 1; }
+	@shfmt -d $(SCRIPTS)
+
+ci-check: syntax check fmt-check
 
 deps:
 	@command -v rsync >/dev/null || { echo "missing: rsync"; exit 1; }

@@ -7,21 +7,85 @@ set -Eeuo pipefail
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_ROOT="${BACKUP_ROOT:-$PROJECT_ROOT/backups}"
 LOG_ROOT="${LOG_ROOT:-$PROJECT_ROOT/logs}"
+QUIET="${QUIET:-false}"
+LOG_LEVEL="${LOG_LEVEL:-INFO}"
+SCRIPT_NAME="${SCRIPT_NAME:-$(basename -- "${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}")}"
 
-# Write a timestamped message to screen and the active script log.
+# Shared rsync argument profiles for backup and restore operations.
+RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids --info=progress2)
+RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids --info=progress2)
+TEMP_PATHS=()
+
+# Convert log level names to comparable numeric severity.
+log_level_value() {
+  case "${1^^}" in
+    DEBUG) printf '10\n' ;;
+    INFO) printf '20\n' ;;
+    WARN) printf '30\n' ;;
+    ERROR) printf '40\n' ;;
+    *) printf '20\n' ;;
+  esac
+}
+
+# Write a timestamped log entry to LOG_FILE and optionally to stdout.
+log_message() {
+  local level="${1^^}"
+  shift
+  local text="$*"
+  local ts line
+
+  ts="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+  line="[$ts] [$level] [$SCRIPT_NAME] $text"
+
+  if [[ -n "${LOG_FILE:-}" ]]; then
+    printf '%s\n' "$line" >>"$LOG_FILE"
+  fi
+
+  if [[ "$QUIET" != "true" || "$level" != "INFO" ]]; then
+    printf '%s\n' "$line"
+  fi
+}
+
+# Write an INFO log entry.
+log_info() {
+  [[ "$(log_level_value "INFO")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return
+  log_message "INFO" "$*"
+}
+
+# Write a WARN log entry.
+log_warn() {
+  [[ "$(log_level_value "WARN")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return
+  log_message "WARN" "$*"
+}
+
+# Write an ERROR log entry.
+log_error() {
+  [[ "$(log_level_value "ERROR")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return
+  log_message "ERROR" "$*"
+}
+
+# Backwards-compatible log alias used by existing scripts.
 log() {
-  printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*" | tee -a "$LOG_FILE"
+  log_info "$*"
 }
 
 # Log an error and stop the active script.
 die() {
-  log "ERROR: $*"
+  log_error "$*"
   exit 1
 }
 
 # Ensure an external command exists before it is needed.
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+# Ensure all listed commands exist before continuing.
+require_all_cmds() {
+  local cmd
+  for cmd in "$@"; do
+    require_cmd "$cmd"
+  done
 }
 
 # Create local runtime directories used by scripts.
@@ -39,6 +103,71 @@ human_bytes() {
   local bytes="$1"
 
   numfmt --to=iec --suffix=B "$bytes" 2>/dev/null || printf '%sB\n' "$bytes"
+}
+
+# Parse shared flags and leave script-specific args in SCRIPT_ARGS.
+parse_common_args() {
+  local arg
+  SCRIPT_ARGS=()
+  for arg in "$@"; do
+    case "$arg" in
+      -q|--quiet)
+        QUIET=true
+        ;;
+      *)
+        SCRIPT_ARGS+=("$arg")
+        ;;
+    esac
+  done
+}
+
+# Register a temp path to be cleaned up on script exit.
+register_temp_path() {
+  TEMP_PATHS+=("$1")
+}
+
+# Remove temporary files/directories that were registered by the script.
+cleanup_temp_paths() {
+  local p
+  for p in "${TEMP_PATHS[@]}"; do
+    [[ -e "$p" ]] && rm -rf -- "$p"
+  done
+}
+
+# Add a cleanup trap while preserving an existing EXIT trap.
+setup_cleanup_trap() {
+  local current_trap
+  current_trap="$(trap -p EXIT)"
+  if [[ "$current_trap" =~ ^trap[[:space:]]--[[:space:]]\'(.*)\'[[:space:]]EXIT$ ]]; then
+    current_trap="${BASH_REMATCH[1]}"
+  else
+    current_trap=""
+  fi
+  if [[ -n "$current_trap" ]]; then
+    trap "$current_trap; cleanup_temp_paths" EXIT
+  else
+    trap 'cleanup_temp_paths' EXIT
+  fi
+}
+
+# Run rsync using the standard backup profile.
+rsync_backup_copy() {
+  rsync "${RSYNC_BACKUP_ARGS[@]}" "$@"
+}
+
+# Run rsync using the standard restore profile.
+rsync_restore_copy() {
+  rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"
+}
+
+# Run rsync with sudo using the standard backup profile.
+sudo_rsync_backup_copy() {
+  sudo rsync "${RSYNC_BACKUP_ARGS[@]}" "$@"
+}
+
+# Run rsync with sudo using the standard restore profile.
+sudo_rsync_restore_copy() {
+  sudo rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"
 }
 
 # Resolve the current host name, preferring hostnamectl on systemd-based hosts.
