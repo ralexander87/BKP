@@ -316,8 +316,7 @@ log "Restore source: $SCRIPT_DIR"
 verify_backup_status
 init_rollback_script
 audit_log "started"
-trap 'finalize_restore $?' EXIT
-setup_cleanup_trap
+setup_cleanup_trap finalize_restore
 log "Requesting root authentication"
 sudo -v || die "sudo authentication failed"
 

@@ -345,8 +345,7 @@ BACKUP_STATUS_FILE="$BACKUP_DIR/backup.status"
 RUN_RESULT="in_progress"
 set_backup_status "in_progress"
 audit_log "started"
-trap 'finalize_status $?' EXIT
-setup_cleanup_trap
+setup_cleanup_trap finalize_status
 
 # Start terminal dashboard for visual progress and selected options.
 ui_init "SERV Backup Progress"

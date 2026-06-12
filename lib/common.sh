@@ -38,7 +38,7 @@ declare -A UI_TASK_DETAIL=()
 RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids --info=progress2)
 RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids --info=progress2)
 TEMP_PATHS=()
-EXIT_TRAP_COMMAND=""
+EXIT_HOOK_FUNC=""
 
 # Convert log level names to comparable numeric severity.
 log_level_value() {
@@ -166,12 +166,12 @@ cleanup_temp_paths() {
   done
 }
 
-# Run preserved EXIT trap command (if any), then common cleanup handlers.
+# Run registered EXIT hook (if any), then common cleanup handlers.
 run_registered_exit_trap() {
   local exit_code="$?"
 
-  if [[ -n "$EXIT_TRAP_COMMAND" ]]; then
-    eval "$EXIT_TRAP_COMMAND"
+  if [[ -n "$EXIT_HOOK_FUNC" ]]; then
+    "$EXIT_HOOK_FUNC" "$exit_code"
   fi
 
   cleanup_temp_paths
@@ -179,15 +179,9 @@ run_registered_exit_trap() {
   return "$exit_code"
 }
 
-# Add a cleanup trap while preserving an existing EXIT trap.
+# Add a cleanup trap with an optional callback function name.
 setup_cleanup_trap() {
-  local current_trap
-  current_trap="$(trap -p EXIT)"
-  if [[ "$current_trap" =~ ^trap[[:space:]]--[[:space:]]\'(.*)\'[[:space:]]EXIT$ ]]; then
-    EXIT_TRAP_COMMAND="${BASH_REMATCH[1]}"
-  else
-    EXIT_TRAP_COMMAND=""
-  fi
+  EXIT_HOOK_FUNC="${1:-}"
   trap 'run_registered_exit_trap' EXIT
 }
 
