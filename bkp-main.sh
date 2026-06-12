@@ -15,6 +15,53 @@ Back up selected $HOME folders to an external mounted device.
 EOF
 }
 
+# Let the user choose top-level folders to skip by entering menu numbers.
+prompt_skip_home_items() {
+  local answer normalized token idx
+  local -A selected=()
+  local -a skip_items=()
+  local -a option_labels=(
+    "Documents"
+    "Downloads"
+    "Pictures"
+    "Music"
+    "Obsidian"
+    "Code"
+  )
+
+  printf 'Optional: choose folders to skip (space or comma separated).\n'
+  printf '  1 - Documents\n'
+  printf '  2 - Downloads\n'
+  printf '  3 - Pictures\n'
+  printf '  4 - Music\n'
+  printf '  5 - Obsidian\n'
+  printf '  6 - Code\n'
+  read -r -p "Skip selection (Enter for none): " answer
+
+  # Empty input means no exclusions; keep full backup behavior.
+  [[ -n "$answer" ]] || return
+
+  normalized="${answer//,/ }"
+  for token in $normalized; do
+    [[ "$token" =~ ^[0-9]+$ ]] || die "invalid skip selection value: $token"
+    ((token >= 1 && token <= 6)) || die "skip selection out of range: $token"
+    selected["$token"]=1
+  done
+
+  for idx in "${!option_labels[@]}"; do
+    if [[ -n "${selected[$((idx + 1))]:-}" ]]; then
+      skip_items+=("${option_labels[$idx]}")
+    fi
+  done
+
+  if [[ "${#skip_items[@]}" -gt 0 ]]; then
+    for item in "${skip_items[@]}"; do
+      SKIP_HOME_ITEMS["$item"]=1
+    done
+    log "Skipping selected folders: ${skip_items[*]}"
+  fi
+}
+
 # Estimate a path's size in bytes; missing paths count as zero.
 path_size_bytes() {
   local path="$1"
@@ -140,6 +187,12 @@ HOME_ITEMS=(
   ".ssh"
 )
 
+# Optional skip map keyed by item names selected in prompt_skip_home_items.
+declare -A SKIP_HOME_ITEMS=()
+
+# Ask for optional folder exclusions before backup starts.
+prompt_skip_home_items
+
 # Base rsync flags preserve permissions, ownership metadata, ACLs, and xattrs.
 RSYNC_ARGS=(
   -aAXH
@@ -157,6 +210,11 @@ log "Backup destination: $BACKUP_DIR"
 for item in "${HOME_ITEMS[@]}"; do
   source_path="$HOME/$item"
   item_args=("${RSYNC_ARGS[@]}")
+
+  if [[ -n "${SKIP_HOME_ITEMS[$item]:-}" ]]; then
+    log "Skipping user-selected folder: $source_path"
+    continue
+  fi
 
   # Skip ISO files from Downloads and the nested .ssh/agent folder.
   case "$item" in

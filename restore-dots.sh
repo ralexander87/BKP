@@ -80,8 +80,10 @@ confirm_action() {
 
   confirm_yes_no "Start $label?" "N" || {
     log "$label cancelled"
-    exit 0
+    return 1
   }
+
+  return 0
 }
 
 # Install ML4W stable DOTS after removing the current Hypr configuration.
@@ -89,7 +91,7 @@ install_dots() {
   require_cmd bash
   require_cmd curl
 
-  confirm_action "Install DOTS"
+  confirm_action "Install DOTS" || return
   log "DOTS source folder: $SCRIPT_DIR"
   snapshot_existing_target "$HOME/.config/hypr"
 
@@ -109,7 +111,7 @@ restore_config_path() {
   require_cmd rsync
   [[ -d "$source_dir" ]] || die "$label source folder not found: $source_dir"
 
-  confirm_action "Restore $label"
+  confirm_action "Restore $label" || return
   snapshot_existing_target "$target_dir"
 
   log "Restoring $label from: $source_dir"
@@ -162,7 +164,7 @@ restore_waybar() {
   require_cmd rsync
   [[ -d "$source_dir" ]] || die "waybar themes source folder not found: $source_dir"
 
-  confirm_action "Restore WAYBAR"
+  confirm_action "Restore WAYBAR" || return
   if [[ -e "$target_dir" ]]; then
     [[ ! -e "$backup_dir" ]] || die "backup folder already exists: $backup_dir"
     log "Renaming: $target_dir -> $backup_dir"
@@ -179,7 +181,7 @@ restore_waybar() {
 
 # Restore selected Hypr files from DOTS into the ML4W hypr config tree.
 restore_hypr() {
-  confirm_action "Restore HYPR"
+  confirm_action "Restore HYPR" || return
   restore_config_file "HYPR" "hypr/conf/keybindings/default.lua" "hypr/conf/keybindings/default.lua"
   restore_config_file "HYPR" "hypr/conf/monitor.lua" "hypr/conf/monitor.lua"
   restore_config_file "HYPR" "hypr/hypridle.conf" "hypr/hypridle.conf"
@@ -209,7 +211,7 @@ install_fonts() {
   fi
 
   require_cmd bash
-  confirm_action "Install fonts"
+  confirm_action "Install fonts" || return
   log "Running fonts installer: $installer"
   bash "$installer"
   log "Done: Install fonts"
@@ -220,41 +222,43 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-# Read the user's menu selection and run the selected action.
-show_menu
-read -r -p "Enter selection: " selection
+# Keep showing menu until user selects Exit.
+while true; do
+  show_menu
+  read -r -p "Enter selection: " selection
 
-# Dispatch menu options to their matching functions.
-case "$selection" in
-  0)
-    log "Exit selected"
-    exit 0
-    ;;
-  1)
-    install_dots
-    ;;
-  2)
-    restore_wallpapers
-    ;;
-  3)
-    restore_fastfetch
-    ;;
-  4)
-    restore_kitty
-    ;;
-  5)
-    restore_rofi
-    ;;
-  6)
-    restore_waybar
-    ;;
-  7)
-    restore_hypr
-    ;;
-  8)
-    install_fonts
-    ;;
-  *)
-    die "invalid selection: $selection"
-    ;;
-esac
+  # Dispatch menu options to their matching functions.
+  case "$selection" in
+    0)
+      log "Exit selected"
+      exit 0
+      ;;
+    1)
+      install_dots
+      ;;
+    2)
+      restore_wallpapers
+      ;;
+    3)
+      restore_fastfetch
+      ;;
+    4)
+      restore_kitty
+      ;;
+    5)
+      restore_rofi
+      ;;
+    6)
+      restore_waybar
+      ;;
+    7)
+      restore_hypr
+      ;;
+    8)
+      install_fonts
+      ;;
+    *)
+      log "Invalid selection: $selection"
+      ;;
+  esac
+done
