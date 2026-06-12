@@ -42,11 +42,11 @@ TEMP_PATHS=()
 # Convert log level names to comparable numeric severity.
 log_level_value() {
   case "${1^^}" in
-    DEBUG) printf '10\n' ;;
-    INFO) printf '20\n' ;;
-    WARN) printf '30\n' ;;
-    ERROR) printf '40\n' ;;
-    *) printf '20\n' ;;
+  DEBUG) printf '10\n' ;;
+  INFO) printf '20\n' ;;
+  WARN) printf '30\n' ;;
+  ERROR) printf '40\n' ;;
+  *) printf '20\n' ;;
   esac
 }
 
@@ -142,12 +142,12 @@ parse_common_args() {
   SCRIPT_ARGS=()
   for arg in "$@"; do
     case "$arg" in
-      -q|--quiet)
-        QUIET=true
-        ;;
-      *)
-        SCRIPT_ARGS+=("$arg")
-        ;;
+    -q | --quiet)
+      QUIET=true
+      ;;
+    *)
+      SCRIPT_ARGS+=("$arg")
+      ;;
     esac
   done
 }
@@ -238,34 +238,34 @@ select_external_mount() {
   mapfile -t mounts < <(list_external_mounts)
 
   case "${#mounts[@]}" in
-    0)
-      die "no external mounted devices found"
-      ;;
-    1)
-      IFS='|' read -r target source fstype label avail <<<"${mounts[0]}"
-      printf 'Using mounted device: %s (%s, %s, label: %s, %s)\n' "$target" "$source" "$fstype" "$label" "$avail" >&2
-      printf '%s\n' "$target"
-      ;;
-    *)
-      printf '%s\n' "$prompt" >&2
-      local i
-      for i in "${!mounts[@]}"; do
-        IFS='|' read -r target source fstype label avail <<<"${mounts[$i]}"
-        printf '  %d) %s (%s, %s, label: %s, %s)\n' "$((i + 1))" "$target" "$source" "$fstype" "$label" "$avail" >&2
-      done
+  0)
+    die "no external mounted devices found"
+    ;;
+  1)
+    IFS='|' read -r target source fstype label avail <<<"${mounts[0]}"
+    printf 'Using mounted device: %s (%s, %s, label: %s, %s)\n' "$target" "$source" "$fstype" "$label" "$avail" >&2
+    printf '%s\n' "$target"
+    ;;
+  *)
+    printf '%s\n' "$prompt" >&2
+    local i
+    for i in "${!mounts[@]}"; do
+      IFS='|' read -r target source fstype label avail <<<"${mounts[$i]}"
+      printf '  %d) %s (%s, %s, label: %s, %s)\n' "$((i + 1))" "$target" "$source" "$fstype" "$label" "$avail" >&2
+    done
 
-      local selection
-      while true; do
-        read -r -p "Enter number and press Enter: " selection
-        if [[ "$selection" =~ ^[0-9]+$ ]] &&
-          ((selection >= 1 && selection <= ${#mounts[@]})); then
-          IFS='|' read -r target _ <<<"${mounts[$((selection - 1))]}"
-          printf '%s\n' "$target"
-          return
-        fi
-        printf 'Invalid selection.\n' >&2
-      done
-      ;;
+    local selection
+    while true; do
+      read -r -p "Enter number and press Enter: " selection
+      if [[ "$selection" =~ ^[0-9]+$ ]] &&
+        ((selection >= 1 && selection <= ${#mounts[@]})); then
+        IFS='|' read -r target _ <<<"${mounts[$((selection - 1))]}"
+        printf '%s\n' "$target"
+        return
+      fi
+      printf 'Invalid selection.\n' >&2
+    done
+    ;;
   esac
 }
 
@@ -386,11 +386,11 @@ ui_color() {
 ui_colorize_status() {
   local status="$1"
   case "$status" in
-    DONE) ui_color "$UI_COLOR_DONE" "$status" ;;
-    RUNNING) ui_color "$UI_COLOR_RUNNING" "$status" ;;
-    SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$status" ;;
-    ERROR) ui_color "$UI_COLOR_ERROR" "$status" ;;
-    *) ui_color "$UI_COLOR_PENDING" "$status" ;;
+  DONE) ui_color "$UI_COLOR_DONE" "$status" ;;
+  RUNNING) ui_color "$UI_COLOR_RUNNING" "$status" ;;
+  SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$status" ;;
+  ERROR) ui_color "$UI_COLOR_ERROR" "$status" ;;
+  *) ui_color "$UI_COLOR_PENDING" "$status" ;;
   esac
 }
 
@@ -400,11 +400,11 @@ ui_status_cell() {
   local padded
   padded="$(printf '%-8s' "$status")"
   case "$status" in
-    DONE) ui_color "$UI_COLOR_DONE" "$padded" ;;
-    RUNNING) ui_color "$UI_COLOR_RUNNING" "$padded" ;;
-    SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$padded" ;;
-    ERROR) ui_color "$UI_COLOR_ERROR" "$padded" ;;
-    *) ui_color "$UI_COLOR_PENDING" "$padded" ;;
+  DONE) ui_color "$UI_COLOR_DONE" "$padded" ;;
+  RUNNING) ui_color "$UI_COLOR_RUNNING" "$padded" ;;
+  SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$padded" ;;
+  ERROR) ui_color "$UI_COLOR_ERROR" "$padded" ;;
+  *) ui_color "$UI_COLOR_PENDING" "$padded" ;;
   esac
 }
 
@@ -413,11 +413,11 @@ ui_colorize_detail() {
   local status="$1"
   local detail="$2"
   case "$status" in
-    DONE) ui_color "$UI_COLOR_DONE" "$detail" ;;
-    RUNNING) ui_color "$UI_COLOR_RUNNING" "$detail" ;;
-    SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$detail" ;;
-    ERROR) ui_color "$UI_COLOR_ERROR" "$detail" ;;
-    *) ui_color "$UI_COLOR_PENDING" "$detail" ;;
+  DONE) ui_color "$UI_COLOR_DONE" "$detail" ;;
+  RUNNING) ui_color "$UI_COLOR_RUNNING" "$detail" ;;
+  SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$detail" ;;
+  ERROR) ui_color "$UI_COLOR_ERROR" "$detail" ;;
+  *) ui_color "$UI_COLOR_PENDING" "$detail" ;;
   esac
 }
 
@@ -427,24 +427,24 @@ ui_metric_value() {
   local value="$2"
 
   case "$key" in
-    Done)
-      ui_color "$UI_COLOR_DONE" "$value"
-      ;;
-    Running)
-      ui_color "$UI_COLOR_RUNNING" "$value"
-      ;;
-    Skipped)
-      ui_color "$UI_COLOR_SKIPPED" "$value"
-      ;;
-    Errors)
-      ui_color "$UI_COLOR_ERROR" "$value"
-      ;;
-    Pending)
-      ui_color "$UI_COLOR_PENDING" "$value"
-      ;;
-    *)
-      ui_color "$UI_COLOR_INFO" "$value"
-      ;;
+  Done)
+    ui_color "$UI_COLOR_DONE" "$value"
+    ;;
+  Running)
+    ui_color "$UI_COLOR_RUNNING" "$value"
+    ;;
+  Skipped)
+    ui_color "$UI_COLOR_SKIPPED" "$value"
+    ;;
+  Errors)
+    ui_color "$UI_COLOR_ERROR" "$value"
+    ;;
+  Pending)
+    ui_color "$UI_COLOR_PENDING" "$value"
+    ;;
+  *)
+    ui_color "$UI_COLOR_INFO" "$value"
+    ;;
   esac
 }
 
@@ -466,11 +466,11 @@ ui_render() {
 
   for task_id in "${UI_TASK_ORDER[@]}"; do
     case "${UI_TASK_STATUS[$task_id]}" in
-      DONE) ((done += 1)) ;;
-      RUNNING) ((running += 1)) ;;
-      SKIPPED) ((skipped += 1)) ;;
-      ERROR) ((failed += 1)) ;;
-      *) ((pending += 1)) ;;
+    DONE) ((done += 1)) ;;
+    RUNNING) ((running += 1)) ;;
+    SKIPPED) ((skipped += 1)) ;;
+    ERROR) ((failed += 1)) ;;
+    *) ((pending += 1)) ;;
     esac
   done
   total="${#UI_TASK_ORDER[@]}"
@@ -528,15 +528,15 @@ ui_render() {
   if [[ -n "$UI_FINAL_STATE" ]]; then
     printf '\n'
     case "$UI_FINAL_STATE" in
-      SUCCESS)
-        printf '%s\n' "$(ui_color "$UI_COLOR_DONE" "Final Result: SUCCESS")"
-        ;;
-      FAILED)
-        printf '%s\n' "$(ui_color "$UI_COLOR_ERROR" "Final Result: FAILED")"
-        ;;
-      *)
-        printf 'Final Result: %s\n' "$UI_FINAL_STATE"
-        ;;
+    SUCCESS)
+      printf '%s\n' "$(ui_color "$UI_COLOR_DONE" "Final Result: SUCCESS")"
+      ;;
+    FAILED)
+      printf '%s\n' "$(ui_color "$UI_COLOR_ERROR" "Final Result: FAILED")"
+      ;;
+    *)
+      printf 'Final Result: %s\n' "$UI_FINAL_STATE"
+      ;;
     esac
     [[ -n "$UI_FINAL_MESSAGE" ]] && printf '%s\n' "$UI_FINAL_MESSAGE"
   fi
@@ -572,11 +572,11 @@ ui_compute_counts() {
     status="${UI_TASK_STATUS[$task_id]}"
     ((UI_COUNT_TOTAL += 1))
     case "$status" in
-      DONE) ((UI_COUNT_DONE += 1)) ;;
-      RUNNING) ((UI_COUNT_RUNNING += 1)) ;;
-      SKIPPED) ((UI_COUNT_SKIPPED += 1)) ;;
-      ERROR) ((UI_COUNT_ERRORS += 1)) ;;
-      *) ((UI_COUNT_PENDING += 1)) ;;
+    DONE) ((UI_COUNT_DONE += 1)) ;;
+    RUNNING) ((UI_COUNT_RUNNING += 1)) ;;
+    SKIPPED) ((UI_COUNT_SKIPPED += 1)) ;;
+    ERROR) ((UI_COUNT_ERRORS += 1)) ;;
+    *) ((UI_COUNT_PENDING += 1)) ;;
     esac
   done
 }

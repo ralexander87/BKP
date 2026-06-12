@@ -228,36 +228,36 @@ while true; do
 
   # Dispatch menu options to their matching functions.
   case "$selection" in
-    0)
-      log "Exit selected"
-      exit 0
-      ;;
-    1)
-      install_dots
-      ;;
-    2)
-      restore_wallpapers
-      ;;
-    3)
-      restore_fastfetch
-      ;;
-    4)
-      restore_kitty
-      ;;
-    5)
-      restore_rofi
-      ;;
-    6)
-      restore_waybar
-      ;;
-    7)
-      restore_hypr
-      ;;
-    8)
-      install_fonts
-      ;;
-    *)
-      log "Invalid selection: $selection"
-      ;;
+  0)
+    log "Exit selected"
+    exit 0
+    ;;
+  1)
+    install_dots
+    ;;
+  2)
+    restore_wallpapers
+    ;;
+  3)
+    restore_fastfetch
+    ;;
+  4)
+    restore_kitty
+    ;;
+  5)
+    restore_rofi
+    ;;
+  6)
+    restore_waybar
+    ;;
+  7)
+    restore_hypr
+    ;;
+  8)
+    install_fonts
+    ;;
+  *)
+    log "Invalid selection: $selection"
+    ;;
   esac
 done

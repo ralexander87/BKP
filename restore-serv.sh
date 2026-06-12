@@ -19,7 +19,6 @@ audit_log() {
   printf '%s event=%s action=%s result=%s rollback=%s\n' "$(date -Is)" "$event" "$CURRENT_ACTION" "$RUN_RESULT" "$ROLLBACK_FILE" >>"$AUDIT_FILE"
 }
 
-
 # Confirm an action before it changes local configuration.
 confirm_action() {
   local label="$1"
@@ -327,30 +326,30 @@ while true; do
 
   # Dispatch menu options to their matching functions.
   case "$selection" in
-    0)
-      log "Exit selected"
-      exit 0
-      ;;
-    1)
-      restore_grub_theme
-      ;;
-    2)
-      restore_samba
-      ;;
-    3)
-      restore_ssh
-      ;;
-    4)
-      create_smb_tree
-      ;;
-    5)
-      restore_fstab
-      ;;
-    6)
-      restore_grub_defaults
-      ;;
-    *)
-      log_warn "invalid selection: $selection"
-      ;;
+  0)
+    log "Exit selected"
+    exit 0
+    ;;
+  1)
+    restore_grub_theme
+    ;;
+  2)
+    restore_samba
+    ;;
+  3)
+    restore_ssh
+    ;;
+  4)
+    create_smb_tree
+    ;;
+  5)
+    restore_fstab
+    ;;
+  6)
+    restore_grub_defaults
+    ;;
+  *)
+    log_warn "invalid selection: $selection"
+    ;;
   esac
 done

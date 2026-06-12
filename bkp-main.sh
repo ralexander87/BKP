@@ -256,8 +256,8 @@ for item in "${HOME_ITEMS[@]}"; do
 
   # Skip ISO files from Downloads and the nested .ssh/agent folder.
   case "$item" in
-    "Downloads") item_args+=(--exclude='*.iso') ;;
-    ".ssh") item_args+=(--exclude='agent/') ;;
+  "Downloads") item_args+=(--exclude='*.iso') ;;
+  ".ssh") item_args+=(--exclude='agent/') ;;
   esac
 
   if [[ -e "$source_path" ]]; then
