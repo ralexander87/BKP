@@ -6,6 +6,9 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 # Main backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp-main.log"
 MANIFEST_FILE=""
+BACKUP_STATUS_FILE=""
+BACKUP_COMPLETE=false
+RUN_RESULT="failed"
 
 # Print command usage for help requests.
 usage() {
@@ -149,12 +152,52 @@ write_manifest() {
     printf 'destination_device=%s\n' "$DEST_DEVICE"
     printf 'backup_dir=%s\n' "$BACKUP_DIR"
     printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
+    printf 'archive_path=%s\n' "$ARCHIVE_NAME"
+    printf 'run_result=%s\n' "$RUN_RESULT"
     printf 'dots_source=%s\n' "$DOTS_SOURCE"
     printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
   } >"$manifest"
 
   MANIFEST_FILE="$manifest"
   log "Wrote manifest: $manifest"
+}
+
+set_backup_status() {
+  local status="$1"
+  printf '%s\n' "$status" >"$BACKUP_STATUS_FILE"
+}
+
+verify_backup_contents() {
+  local required_item
+  local -a required_items=(
+    "restore-main.sh"
+    "lib/common.sh"
+    "backup-manifest.txt"
+    "backup.status"
+  )
+
+  for required_item in "${required_items[@]}"; do
+    [[ -e "$BACKUP_DIR/$required_item" ]] || die "missing expected backup item: $required_item"
+  done
+
+  if [[ -d "$DOTS_DIR" ]]; then
+    [[ -f "$DOTS_DIR/restore-dots.sh" ]] || die "missing expected backup item: DOTS/restore-dots.sh"
+    [[ -f "$DOTS_DIR/lib/common.sh" ]] || die "missing expected backup item: DOTS/lib/common.sh"
+  fi
+}
+
+finalize_status() {
+  local exit_code="$1"
+
+  if [[ -n "$BACKUP_STATUS_FILE" && -d "$BACKUP_DIR" ]]; then
+    if [[ "$BACKUP_COMPLETE" == "true" && "$exit_code" -eq 0 ]]; then
+      RUN_RESULT="success"
+      set_backup_status "complete"
+    else
+      RUN_RESULT="failed"
+      set_backup_status "failed"
+    fi
+  fi
 }
 
 parse_common_args "$@"
@@ -220,6 +263,10 @@ check_destination_space "$DEST_DEVICE"
 
 mkdir -p "$BACKUP_DIR"
 log "Backup destination: $BACKUP_DIR"
+BACKUP_STATUS_FILE="$BACKUP_DIR/backup.status"
+RUN_RESULT="in_progress"
+set_backup_status "in_progress"
+trap 'finalize_status "$?"; cleanup_temp_paths; ui_cleanup' EXIT
 
 # Start terminal dashboard for visual progress and selected options.
 ui_init "MAIN Backup Progress"
@@ -311,6 +358,7 @@ fi
 ui_update_task "main-manifest" "RUNNING" "writing manifest"
 ui_render
 write_manifest
+verify_backup_contents
 ui_update_task "main-manifest" "DONE" "written"
 ui_render
 
@@ -327,6 +375,7 @@ else
   log "Archive skipped"
 fi
 
+BACKUP_COMPLETE=true
 log "Done: bkp-main"
 ui_add_message "INFO" "Backup finished successfully"
 ui_finalize "SUCCESS" "All selected MAIN backup tasks completed."

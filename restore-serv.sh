@@ -4,6 +4,7 @@
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load shared helpers when bundled, but keep this restore script usable by itself.
+# BEGIN RESTORE BOOTSTRAP
 load_restore_helpers() {
   local helper
 
@@ -78,6 +79,7 @@ load_restore_helpers() {
 }
 
 load_restore_helpers
+# END RESTORE BOOTSTRAP
 
 LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-serv.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
@@ -86,6 +88,57 @@ ROLLBACK_FILE="$SCRIPT_DIR/restore-serv-rollback-$RESTORE_ID.sh"
 RUN_RESULT="failed"
 CURRENT_ACTION="none"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
+SERVICE_RESTORE_CONFIG=""
+
+set_service_restore_defaults() {
+  SMB_DIRS=(
+    "/SMB"
+    "/SMB/euclid"
+    "/SMB/pneuma"
+    "/SMB/lateralus"
+    "/SMB/SCP"
+    "/SMB/SCP/HDD-01"
+    "/SMB/SCP/HDD-02"
+    "/SMB/SCP/HDD-03"
+  )
+
+  FSTAB_LINES=(
+    '//192.168.8.20/d   /SMB/euclid   cifs   _netdev,credentials=/etc/samba/creds-euclid,uid=1000,gid=1000   0 0'
+    '//192.168.8.101/hd-01   /SMB/SCP/HDD-01   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
+    '//192.168.8.101/hd-02   /SMB/SCP/HDD-02   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
+    '//192.168.8.101/hd-03   /SMB/SCP/HDD-03   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
+  )
+
+  GRUB_CMDLINE_LINUX_DEFAULT_VALUE="loglevel=3 quiet splash"
+  GRUB_TERMINAL_OUTPUT_VALUE="gfxterm"
+  GRUB_GFXMODE_VALUE="1440x1080x32"
+  GRUB_THEME_VALUE="/boot/grub/themes/lateralus/theme.txt"
+}
+
+load_service_restore_config() {
+  local candidate
+  local -a candidates=(
+    "$SCRIPT_DIR/config/serv.restore.conf"
+    "$SCRIPT_DIR/serv.restore.conf"
+  )
+
+  set_service_restore_defaults
+
+  if [[ -n "${PROJECT_ROOT:-}" ]]; then
+    candidates+=("$PROJECT_ROOT/config/serv.restore.conf")
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -f "$candidate" ]]; then
+      # shellcheck source=config/serv.restore.conf
+      source "$candidate"
+      SERVICE_RESTORE_CONFIG="$candidate"
+      return
+    fi
+  done
+}
+
+load_service_restore_config
 
 # Record structured audit entries for this restore run.
 audit_log() {
@@ -253,23 +306,13 @@ restore_ssh() {
 create_smb_tree() {
   local local_user="${SUDO_USER:-${USER:-}}"
   local dir
-  local -a smb_dirs=(
-    "/SMB"
-    "/SMB/euclid"
-    "/SMB/pneuma"
-    "/SMB/lateralus"
-    "/SMB/SCP"
-    "/SMB/SCP/HDD-01"
-    "/SMB/SCP/HDD-02"
-    "/SMB/SCP/HDD-03"
-  )
 
   [[ -n "$local_user" ]] || local_user="$(id -un)"
   [[ "$local_user" != "root" ]] || die "could not determine a non-root user for ownership"
 
   confirm_action "Create SMB" || return
 
-  for dir in "${smb_dirs[@]}"; do
+  for dir in "${SMB_DIRS[@]}"; do
     log "Ensuring SMB directory: $dir"
     sudo mkdir -p "$dir"
     sudo chown "$local_user:$local_user" "$dir"
@@ -285,12 +328,6 @@ restore_fstab() {
   local line
   local -a new_lines=()
   local temp_fstab
-  local -a fstab_lines=(
-    '//192.168.8.20/d   /SMB/euclid   cifs   _netdev,credentials=/etc/samba/creds-euclid,uid=1000,gid=1000   0 0'
-    '//192.168.8.101/hd-01   /SMB/SCP/HDD-01   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
-    '//192.168.8.101/hd-02   /SMB/SCP/HDD-02   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
-    '//192.168.8.101/hd-03   /SMB/SCP/HDD-03   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
-  )
 
   confirm_action "Restore fstab" || return
   snapshot_target "/etc/fstab"
@@ -298,7 +335,7 @@ restore_fstab() {
   log "Loading cifs kernel module"
   sudo modprobe cifs
 
-  for line in "${fstab_lines[@]}"; do
+  for line in "${FSTAB_LINES[@]}"; do
     if ! sudo grep -Fqx "$line" /etc/fstab; then
       new_lines+=("$line")
     fi
@@ -328,6 +365,20 @@ restore_fstab() {
   log "Done: Restore fstab"
 }
 
+set_grub_assignment() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  local escaped
+
+  escaped="$(printf '%s' "$value" | sed 's/[&|]/\\&/g')"
+  if grep -Eq "^#?${key}=" "$file"; then
+    sed -i -E "s|^#?${key}=.*|${key}=\"${escaped}\"|" "$file"
+  else
+    printf '%s="%s"\n' "$key" "$value" >>"$file"
+  fi
+}
+
 # Update GRUB defaults in /etc/default/grub to the expected values.
 restore_grub_defaults() {
   local temp_grub
@@ -340,15 +391,13 @@ restore_grub_defaults() {
   sudo cp /etc/default/grub "$temp_grub"
 
   log "Updating GRUB config: /etc/default/grub"
-  sed -i -E \
-    -e 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet splash"|' \
-    -e 's|^GRUB_TERMINAL_INPUT=console|#GRUB_TERMINAL_INPUT=console|' \
-    -e 's|^#?GRUB_TERMINAL_OUTPUT=.*|GRUB_TERMINAL_OUTPUT=gfxterm|' \
-    -e 's|^GRUB_GFXMODE=.*|GRUB_GFXMODE=1440x1080x32|' \
-    -e 's|^#GRUB_THEME="/path/to/gfxtheme"|GRUB_THEME="/boot/grub/themes/lateralus/theme.txt"|' \
-    "$temp_grub"
+  sed -i -E 's|^GRUB_TERMINAL_INPUT=console|#GRUB_TERMINAL_INPUT=console|' "$temp_grub"
+  set_grub_assignment "$temp_grub" "GRUB_CMDLINE_LINUX_DEFAULT" "$GRUB_CMDLINE_LINUX_DEFAULT_VALUE"
+  set_grub_assignment "$temp_grub" "GRUB_TERMINAL_OUTPUT" "$GRUB_TERMINAL_OUTPUT_VALUE"
+  set_grub_assignment "$temp_grub" "GRUB_GFXMODE" "$GRUB_GFXMODE_VALUE"
+  set_grub_assignment "$temp_grub" "GRUB_THEME" "$GRUB_THEME_VALUE"
 
-  grep -q '^GRUB_THEME="/boot/grub/themes/lateralus/theme.txt"' "$temp_grub" || die "grub theme line validation failed"
+  grep -Fqx "GRUB_THEME=\"$GRUB_THEME_VALUE\"" "$temp_grub" || die "grub theme line validation failed"
   sudo install -m 0644 "$temp_grub" /etc/default/grub
   audit_log "action_completed"
   log "Done: Restore GRUB"
@@ -386,6 +435,7 @@ fi
 preflight_checks
 
 log "Restore source: $SCRIPT_DIR"
+log "Service restore config: ${SERVICE_RESTORE_CONFIG:-built-in defaults}"
 verify_backup_status
 init_rollback_script
 audit_log "started"

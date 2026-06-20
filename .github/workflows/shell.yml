@@ -15,13 +15,7 @@ jobs:
       - name: Install tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck shfmt
+          sudo apt-get install -y rsync shellcheck shfmt
 
-      - name: Run syntax checks
-        run: make syntax
-
-      - name: Run shellcheck
-        run: make check
-
-      - name: Run formatting check
-        run: make fmt-check
+      - name: Run local CI checks
+        run: make ci-check

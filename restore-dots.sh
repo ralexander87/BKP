@@ -4,6 +4,7 @@
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load shared helpers when bundled, but keep this restore script usable by itself.
+# BEGIN RESTORE BOOTSTRAP
 load_restore_helpers() {
   local helper
 
@@ -78,6 +79,7 @@ load_restore_helpers() {
 }
 
 load_restore_helpers
+# END RESTORE BOOTSTRAP
 
 LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-dots.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"

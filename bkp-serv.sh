@@ -125,10 +125,12 @@ write_manifest() {
     printf 'destination_device=%s\n' "$DEST_DEVICE"
     printf 'backup_dir=%s\n' "$BACKUP_DIR"
     printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
+    printf 'archive_path=%s\n' "$ARCHIVE_NAME"
     printf 'run_result=%s\n' "$RUN_RESULT"
     printf 'luks_device=%s\n' "$LUKS_DEVICE_PATH"
     printf 'luks_header_file=%s\n' "$LUKS_HEADER_FILE"
     printf 'luks_header_created=%s\n' "$LUKS_HEADER_CREATED"
+    printf 'service_restore_config=%s\n' "$PROJECT_ROOT/config/serv.restore.conf"
     printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
     printf 'samba_creds_glob=%s\n' "/etc/samba/creds*"
   } >"$manifest"
@@ -267,6 +269,7 @@ verify_backup_contents() {
     "mkinitcpio.conf"
     "restore-serv.sh"
     "lib/common.sh"
+    "config/serv.restore.conf"
     "backup-manifest.txt"
   )
 
@@ -324,7 +327,6 @@ SERV_DIR="$DEST_DEVICE/SERV"
 RUN_ID="BKP-$(timestamp)"
 BACKUP_DIR="$SERV_DIR/$RUN_ID"
 ARCHIVE_NAME="$SERV_DIR/$RUN_ID.tar.gz"
-ARCHIVE_IN_BACKUP="$BACKUP_DIR/$RUN_ID.tar.gz"
 CREATE_ARCHIVE=false
 
 # Ask for archive creation before copying starts so required tools fail early.
@@ -398,6 +400,8 @@ ui_render
 install -m 0755 "$PROJECT_ROOT/restore-serv.sh" "$BACKUP_DIR/restore-serv.sh"
 mkdir -p "$BACKUP_DIR/lib"
 install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$BACKUP_DIR/lib/common.sh"
+mkdir -p "$BACKUP_DIR/config"
+install -m 0644 "$PROJECT_ROOT/config/serv.restore.conf" "$BACKUP_DIR/config/serv.restore.conf"
 log "Copied restore script: $BACKUP_DIR/restore-serv.sh"
 ui_update_task "serv-restore-script" "DONE" "copied"
 ui_render
@@ -424,8 +428,8 @@ if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   ui_update_task "serv-archive" "RUNNING" "compressing backup"
   ui_render
   sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz | sudo tee "$local_archive_tmp" >/dev/null
-  sudo mv "$local_archive_tmp" "$ARCHIVE_IN_BACKUP"
-  log "Archive created: $ARCHIVE_IN_BACKUP"
+  sudo mv "$local_archive_tmp" "$ARCHIVE_NAME"
+  log "Archive created: $ARCHIVE_NAME"
   ui_update_task "serv-archive" "DONE" "created"
   ui_render "force"
 else

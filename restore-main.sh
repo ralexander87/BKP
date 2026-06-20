@@ -4,6 +4,7 @@
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load shared helpers when bundled, but keep this restore script usable by itself.
+# BEGIN RESTORE BOOTSTRAP
 load_restore_helpers() {
   local helper
 
@@ -78,9 +79,11 @@ load_restore_helpers() {
 }
 
 load_restore_helpers
+# END RESTORE BOOTSTRAP
 
 LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-main.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
+STATUS_FILE="$SCRIPT_DIR/backup.status"
 
 # Backup items expected inside the current backup folder.
 HOME_ITEMS=(
@@ -134,6 +137,15 @@ snapshot_existing_target() {
   mv -- "$target" "$snapshot"
 }
 
+verify_backup_status() {
+  if [[ ! -f "$STATUS_FILE" ]]; then
+    log_warn "backup status file not found; continuing for older backup format"
+    return
+  fi
+
+  [[ "$(cat "$STATUS_FILE")" == "complete" ]] || die "backup status is not complete: $(cat "$STATUS_FILE")"
+}
+
 parse_common_args "$@"
 if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
@@ -146,6 +158,7 @@ setup_cleanup_trap
 # Show the restore source and target before asking for confirmation.
 log "Restore source: $SCRIPT_DIR"
 log "Restore target: $HOME"
+verify_backup_status
 
 # Require explicit confirmation before copying anything into $HOME.
 if ! confirm_yes_no "Start restore from current folder to \$HOME?" "N"; then

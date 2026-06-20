@@ -1,8 +1,8 @@
 SHELL := bash
 
-SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh restore-dots.sh lib/common.sh
+SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh restore-dots.sh lib/common.sh lib/restore-bootstrap.sh doctor.sh tools/sync-restore-bootstrap.sh tools/smoke.sh
 
-.PHONY: check deps list syntax fmt-check ci-check
+.PHONY: check deps list syntax fmt-check ci-check bootstrap-check smoke doctor
 
 check:
 	@command -v shellcheck >/dev/null || { echo "missing: shellcheck"; exit 1; }
@@ -15,7 +15,16 @@ fmt-check:
 	@command -v shfmt >/dev/null || { echo "missing: shfmt"; exit 1; }
 	@shfmt -d $(SCRIPTS)
 
-ci-check: syntax check fmt-check
+bootstrap-check:
+	@tools/sync-restore-bootstrap.sh check
+
+smoke: bootstrap-check syntax
+	@tools/smoke.sh
+
+doctor:
+	@./doctor.sh
+
+ci-check: syntax check fmt-check bootstrap-check smoke
 
 deps:
 	@command -v rsync >/dev/null || { echo "missing: rsync"; exit 1; }

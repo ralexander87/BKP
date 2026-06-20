@@ -58,6 +58,12 @@ date +%j-%d-%m-%H-%M-%S
 
 Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup. The default answer is `N`; when you answer `Y`, compression uses `pigz`.
 
+Main archives are written beside the backup folder:
+
+```bash
+/path/to/device/MAIN/BKP-<timestamp>.tar.gz
+```
+
 Before backup starts, `bkp-main.sh` also offers a numbered skip list for `Documents`, `Downloads`, `Pictures`, `Music`, `Videos`, `Obsidian`, and `Code`. Enter one or more numbers separated by spaces or commas (for example `7 3` or `7,3`) to exclude those folders.
 
 Before starting the backup, the script checks estimated source size against destination free space. If the destination appears too small, it warns and asks whether to continue.
@@ -65,6 +71,8 @@ Before starting the backup, the script checks estimated source size against dest
 Only one main backup can run at a time. A lock file in `logs/` prevents accidental overlapping runs.
 
 Each backup includes `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied folder list, and git commit when available.
+
+Each main backup also writes `backup.status`. New restores are blocked when this file exists and is not `complete`; older backups without this file still restore with a warning.
 
 Terminal output is intentionally minimal. The scripts show top-level folder status, current-folder transfer progress, and errors instead of printing every copied file.
 
@@ -112,6 +120,12 @@ It requests root authentication at startup, then backs up:
 
 Each service backup includes a copy of `restore-serv.sh` inside the backup folder and supports optional `.tar.gz` compression with `pigz`.
 
+Service archives are written beside the backup folder:
+
+```bash
+/path/to/device/SERV/BKP-<timestamp>.tar.gz
+```
+
 Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `lateralus/`, `grub`, `mkinitcpio.conf`, `creds-*`, `luks.bin`), not as full `/etc/...` or `/boot/...` directory trees.
 
 Service backup fail-safes:
@@ -121,6 +135,7 @@ Service backup fail-safes:
 - `backup.status` marker (`in_progress`, `complete`, `failed`) for restore safety
 - completeness verification of expected backup content before marking complete
 - backup audit log entries in `backup-audit.log`
+- restore value config copied to `config/serv.restore.conf`
 - LUKS header backup saved as `luks.bin` when a LUKS source is detected; set `LUKS_DEVICE=/dev/...` to force a specific source device
 
 Restore service backup from inside a `SERV/BKP-*` folder:
@@ -145,6 +160,7 @@ Current options:
 Service restore fail-safes:
 
 - restore is blocked unless `backup.status` is `complete`
+- SMB directories, fstab lines, and GRUB target values are loaded from `config/serv.restore.conf` when present, with built-in defaults for older backups
 - per-action confirmation prompts
 - automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
 - generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
@@ -199,7 +215,7 @@ If you answer `N`, the action is cancelled and the script returns to the menu.
 
 The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script.
 
-The files in `config/` are reserved for the other script pairs while the project grows.
+`config/serv.restore.conf` controls service restore values for SMB directories, fstab lines, and GRUB defaults. This file is copied into each `SERV` backup so restore behavior is tied to the backup that created it.
 
 ## Development
 
@@ -221,6 +237,18 @@ For CI-equivalent local checks:
 
 ```bash
 make ci-check
+```
+
+Run restore portability smoke checks:
+
+```bash
+make smoke
+```
+
+Run a read-only post-reinstall readiness report:
+
+```bash
+make doctor
 ```
 
 ## Versioning
