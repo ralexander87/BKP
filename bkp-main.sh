@@ -278,6 +278,8 @@ done
 ui_update_task "main-restore-script" "RUNNING" "copying restore-main.sh"
 ui_render
 install -m 0755 "$PROJECT_ROOT/restore-main.sh" "$BACKUP_DIR/restore-main.sh"
+mkdir -p "$BACKUP_DIR/lib"
+install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$BACKUP_DIR/lib/common.sh"
 log "Copied restore script: $BACKUP_DIR/restore-main.sh"
 ui_update_task "main-restore-script" "DONE" "copied"
 ui_render
@@ -293,6 +295,8 @@ if [[ -d "$DOTS_SOURCE" ]]; then
   ui_update_task "main-dots-restore" "RUNNING" "copying restore-dots.sh"
   ui_render
   install -m 0755 "$PROJECT_ROOT/restore-dots.sh" "$DOTS_DIR/restore-dots.sh"
+  mkdir -p "$DOTS_DIR/lib"
+  install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$DOTS_DIR/lib/common.sh"
   log "Copied restore script: $DOTS_DIR/restore-dots.sh"
   ui_update_task "main-dots-restore" "DONE" "copied"
   ui_render

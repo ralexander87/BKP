@@ -79,6 +79,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 
 Each backup includes a copy of `restore-main.sh`. It restores from its current folder back into `$HOME` after you confirm with `Y`.
 
+Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing.
+
 Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes.
 
 Before restoring a folder into `$HOME`, `restore-main.sh` moves an existing target folder to `<name>-pre-restore-<timestamp>`.
@@ -194,6 +196,8 @@ Current options:
 
 Each restore option asks for confirmation before changing local configuration.
 If you answer `N`, the action is cancelled and the script returns to the menu.
+
+The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script.
 
 The files in `config/` are reserved for the other script pairs while the project grows.
 

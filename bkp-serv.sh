@@ -266,6 +266,7 @@ verify_backup_contents() {
     "grub"
     "mkinitcpio.conf"
     "restore-serv.sh"
+    "lib/common.sh"
     "backup-manifest.txt"
   )
 
@@ -395,6 +396,8 @@ fi
 ui_update_task "serv-restore-script" "RUNNING" "copying restore-serv.sh"
 ui_render
 install -m 0755 "$PROJECT_ROOT/restore-serv.sh" "$BACKUP_DIR/restore-serv.sh"
+mkdir -p "$BACKUP_DIR/lib"
+install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$BACKUP_DIR/lib/common.sh"
 log "Copied restore script: $BACKUP_DIR/restore-serv.sh"
 ui_update_task "serv-restore-script" "DONE" "copied"
 ui_render
