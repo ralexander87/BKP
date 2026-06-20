@@ -275,6 +275,7 @@ restore_hypr() {
   restore_config_file "HYPR" "hypr/conf/windowrules/default.lua" "hypr/conf/windowrules/default.lua"
   restore_config_file "HYPR" "hypr/hypridle.conf" "hypr/hypridle.conf"
   restore_config_file "HYPR" "hypr/hyprlock.conf" "hypr/hyprlock.conf"
+  restore_config_file "HYPR" "hypr/hyprland-gui.lua" "hypr/hyprland-gui.lua"
   restore_config_file "HYPR" "hypr/logo-2.png" "hypr/logo-2.png"
   restore_config_file "HYPR" "hypr/scripts/uptime.sh" "hypr/scripts/uptime.sh"
   restore_config_file "HYPR" "waybar/modules.json" "waybar/modules.json"

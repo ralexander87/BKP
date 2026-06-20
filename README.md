@@ -207,7 +207,7 @@ Current options:
 - `4 - Restore KITTY`: moves the existing KITTY folder to a safety snapshot, then copies `kitty` from the current `DOTS` folder.
 - `5 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder.
 - `6 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
-- `7 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua`, `hypr/conf/monitor.lua`, and `hypr/conf/windowrules/default.lua` into their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/` subfolders, copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`, copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`, copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`, copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`, and restores `quickshell/CalendarApp`, `quickshell/CustomTheme`, `quickshell/PowerApp`, `quickshell/SidebarApp`, `quickshell/WallpaperApp`, and `quickshell/WelcomeApp` to their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/quickshell/` subfolders.
+- `7 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua`, `hypr/conf/monitor.lua`, and `hypr/conf/windowrules/default.lua` into their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/` subfolders, copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`, copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`, copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`, copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`, and restores `quickshell/CalendarApp`, `quickshell/CustomTheme`, `quickshell/PowerApp`, `quickshell/SidebarApp`, `quickshell/WallpaperApp`, and `quickshell/WelcomeApp` to their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/quickshell/` subfolders.
 - `8 - Install fonts`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup).
 
 Each restore option asks for confirmation before changing local configuration.
@@ -266,12 +266,3 @@ Current version is tracked in the `VERSION` file.
 - improved restore menu behavior to return to menu after cancelled actions
 - switched critical config writes to atomic temp-file updates in service restore
 - added GitHub Actions shell CI (`bash -n`, `shellcheck`, `shfmt -d`)
-
-## Publishing
-
-This repository is ready for local git tracking. When you decide to publish it on GitHub, add a remote:
-
-```bash
-git remote add origin git@github.com:YOUR_USER/BKPv3.git
-git push -u origin main
-```
