@@ -278,6 +278,7 @@ restore_hypr() {
   restore_config_file "HYPR" "hypr/logo-2.png" "hypr/logo-2.png"
   restore_config_file "HYPR" "hypr/scripts/uptime.sh" "hypr/scripts/uptime.sh"
   restore_config_file "HYPR" "waybar/modules.json" "waybar/modules.json"
+  restore_config_file "HYPR" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"
   restore_config_folder "HYPR" "quickshell/CalendarApp" "quickshell/CalendarApp"
   restore_config_folder "HYPR" "quickshell/CustomTheme" "quickshell/CustomTheme"
   restore_config_folder "HYPR" "quickshell/PowerApp" "quickshell/PowerApp"
