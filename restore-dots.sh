@@ -12,7 +12,7 @@ load_restore_helpers() {
     if [[ -f "$helper" ]]; then
       # shellcheck source=lib/common.sh
       source "$helper"
-      return
+      return 0
     fi
   done
 
@@ -120,7 +120,7 @@ snapshot_existing_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
 
-  [[ -e "$target" ]] || return
+  [[ -e "$target" ]] || return 0
   [[ ! -e "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Moving existing target to safety snapshot: $snapshot"
@@ -147,7 +147,7 @@ install_dots() {
   local installer_url="https://ml4w.com/os/stable"
   local installer_file
 
-  confirm_action "Install DOTS" || return
+  confirm_action "Install DOTS" || return 0
   log "DOTS source folder: $SCRIPT_DIR"
   snapshot_existing_target "$HOME/.config/hypr"
 
@@ -163,7 +163,7 @@ install_dots() {
   sed -n '1,20p' "$installer_file"
   confirm_yes_no "Execute downloaded installer now?" "N" || {
     log "Installer execution cancelled by user"
-    return
+    return 0
   }
 
   log "Running ML4W stable installer"
@@ -182,7 +182,7 @@ restore_config_path() {
   require_cmd rsync
   [[ -d "$source_dir" ]] || die "$label source folder not found: $source_dir"
 
-  confirm_action "Restore $label" || return
+  confirm_action "Restore $label" || return 0
   snapshot_existing_target "$target_dir"
 
   log "Restoring $label from: $source_dir"
@@ -235,7 +235,7 @@ restore_waybar() {
   require_cmd rsync
   [[ -d "$source_dir" ]] || die "waybar themes source folder not found: $source_dir"
 
-  confirm_action "Restore WAYBAR" || return
+  confirm_action "Restore WAYBAR" || return 0
   if [[ -e "$target_dir" ]]; then
     [[ ! -e "$backup_dir" ]] || die "backup folder already exists: $backup_dir"
     log "Renaming: $target_dir -> $backup_dir"
@@ -252,7 +252,7 @@ restore_waybar() {
 
 # Restore selected Hypr files from DOTS into the ML4W hypr config tree.
 restore_hypr() {
-  confirm_action "Restore HYPR" || return
+  confirm_action "Restore HYPR" || return 0
   restore_config_file "HYPR" "hypr/conf/keybindings/default.lua" "hypr/conf/keybindings/default.lua"
   restore_config_file "HYPR" "hypr/conf/monitor.lua" "hypr/conf/monitor.lua"
   restore_config_file "HYPR" "hypr/hypridle.conf" "hypr/hypridle.conf"
@@ -282,7 +282,7 @@ install_fonts() {
   fi
 
   require_cmd bash
-  confirm_action "Install fonts" || return
+  confirm_action "Install fonts" || return 0
   log "Running fonts installer: $installer"
   bash "$installer"
   log "Done: Install fonts"

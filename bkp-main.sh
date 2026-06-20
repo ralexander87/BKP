@@ -61,7 +61,7 @@ prompt_skip_home_items() {
   read -r -p "Skip selection (Enter for none): " answer
 
   # Empty input means no exclusions; keep full backup behavior.
-  [[ -n "$answer" ]] || return
+  [[ -n "$answer" ]] || return 0
 
   normalized="${answer//,/ }"
   for token in $normalized; do

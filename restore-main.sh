@@ -12,7 +12,7 @@ load_restore_helpers() {
     if [[ -f "$helper" ]]; then
       # shellcheck source=lib/common.sh
       source "$helper"
-      return
+      return 0
     fi
   done
 
@@ -117,7 +117,7 @@ preflight_checks() {
 fix_ssh_permissions() {
   local ssh_dir="$HOME/.ssh"
 
-  [[ -d "$ssh_dir" ]] || return
+  [[ -d "$ssh_dir" ]] || return 0
 
   log "Fixing SSH permissions"
   find "$ssh_dir" -type d -exec chmod 700 {} +
@@ -130,7 +130,7 @@ snapshot_existing_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
 
-  [[ -e "$target" ]] || return
+  [[ -e "$target" ]] || return 0
   [[ ! -e "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Moving existing target to safety snapshot: $snapshot"
@@ -140,7 +140,7 @@ snapshot_existing_target() {
 verify_backup_status() {
   if [[ ! -f "$STATUS_FILE" ]]; then
     log_warn "backup status file not found; continuing for older backup format"
-    return
+    return 0
   fi
 
   [[ "$(cat "$STATUS_FILE")" == "complete" ]] || die "backup status is not complete: $(cat "$STATUS_FILE")"

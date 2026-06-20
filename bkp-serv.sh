@@ -36,7 +36,7 @@ EOF
 # Record structured audit entries for this backup run.
 audit_log() {
   local event="$1"
-  [[ -n "$AUDIT_FILE" ]] || return
+  [[ -n "$AUDIT_FILE" ]] || return 0
   printf '%s event=%s backup_dir=%s result=%s\n' "$(date -Is)" "$event" "$BACKUP_DIR" "$RUN_RESULT" >>"$AUDIT_FILE"
 }
 
@@ -190,7 +190,7 @@ detect_luks_device() {
     mapped_device="$(sudo cryptsetup status "$mapper_name" 2>/dev/null | awk -F': *' '/^[[:space:]]*device:/ { print $2; exit }')"
     if [[ -n "$mapped_device" ]] && sudo cryptsetup isLuks "$mapped_device" >/dev/null 2>&1; then
       printf '%s\n' "$mapped_device"
-      return
+      return 0
     fi
   fi
 

@@ -12,7 +12,7 @@ load_restore_helpers() {
     if [[ -f "$helper" ]]; then
       # shellcheck source=lib/common.sh
       source "$helper"
-      return
+      return 0
     fi
   done
 
@@ -133,7 +133,7 @@ load_service_restore_config() {
       # shellcheck source=config/serv.restore.conf
       source "$candidate"
       SERVICE_RESTORE_CONFIG="$candidate"
-      return
+      return 0
     fi
   done
 }
@@ -215,7 +215,7 @@ snapshot_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
 
-  [[ -e "$target" ]] || return
+  [[ -e "$target" ]] || return 0
   [[ ! -e "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Creating snapshot: $target -> $snapshot"
@@ -231,7 +231,7 @@ restore_grub_theme() {
 
   [[ -d "$source_dir" ]] || die "grub theme source folder not found: $source_dir"
 
-  confirm_action "Restore grub theme" || return
+  confirm_action "Restore grub theme" || return 0
   snapshot_target "$target_dir"
   log "Restoring grub theme: $source_dir -> /boot/grub/themes/"
   sudo mkdir -p "$target_dir"
@@ -253,7 +253,7 @@ restore_samba() {
   local -a creds_files=()
   local creds_file
 
-  confirm_action "Restore samba" || return
+  confirm_action "Restore samba" || return 0
   snapshot_target "/etc/samba/smb.conf"
   restore_file_to_dir "samba" "$source_smb" "$target_dir"
 
@@ -290,7 +290,7 @@ restore_samba() {
 
 # Restore sshd_config into /etc/ssh/.
 restore_ssh() {
-  confirm_action "Restore SSH" || return
+  confirm_action "Restore SSH" || return 0
   snapshot_target "/etc/ssh/sshd_config"
   restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
   sudo chown root:root /etc/ssh/sshd_config
@@ -310,7 +310,7 @@ create_smb_tree() {
   [[ -n "$local_user" ]] || local_user="$(id -un)"
   [[ "$local_user" != "root" ]] || die "could not determine a non-root user for ownership"
 
-  confirm_action "Create SMB" || return
+  confirm_action "Create SMB" || return 0
 
   for dir in "${SMB_DIRS[@]}"; do
     log "Ensuring SMB directory: $dir"
@@ -329,7 +329,7 @@ restore_fstab() {
   local -a new_lines=()
   local temp_fstab
 
-  confirm_action "Restore fstab" || return
+  confirm_action "Restore fstab" || return 0
   snapshot_target "/etc/fstab"
 
   log "Loading cifs kernel module"
@@ -383,7 +383,7 @@ set_grub_assignment() {
 restore_grub_defaults() {
   local temp_grub
 
-  confirm_action "Restore GRUB" || return
+  confirm_action "Restore GRUB" || return 0
   snapshot_target "/etc/default/grub"
 
   temp_grub="$(mktemp)"

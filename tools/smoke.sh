@@ -50,4 +50,16 @@ printf '0\n' | (cd "$tmp" && ./restore-dots.sh >/dev/null)
 rm -rf "$tmp"
 printf 'exit path OK: restore-dots.sh\n'
 
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+declare -A SKIP_HOME_ITEMS=()
+printf '\n' | prompt_skip_home_items >/dev/null
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh)
+rm -rf "$tmp"
+printf 'blank skip selection OK: bkp-main.sh\n'
+
 printf 'smoke OK\n'

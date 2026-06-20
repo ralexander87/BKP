@@ -69,7 +69,7 @@ log_message() {
       ui_add_message "$level" "$text"
       ui_render "force"
     fi
-    return
+    return 0
   fi
 
   if [[ "$QUIET" != "true" || "$level" != "INFO" ]]; then
@@ -79,19 +79,19 @@ log_message() {
 
 # Write an INFO log entry.
 log_info() {
-  [[ "$(log_level_value "INFO")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return
+  [[ "$(log_level_value "INFO")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return 0
   log_message "INFO" "$*"
 }
 
 # Write a WARN log entry.
 log_warn() {
-  [[ "$(log_level_value "WARN")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return
+  [[ "$(log_level_value "WARN")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return 0
   log_message "WARN" "$*"
 }
 
 # Write an ERROR log entry.
 log_error() {
-  [[ "$(log_level_value "ERROR")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return
+  [[ "$(log_level_value "ERROR")" -lt "$(log_level_value "$LOG_LEVEL")" ]] && return 0
   log_message "ERROR" "$*"
 }
 
@@ -261,7 +261,7 @@ select_external_mount() {
         ((selection >= 1 && selection <= ${#mounts[@]})); then
         IFS='|' read -r target _ <<<"${mounts[$((selection - 1))]}"
         printf '%s\n' "$target"
-        return
+        return 0
       fi
       printf 'Invalid selection.\n' >&2
     done
@@ -298,7 +298,7 @@ ui_init() {
 
   if [[ "$QUIET" == "true" || ! -t 1 ]]; then
     UI_ENABLED=false
-    return
+    return 0
   fi
 
   UI_ENABLED=true
@@ -353,7 +353,7 @@ ui_update_task() {
   local status="$2"
   local detail="${3:-}"
 
-  [[ -n "${UI_TASK_LABELS[$task_id]:-}" ]] || return
+  [[ -n "${UI_TASK_LABELS[$task_id]:-}" ]] || return 0
   UI_TASK_STATUS["$task_id"]="$status"
   [[ -n "$detail" ]] && UI_TASK_DETAIL["$task_id"]="$detail"
 }
@@ -456,11 +456,11 @@ ui_render() {
   local task_id
   local done=0 running=0 skipped=0 failed=0 pending=0 total=0
 
-  [[ "$UI_ENABLED" == "true" ]] || return
+  [[ "$UI_ENABLED" == "true" ]] || return 0
 
   now="$(date +%s)"
   if [[ "$mode" != "force" ]] && ((now - UI_LAST_RENDER_TS < UI_RENDER_MIN_INTERVAL)); then
-    return
+    return 0
   fi
   UI_LAST_RENDER_TS="$now"
 
@@ -585,7 +585,7 @@ ui_compute_counts() {
 ui_messages_summary() {
   if [[ "${#UI_MESSAGES[@]}" -eq 0 ]]; then
     printf 'none\n'
-    return
+    return 0
   fi
 
   local joined
@@ -599,8 +599,8 @@ ui_append_final_status() {
   local output_file="$1"
   local finished_at messages
 
-  [[ -n "$output_file" ]] || return
-  [[ -f "$output_file" ]] || return
+  [[ -n "$output_file" ]] || return 0
+  [[ -f "$output_file" ]] || return 0
 
   ui_compute_counts
   finished_at="$(date -Is)"
@@ -637,7 +637,7 @@ ui_run_command() {
 
   if [[ "$UI_ENABLED" != "true" ]]; then
     "$@"
-    return
+    return 0
   fi
 
   start="$(date +%s)"

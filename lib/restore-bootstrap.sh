@@ -5,7 +5,7 @@ load_restore_helpers() {
     if [[ -f "$helper" ]]; then
       # shellcheck source=lib/common.sh
       source "$helper"
-      return
+      return 0
     fi
   done
 

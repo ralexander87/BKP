@@ -46,7 +46,7 @@ latest_backup_dir() {
 check_main_backup() {
   local backup_dir="$1"
 
-  [[ -n "$backup_dir" ]] || return
+  [[ -n "$backup_dir" ]] || return 0
   ok "latest MAIN backup: $backup_dir"
   check_file_in_backup "$backup_dir/restore-main.sh"
   check_file_in_backup "$backup_dir/lib/common.sh"
@@ -71,7 +71,7 @@ check_serv_backup() {
   local backup_dir="$1"
   local status_file="$backup_dir/backup.status"
 
-  [[ -n "$backup_dir" ]] || return
+  [[ -n "$backup_dir" ]] || return 0
   ok "latest SERV backup: $backup_dir"
   check_file_in_backup "$backup_dir/restore-serv.sh"
   check_file_in_backup "$backup_dir/lib/common.sh"
