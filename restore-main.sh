@@ -81,7 +81,7 @@ load_restore_helpers() {
 load_restore_helpers
 # END RESTORE BOOTSTRAP
 
-LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-main.log}"
+LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
 

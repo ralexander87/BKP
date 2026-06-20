@@ -3,8 +3,8 @@
 # Load shared helpers for logging, prompts, mount selection, and timestamps.
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
-# Main backup log file. LOG_ROOT is defined by lib/common.sh.
-LOG_FILE="$LOG_ROOT/bkp-main.log"
+# Unified backup log file. LOG_ROOT is defined by lib/common.sh.
+LOG_FILE="$LOG_ROOT/bkp.log"
 MANIFEST_FILE=""
 BACKUP_STATUS_FILE=""
 BACKUP_COMPLETE=false

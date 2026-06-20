@@ -81,9 +81,8 @@ load_restore_helpers() {
 load_restore_helpers
 # END RESTORE BOOTSTRAP
 
-LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-serv.log}"
+LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
-AUDIT_FILE="$SCRIPT_DIR/restore-serv-audit.log"
 ROLLBACK_FILE="$SCRIPT_DIR/restore-serv-rollback-$RESTORE_ID.sh"
 RUN_RESULT="failed"
 CURRENT_ACTION="none"
@@ -143,7 +142,7 @@ load_service_restore_config
 # Record structured audit entries for this restore run.
 audit_log() {
   local event="$1"
-  printf '%s event=%s action=%s result=%s rollback=%s\n' "$(date -Is)" "$event" "$CURRENT_ACTION" "$RUN_RESULT" "$ROLLBACK_FILE" >>"$AUDIT_FILE"
+  log "AUDIT event=$event action=$CURRENT_ACTION result=$RUN_RESULT rollback=$ROLLBACK_FILE"
 }
 
 # Confirm an action before it changes local configuration.

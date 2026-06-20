@@ -81,7 +81,11 @@ load_restore_helpers() {
 load_restore_helpers
 # END RESTORE BOOTSTRAP
 
-LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore-dots.log}"
+RESTORE_LOG_ROOT="$SCRIPT_DIR"
+if [[ -f "$SCRIPT_DIR/../backup-manifest.txt" ]]; then
+  RESTORE_LOG_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+fi
+LOG_FILE="${LOG_FILE:-$RESTORE_LOG_ROOT/restore.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 ML4W_CONFIG_ROOT="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 

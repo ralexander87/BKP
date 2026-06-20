@@ -3,9 +3,8 @@
 # Load shared helpers for logging, prompts, mount selection, and timestamps.
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
-# Service backup log file. LOG_ROOT is defined by lib/common.sh.
-LOG_FILE="$LOG_ROOT/bkp-serv.log"
-AUDIT_FILE=""
+# Unified backup log file. LOG_ROOT is defined by lib/common.sh.
+LOG_FILE="$LOG_ROOT/bkp.log"
 BACKUP_STATUS_FILE=""
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
@@ -36,8 +35,7 @@ EOF
 # Record structured audit entries for this backup run.
 audit_log() {
   local event="$1"
-  [[ -n "$AUDIT_FILE" ]] || return 0
-  printf '%s event=%s backup_dir=%s result=%s\n' "$(date -Is)" "$event" "$BACKUP_DIR" "$RUN_RESULT" >>"$AUDIT_FILE"
+  log "AUDIT event=$event backup_dir=$BACKUP_DIR result=$RUN_RESULT"
 }
 
 # Ensure this host can run backup safely before writing destination data.
@@ -343,7 +341,6 @@ verify_destination_mount
 
 mkdir -p "$BACKUP_DIR"
 log "Backup destination: $BACKUP_DIR"
-AUDIT_FILE="$BACKUP_DIR/backup-audit.log"
 BACKUP_STATUS_FILE="$BACKUP_DIR/backup.status"
 RUN_RESULT="in_progress"
 set_backup_status "in_progress"

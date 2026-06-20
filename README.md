@@ -70,6 +70,12 @@ Before starting the backup, the script checks estimated source size against dest
 
 Only one main backup can run at a time. A lock file in `logs/` prevents accidental overlapping runs.
 
+Backup runs write terminal output, progress summaries, warnings, errors, and audit-style entries to one shared project log:
+
+```bash
+logs/bkp.log
+```
+
 Each backup includes `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied folder list, and git commit when available.
 
 Each main backup also writes `backup.status`. New restores are blocked when this file exists and is not `complete`; older backups without this file still restore with a warning.
@@ -86,6 +92,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 `restore-main.sh` also supports `--quiet`.
 
 Each backup includes a copy of `restore-main.sh`. It restores from its current folder back into `$HOME` after you confirm with `Y`.
+
+Restore runs write their output and results to `restore.log` in the backup folder. `restore-dots.sh` writes to the parent backup folder's `restore.log` when it is run from `DOTS`.
 
 Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing.
 
@@ -134,7 +142,7 @@ Service backup fail-safes:
 - destination mount/writable verification before copy
 - `backup.status` marker (`in_progress`, `complete`, `failed`) for restore safety
 - completeness verification of expected backup content before marking complete
-- backup audit log entries in `backup-audit.log`
+- backup audit entries in `logs/bkp.log`
 - restore value config copied to `config/serv.restore.conf`
 - LUKS header backup saved as `luks.bin` when a LUKS source is detected; set `LUKS_DEVICE=/dev/...` to force a specific source device
 
@@ -168,7 +176,7 @@ Service restore fail-safes:
 - atomic file update flow for `/etc/fstab` and `/etc/default/grub` (temp file + install)
 - post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
 - permission hardening for sensitive files (`/etc/samba/creds-*`, `/etc/ssh/sshd_config`)
-- restore audit log entries in `restore-serv-audit.log`
+- restore audit entries in `restore.log`
 
 ## Configuration
 
