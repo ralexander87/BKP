@@ -206,6 +206,23 @@ restore_config_file() {
   cp -a -- "$source_file" "$target_file"
 }
 
+# Restore one folder from DOTS into the matching ML4W config path after HYPR confirmation.
+restore_config_folder() {
+  local label="$1"
+  local source_rel="$2"
+  local target_rel="$3"
+  local source_dir="$SCRIPT_DIR/$source_rel"
+  local target_dir="$ML4W_CONFIG_ROOT/$target_rel"
+
+  require_cmd rsync
+  [[ -d "$source_dir" ]] || die "$label source folder not found: $source_dir"
+
+  snapshot_existing_target "$target_dir"
+  log "Restoring $label folder: $source_rel"
+  mkdir -p "$(dirname -- "$target_dir")"
+  rsync_restore_copy "$source_dir/" "$target_dir/"
+}
+
 # Replace the ML4W wallpapers folder from the current DOTS backup.
 restore_wallpapers() {
   restore_config_path "Wallpapers" "ml4w/wallpapers" "ml4w/wallpapers"
@@ -255,10 +272,18 @@ restore_hypr() {
   confirm_action "Restore HYPR" || return 0
   restore_config_file "HYPR" "hypr/conf/keybindings/default.lua" "hypr/conf/keybindings/default.lua"
   restore_config_file "HYPR" "hypr/conf/monitor.lua" "hypr/conf/monitor.lua"
+  restore_config_file "HYPR" "hypr/conf/windowrules/default.lua" "hypr/conf/windowrules/default.lua"
   restore_config_file "HYPR" "hypr/hypridle.conf" "hypr/hypridle.conf"
   restore_config_file "HYPR" "hypr/hyprlock.conf" "hypr/hyprlock.conf"
   restore_config_file "HYPR" "hypr/logo-2.png" "hypr/logo-2.png"
   restore_config_file "HYPR" "hypr/scripts/uptime.sh" "hypr/scripts/uptime.sh"
+  restore_config_file "HYPR" "waybar/modules.json" "waybar/modules.json"
+  restore_config_folder "HYPR" "quickshell/CalendarApp" "quickshell/CalendarApp"
+  restore_config_folder "HYPR" "quickshell/CustomTheme" "quickshell/CustomTheme"
+  restore_config_folder "HYPR" "quickshell/PowerApp" "quickshell/PowerApp"
+  restore_config_folder "HYPR" "quickshell/SidebarApp" "quickshell/SidebarApp"
+  restore_config_folder "HYPR" "quickshell/WallpaperApp" "quickshell/WallpaperApp"
+  restore_config_folder "HYPR" "quickshell/WelcomeApp" "quickshell/WelcomeApp"
   log "Done: Restore HYPR"
 }
 
