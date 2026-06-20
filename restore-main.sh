@@ -84,6 +84,7 @@ load_restore_helpers
 LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
+MANIFEST_FILE="$SCRIPT_DIR/backup-manifest.txt"
 
 # Backup items expected inside the current backup folder.
 HOME_ITEMS=(
@@ -138,12 +139,23 @@ snapshot_existing_target() {
 }
 
 verify_backup_status() {
-  if [[ ! -f "$STATUS_FILE" ]]; then
-    log_warn "backup status file not found; continuing for older backup format"
+  local manifest_status=""
+
+  if [[ -f "$MANIFEST_FILE" ]]; then
+    manifest_status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$MANIFEST_FILE")"
+    manifest_status="${manifest_status:-$(awk -F= '$1 == "run_result" { print $2; exit }' "$MANIFEST_FILE")}"
+    if [[ -n "$manifest_status" ]]; then
+      [[ "$manifest_status" == "complete" || "$manifest_status" == "success" ]] || die "backup status is not complete: $manifest_status"
+      return 0
+    fi
+  fi
+
+  if [[ -f "$STATUS_FILE" ]]; then
+    [[ "$(cat "$STATUS_FILE")" == "complete" ]] || die "backup status is not complete: $(cat "$STATUS_FILE")"
     return 0
   fi
 
-  [[ "$(cat "$STATUS_FILE")" == "complete" ]] || die "backup status is not complete: $(cat "$STATUS_FILE")"
+  log_warn "backup status not found in manifest; continuing for older backup format"
 }
 
 parse_common_args "$@"

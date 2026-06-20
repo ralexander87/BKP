@@ -6,7 +6,6 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 # Unified backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp.log"
 MANIFEST_FILE=""
-BACKUP_STATUS_FILE=""
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
 
@@ -153,6 +152,7 @@ write_manifest() {
     printf 'backup_dir=%s\n' "$BACKUP_DIR"
     printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
     printf 'archive_path=%s\n' "$ARCHIVE_NAME"
+    printf 'backup_status=%s\n' "$RUN_RESULT"
     printf 'run_result=%s\n' "$RUN_RESULT"
     printf 'dots_source=%s\n' "$DOTS_SOURCE"
     printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
@@ -164,7 +164,8 @@ write_manifest() {
 
 set_backup_status() {
   local status="$1"
-  printf '%s\n' "$status" >"$BACKUP_STATUS_FILE"
+  RUN_RESULT="$status"
+  write_manifest
 }
 
 verify_backup_contents() {
@@ -173,7 +174,6 @@ verify_backup_contents() {
     "restore-main.sh"
     "lib/common.sh"
     "backup-manifest.txt"
-    "backup.status"
   )
 
   for required_item in "${required_items[@]}"; do
@@ -189,12 +189,10 @@ verify_backup_contents() {
 finalize_status() {
   local exit_code="$1"
 
-  if [[ -n "$BACKUP_STATUS_FILE" && -d "$BACKUP_DIR" ]]; then
+  if [[ -d "$BACKUP_DIR" ]]; then
     if [[ "$BACKUP_COMPLETE" == "true" && "$exit_code" -eq 0 ]]; then
-      RUN_RESULT="success"
       set_backup_status "complete"
     else
-      RUN_RESULT="failed"
       set_backup_status "failed"
     fi
   fi
@@ -263,10 +261,8 @@ check_destination_space "$DEST_DEVICE"
 
 mkdir -p "$BACKUP_DIR"
 log "Backup destination: $BACKUP_DIR"
-BACKUP_STATUS_FILE="$BACKUP_DIR/backup.status"
-RUN_RESULT="in_progress"
-set_backup_status "in_progress"
 trap 'finalize_status "$?"; cleanup_temp_paths; ui_cleanup' EXIT
+set_backup_status "in_progress"
 
 # Start terminal dashboard for visual progress and selected options.
 ui_init "MAIN Backup Progress"
@@ -357,8 +353,9 @@ fi
 # Add a manifest to the backup before optional compression.
 ui_update_task "main-manifest" "RUNNING" "writing manifest"
 ui_render
-write_manifest
+set_backup_status "complete"
 verify_backup_contents
+BACKUP_COMPLETE=true
 ui_update_task "main-manifest" "DONE" "written"
 ui_render
 
@@ -375,7 +372,6 @@ else
   log "Archive skipped"
 fi
 
-BACKUP_COMPLETE=true
 log "Done: bkp-main"
 ui_add_message "INFO" "Backup finished successfully"
 ui_finalize "SUCCESS" "All selected MAIN backup tasks completed."

@@ -87,6 +87,7 @@ ROLLBACK_FILE="$SCRIPT_DIR/restore-serv-rollback-$RESTORE_ID.sh"
 RUN_RESULT="failed"
 CURRENT_ACTION="none"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
+MANIFEST_FILE="$SCRIPT_DIR/backup-manifest.txt"
 SERVICE_RESTORE_CONFIG=""
 
 set_service_restore_defaults() {
@@ -191,7 +192,18 @@ EOF
 
 # Ensure backup finished cleanly before allowing restore actions.
 verify_backup_status() {
-  [[ -f "$STATUS_FILE" ]] || die "backup status file not found: $STATUS_FILE"
+  local manifest_status=""
+
+  if [[ -f "$MANIFEST_FILE" ]]; then
+    manifest_status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$MANIFEST_FILE")"
+    manifest_status="${manifest_status:-$(awk -F= '$1 == "run_result" { print $2; exit }' "$MANIFEST_FILE")}"
+    if [[ -n "$manifest_status" ]]; then
+      [[ "$manifest_status" == "complete" || "$manifest_status" == "success" ]] || die "backup status is not complete: $manifest_status"
+      return 0
+    fi
+  fi
+
+  [[ -f "$STATUS_FILE" ]] || die "backup status not found in manifest or legacy file: $MANIFEST_FILE"
   [[ "$(cat "$STATUS_FILE")" == "complete" ]] || die "backup status is not complete: $(cat "$STATUS_FILE")"
 }
 

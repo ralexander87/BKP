@@ -45,19 +45,27 @@ latest_backup_dir() {
 
 check_main_backup() {
   local backup_dir="$1"
+  local manifest_file="$backup_dir/backup-manifest.txt"
+  local status=""
 
   [[ -n "$backup_dir" ]] || return 0
   ok "latest MAIN backup: $backup_dir"
   check_file_in_backup "$backup_dir/restore-main.sh"
   check_file_in_backup "$backup_dir/lib/common.sh"
-  if [[ -f "$backup_dir/backup.status" ]]; then
+  check_file_in_backup "$manifest_file"
+  if [[ -f "$manifest_file" ]]; then
+    status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
+  fi
+  if [[ "$status" == "complete" ]]; then
+    ok "main backup status complete: $manifest_file"
+  elif [[ -f "$backup_dir/backup.status" ]]; then
     if [[ "$(cat "$backup_dir/backup.status")" == "complete" ]]; then
-      ok "main backup status complete: $backup_dir/backup.status"
+      ok "main backup status complete: $backup_dir/backup.status (legacy)"
     else
       fail "main backup status is not complete: $(cat "$backup_dir/backup.status")"
     fi
   else
-    warn "main backup status missing; older backup format: $backup_dir/backup.status"
+    warn "main backup status missing from manifest; older backup format"
   fi
   if [[ -d "$backup_dir/DOTS" ]]; then
     check_file_in_backup "$backup_dir/DOTS/restore-dots.sh"
@@ -70,21 +78,28 @@ check_main_backup() {
 check_serv_backup() {
   local backup_dir="$1"
   local status_file="$backup_dir/backup.status"
+  local manifest_file="$backup_dir/backup-manifest.txt"
+  local status=""
 
   [[ -n "$backup_dir" ]] || return 0
   ok "latest SERV backup: $backup_dir"
   check_file_in_backup "$backup_dir/restore-serv.sh"
   check_file_in_backup "$backup_dir/lib/common.sh"
   check_file_in_backup "$backup_dir/config/serv.restore.conf"
-  check_file_in_backup "$backup_dir/backup-manifest.txt"
-  if [[ -f "$status_file" ]]; then
+  check_file_in_backup "$manifest_file"
+  if [[ -f "$manifest_file" ]]; then
+    status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
+  fi
+  if [[ "$status" == "complete" ]]; then
+    ok "service backup status complete: $manifest_file"
+  elif [[ -f "$status_file" ]]; then
     if [[ "$(cat "$status_file")" == "complete" ]]; then
-      ok "service backup status complete: $status_file"
+      ok "service backup status complete: $status_file (legacy)"
     else
       fail "service backup status is not complete: $(cat "$status_file")"
     fi
   else
-    fail "service backup status missing: $status_file"
+    fail "service backup status missing from manifest and legacy file"
   fi
 }
 

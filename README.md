@@ -78,7 +78,7 @@ logs/bkp.log
 
 Each backup includes `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied folder list, and git commit when available.
 
-Each main backup also writes `backup.status`. New restores are blocked when this file exists and is not `complete`; older backups without this file still restore with a warning.
+Each main backup records `backup_status` in `backup-manifest.txt`. New restores are blocked when this value is not `complete`; older backups with a separate `backup.status` file still restore.
 
 Terminal output is intentionally minimal. The scripts show top-level folder status, current-folder transfer progress, and errors instead of printing every copied file.
 
@@ -140,7 +140,7 @@ Service backup fail-safes:
 
 - preflight checks for required commands and source paths
 - destination mount/writable verification before copy
-- `backup.status` marker (`in_progress`, `complete`, `failed`) for restore safety
+- `backup_status` marker (`in_progress`, `complete`, `failed`) in `backup-manifest.txt` for restore safety
 - completeness verification of expected backup content before marking complete
 - backup audit entries in `logs/bkp.log`
 - restore value config copied to `config/serv.restore.conf`
@@ -167,7 +167,7 @@ Current options:
 
 Service restore fail-safes:
 
-- restore is blocked unless `backup.status` is `complete`
+- restore is blocked unless `backup_status` in `backup-manifest.txt` is `complete`
 - SMB directories, fstab lines, and GRUB target values are loaded from `config/serv.restore.conf` when present, with built-in defaults for older backups
 - per-action confirmation prompts
 - automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
