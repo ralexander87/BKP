@@ -88,6 +88,7 @@ fi
 LOG_FILE="${LOG_FILE:-$RESTORE_LOG_ROOT/restore.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 ML4W_CONFIG_ROOT="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
+RESTORE_SETTINGS_LOCAL_HOOK="$SCRIPT_DIR/config/local/restore-dots-settings.sh"
 
 # Print command usage for help requests.
 usage() {
@@ -299,6 +300,18 @@ restore_zshrc() {
   restore_config_path "ZSHRC" "zshrc" "zshrc"
 }
 
+run_restore_settings_local_hook() {
+  [[ -f "$RESTORE_SETTINGS_LOCAL_HOOK" ]] || {
+    log "Skipping local Restore Settings hook; not found: $RESTORE_SETTINGS_LOCAL_HOOK"
+    return 0
+  }
+
+  require_cmd git
+  log "Running local Restore Settings hook: $RESTORE_SETTINGS_LOCAL_HOOK"
+  # shellcheck source=/dev/null
+  source "$RESTORE_SETTINGS_LOCAL_HOOK"
+}
+
 restore_settings() {
   confirm_action "Restore Settings" || return 0
   restore_config_file "Settings" "ml4w/settings/filemanager" "ml4w/settings/filemanager"
@@ -310,6 +323,7 @@ restore_settings() {
   restore_config_file "Settings" "ml4w/settings/screenshot-editor" "ml4w/settings/screenshot-editor"
   restore_config_file "Settings" "ml4w/settings/screenshot-folder" "ml4w/settings/screenshot-folder"
   restore_config_file "Settings" "ml4w/settings/waybar-quicklinks.json" "ml4w/settings/waybar-quicklinks.json"
+  run_restore_settings_local_hook
   log "Done: Restore Settings"
 }
 

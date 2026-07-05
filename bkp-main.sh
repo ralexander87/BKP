@@ -340,6 +340,11 @@ if [[ -d "$DOTS_SOURCE" ]]; then
   install -m 0755 "$PROJECT_ROOT/restore-dots.sh" "$DOTS_DIR/restore-dots.sh"
   mkdir -p "$DOTS_DIR/lib"
   install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$DOTS_DIR/lib/common.sh"
+  if [[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]]; then
+    mkdir -p "$DOTS_DIR/config/local"
+    install -m 0600 "$PROJECT_ROOT/config/local/restore-dots-settings.sh" "$DOTS_DIR/config/local/restore-dots-settings.sh"
+    log "Copied local restore settings hook: $DOTS_DIR/config/local/restore-dots-settings.sh"
+  fi
   log "Copied restore script: $DOTS_DIR/restore-dots.sh"
   ui_update_task "main-dots-restore" "DONE" "copied"
   ui_render

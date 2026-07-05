@@ -16,6 +16,7 @@ restore-serv-rollback-*.sh
 .env.*
 *.local
 *.secret
+config/local/
 
 # Temporary files
 *.tmp
