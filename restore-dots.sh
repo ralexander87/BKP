@@ -117,6 +117,7 @@ Select action:
   7 - Restore HYPR
   8 - Install FONTS
   9 - Restore ZSHRC
+  10 - Restore Settings
 EOF
 }
 
@@ -298,6 +299,20 @@ restore_zshrc() {
   restore_config_path "ZSHRC" "zshrc" "zshrc"
 }
 
+restore_settings() {
+  confirm_action "Restore Settings" || return 0
+  restore_config_file "Settings" "ml4w/settings/filemanager" "ml4w/settings/filemanager"
+  restore_config_file "Settings" "ml4w/settings/kitty-cursor-trail.conf" "ml4w/settings/kitty-cursor-trail.conf"
+  restore_config_file "Settings" "ml4w/settings/rofi-border-radius.rasi" "ml4w/settings/rofi-border-radius.rasi"
+  restore_config_file "Settings" "ml4w/settings/rofi-border.rasi" "ml4w/settings/rofi-border.rasi"
+  restore_config_file "Settings" "ml4w/settings/rofi-font.rasi" "ml4w/settings/rofi-font.rasi"
+  restore_config_file "Settings" "ml4w/settings/rofi_bordersize.sh" "ml4w/settings/rofi_bordersize.sh"
+  restore_config_file "Settings" "ml4w/settings/screenshot-editor" "ml4w/settings/screenshot-editor"
+  restore_config_file "Settings" "ml4w/settings/screenshot-folder" "ml4w/settings/screenshot-folder"
+  restore_config_file "Settings" "ml4w/settings/waybar-quicklinks.json" "ml4w/settings/waybar-quicklinks.json"
+  log "Done: Restore Settings"
+}
+
 # Run BIG/fonts/install.sh from the backup device root to install fonts.
 install_fonts() {
   local device_root=""
@@ -370,6 +385,9 @@ while true; do
     ;;
   9)
     restore_zshrc
+    ;;
+  10)
+    restore_settings
     ;;
   *)
     log "Invalid selection: $selection"
