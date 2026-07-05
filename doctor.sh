@@ -70,6 +70,9 @@ check_main_backup() {
   if [[ -d "$backup_dir/DOTS" ]]; then
     check_file_in_backup "$backup_dir/DOTS/restore-dots.sh"
     check_file_in_backup "$backup_dir/DOTS/lib/common.sh"
+    if [[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]]; then
+      check_file_in_backup "$backup_dir/DOTS/config/local/restore-dots-settings.sh"
+    fi
   else
     warn "DOTS folder missing in MAIN backup: $backup_dir/DOTS"
   fi
@@ -86,6 +89,9 @@ check_serv_backup() {
   check_file_in_backup "$backup_dir/restore-serv.sh"
   check_file_in_backup "$backup_dir/lib/common.sh"
   check_file_in_backup "$backup_dir/config/serv.restore.conf"
+  if [[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]]; then
+    check_file_in_backup "$backup_dir/config/local/serv.restore.conf"
+  fi
   check_file_in_backup "$manifest_file"
   if [[ -f "$manifest_file" ]]; then
     status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"

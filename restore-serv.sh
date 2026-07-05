@@ -103,14 +103,7 @@ set_service_restore_defaults() {
     "/SMB/SCP/HDD-03"
   )
 
-  FSTAB_LINES=(
-    '//192.168.8.20/d   /SMB/euclid   cifs   _netdev,credentials=/etc/samba/creds-euclid,uid=1000,gid=1000   0 0'
-    '//192.168.8.10/pneumasmb   /SMB/pneuma-kali   cifs   _netdev,credentials=/etc/samba/creds-pneuma,uid=1000,gid=1000   0 0'
-    '//192.168.8.11/e   /SMB/pneuma-win   cifs   _netdev,credentials=/etc/samba/creds-pneuma,uid=1000,gid=1000   0 0'
-    '//192.168.8.101/hd-01   /SMB/SCP/HDD-01   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
-    '//192.168.8.101/hd-02   /SMB/SCP/HDD-02   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
-    '//192.168.8.101/hd-03   /SMB/SCP/HDD-03   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
-  )
+  FSTAB_LINES=()
 
   GRUB_CMDLINE_LINUX_DEFAULT_VALUE="loglevel=3 quiet splash"
   GRUB_TERMINAL_OUTPUT_VALUE="gfxterm"
@@ -120,8 +113,10 @@ set_service_restore_defaults() {
 
 load_service_restore_config() {
   local candidate
+  local -a loaded_configs=()
   local -a candidates=(
     "$SCRIPT_DIR/config/serv.restore.conf"
+    "$SCRIPT_DIR/config/local/serv.restore.conf"
     "$SCRIPT_DIR/serv.restore.conf"
   )
 
@@ -129,16 +124,20 @@ load_service_restore_config() {
 
   if [[ -n "${PROJECT_ROOT:-}" ]]; then
     candidates+=("$PROJECT_ROOT/config/serv.restore.conf")
+    candidates+=("$PROJECT_ROOT/config/local/serv.restore.conf")
   fi
 
   for candidate in "${candidates[@]}"; do
     if [[ -f "$candidate" ]]; then
       # shellcheck source=config/serv.restore.conf
       source "$candidate"
-      SERVICE_RESTORE_CONFIG="$candidate"
-      return 0
+      loaded_configs+=("$candidate")
     fi
   done
+
+  if [[ "${#loaded_configs[@]}" -gt 0 ]]; then
+    SERVICE_RESTORE_CONFIG="${loaded_configs[*]}"
+  fi
 }
 
 load_service_restore_config
@@ -344,6 +343,13 @@ restore_fstab() {
   local temp_fstab
 
   confirm_action "Restore fstab" || return 0
+  if [[ "${#FSTAB_LINES[@]}" -eq 0 ]]; then
+    log "No SMB fstab entries configured; add local entries in config/local/serv.restore.conf"
+    RUN_RESULT="skipped"
+    audit_log "action_skipped"
+    return 0
+  fi
+
   snapshot_target "/etc/fstab"
 
   log "Loading cifs kernel module"

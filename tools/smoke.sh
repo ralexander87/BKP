@@ -62,4 +62,10 @@ EOF
 rm -rf "$tmp"
 printf 'blank skip selection OK: bkp-main.sh\n'
 
+grep -Fq 'config/local/restore-dots-settings.sh' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'DOTS/config/local/restore-dots-settings.sh' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/bkp-serv.sh"
+printf 'local config copy paths OK\n'
+
 printf 'smoke OK\n'

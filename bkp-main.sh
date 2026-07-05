@@ -155,6 +155,7 @@ write_manifest() {
     printf 'backup_status=%s\n' "$RUN_RESULT"
     printf 'run_result=%s\n' "$RUN_RESULT"
     printf 'dots_source=%s\n' "$DOTS_SOURCE"
+    printf 'local_restore_dots_settings_hook=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')"
     printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
   } >"$manifest"
 
@@ -183,6 +184,9 @@ verify_backup_contents() {
   if [[ -d "$DOTS_DIR" ]]; then
     [[ -f "$DOTS_DIR/restore-dots.sh" ]] || die "missing expected backup item: DOTS/restore-dots.sh"
     [[ -f "$DOTS_DIR/lib/common.sh" ]] || die "missing expected backup item: DOTS/lib/common.sh"
+    if [[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]]; then
+      [[ -f "$DOTS_DIR/config/local/restore-dots-settings.sh" ]] || die "missing expected backup item: DOTS/config/local/restore-dots-settings.sh"
+    fi
   fi
 }
 

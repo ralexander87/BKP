@@ -168,7 +168,7 @@ Current options:
 Service restore fail-safes:
 
 - restore is blocked unless `backup_status` in `backup-manifest.txt` is `complete`
-- SMB directories, fstab lines, and GRUB target values are loaded from `config/serv.restore.conf` when present, with built-in defaults for older backups
+- SMB directories and GRUB target values are loaded from `config/serv.restore.conf` when present, with local fstab entries loaded from ignored `config/local/serv.restore.conf` when present
 - per-action confirmation prompts
 - automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
 - generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
@@ -225,7 +225,7 @@ If you answer `N`, the action is cancelled and the script returns to the menu.
 
 The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script.
 
-`config/serv.restore.conf` controls service restore values for SMB directories, fstab lines, and GRUB defaults. This file is copied into each `SERV` backup so restore behavior is tied to the backup that created it.
+`config/serv.restore.conf` controls public service restore values for SMB directories and GRUB defaults. Local fstab entries can be stored in ignored `config/local/serv.restore.conf`; when present, this local file is copied into each `SERV` backup so restore behavior is tied to the backup that created it without publishing private mount details.
 
 ## Development
 

@@ -129,6 +129,7 @@ write_manifest() {
     printf 'luks_header_file=%s\n' "$LUKS_HEADER_FILE"
     printf 'luks_header_created=%s\n' "$LUKS_HEADER_CREATED"
     printf 'service_restore_config=%s\n' "$PROJECT_ROOT/config/serv.restore.conf"
+    printf 'local_service_restore_config=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'present' || printf 'missing')"
     printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
     printf 'samba_creds_glob=%s\n' "/etc/samba/creds*"
   } >"$manifest"
@@ -275,6 +276,10 @@ verify_backup_contents() {
     [[ -e "$BACKUP_DIR/$required_item" ]] || die "missing expected backup item: $required_item"
   done
 
+  if [[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]]; then
+    [[ -f "$BACKUP_DIR/config/local/serv.restore.conf" ]] || die "missing expected backup item: config/local/serv.restore.conf"
+  fi
+
   if [[ "$LUKS_HEADER_CREATED" == "true" ]]; then
     [[ -f "$BACKUP_DIR/$LUKS_HEADER_FILE" ]] || die "missing expected backup item: $LUKS_HEADER_FILE"
   fi
@@ -395,6 +400,11 @@ mkdir -p "$BACKUP_DIR/lib"
 install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$BACKUP_DIR/lib/common.sh"
 mkdir -p "$BACKUP_DIR/config"
 install -m 0644 "$PROJECT_ROOT/config/serv.restore.conf" "$BACKUP_DIR/config/serv.restore.conf"
+if [[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]]; then
+  mkdir -p "$BACKUP_DIR/config/local"
+  install -m 0600 "$PROJECT_ROOT/config/local/serv.restore.conf" "$BACKUP_DIR/config/local/serv.restore.conf"
+  log "Copied local service restore config: $BACKUP_DIR/config/local/serv.restore.conf"
+fi
 log "Copied restore script: $BACKUP_DIR/restore-serv.sh"
 ui_update_task "serv-restore-script" "DONE" "copied"
 ui_render
