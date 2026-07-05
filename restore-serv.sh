@@ -94,7 +94,8 @@ set_service_restore_defaults() {
   SMB_DIRS=(
     "/SMB"
     "/SMB/euclid"
-    "/SMB/pneuma"
+    "/SMB/pneuma-kali"
+    "/SMB/pneuma-win"
     "/SMB/lateralus"
     "/SMB/SCP"
     "/SMB/SCP/HDD-01"
@@ -104,6 +105,8 @@ set_service_restore_defaults() {
 
   FSTAB_LINES=(
     '//192.168.8.20/d   /SMB/euclid   cifs   _netdev,credentials=/etc/samba/creds-euclid,uid=1000,gid=1000   0 0'
+    '//192.168.8.10/pneumasmb   /SMB/pneuma-kali   cifs   _netdev,credentials=/etc/samba/creds-pneuma,uid=1000,gid=1000   0 0'
+    '//192.168.8.11/e   /SMB/pneuma-win   cifs   _netdev,credentials=/etc/samba/creds-pneuma,uid=1000,gid=1000   0 0'
     '//192.168.8.101/hd-01   /SMB/SCP/HDD-01   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
     '//192.168.8.101/hd-02   /SMB/SCP/HDD-02   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'
     '//192.168.8.101/hd-03   /SMB/SCP/HDD-03   cifs   _netdev,credentials=/etc/samba/creds-scp,uid=1000,gid=1000   0 0'

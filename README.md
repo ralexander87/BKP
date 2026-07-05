@@ -161,7 +161,7 @@ Current options:
 - `1 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`.
 - `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`.
 - `3 - Restore SSH`: restores `sshd_config` to `/etc/ssh/`.
-- `4 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`, then sets ownership to the local non-root user and permissions to `750`.
+- `4 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-kali`, `/SMB/pneuma-win`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`, then sets ownership to the local non-root user and permissions to `750`.
 - `5 - Restore fstab`: runs `sudo modprobe cifs`, adds one blank line, then appends the SMB mount entries to `/etc/fstab`.
 - `6 - Restore GRUB`: updates `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path.
 
@@ -217,6 +217,7 @@ Current options:
 - `6 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
 - `7 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua`, `hypr/conf/monitor.lua`, and `hypr/conf/windowrules/default.lua` into their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/` subfolders, copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`, copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`, copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`, copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`, and restores `quickshell/CalendarApp`, `quickshell/CustomTheme`, `quickshell/PowerApp`, `quickshell/SidebarApp`, `quickshell/WallpaperApp`, and `quickshell/WelcomeApp` to their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/quickshell/` subfolders.
 - `8 - Install fonts`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup).
+- `9 - Restore ZSHRC`: moves an existing `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/zshrc` folder to a safety snapshot, then copies `zshrc` from the current `DOTS` folder.
 
 Each restore option asks for confirmation before changing local configuration.
 If you answer `N`, the action is cancelled and the script returns to the menu.

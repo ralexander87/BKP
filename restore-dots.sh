@@ -116,6 +116,7 @@ Select action:
   6 - Restore WAYBAR
   7 - Restore HYPR
   8 - Install FONTS
+  9 - Restore ZSHRC
 EOF
 }
 
@@ -293,6 +294,10 @@ restore_hypr() {
   log "Done: Restore HYPR"
 }
 
+restore_zshrc() {
+  restore_config_path "ZSHRC" "zshrc" "zshrc"
+}
+
 # Run BIG/fonts/install.sh from the backup device root to install fonts.
 install_fonts() {
   local device_root=""
@@ -362,6 +367,9 @@ while true; do
     ;;
   8)
     install_fonts
+    ;;
+  9)
+    restore_zshrc
     ;;
   *)
     log "Invalid selection: $selection"
