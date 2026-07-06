@@ -183,12 +183,15 @@ show_menu() {
   cat <<'EOF'
 Select action:
   0 - Exit
-  1 - Restore grub theme
+============================
+  1 - Create SMB
+============================
   2 - Restore samba
   3 - Restore SSH
-  4 - Create SMB
-  5 - Restore fstab
+  4 - Restore fstab
+  5 - Restore grub theme
   6 - Restore GRUB
+============================
 EOF
 }
 
@@ -475,7 +478,7 @@ while true; do
     exit 0
     ;;
   1)
-    restore_grub_theme
+    create_smb_tree
     ;;
   2)
     restore_samba
@@ -484,10 +487,10 @@ while true; do
     restore_ssh
     ;;
   4)
-    create_smb_tree
+    restore_fstab
     ;;
   5)
-    restore_fstab
+    restore_grub_theme
     ;;
   6)
     restore_grub_defaults

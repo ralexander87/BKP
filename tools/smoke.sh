@@ -50,6 +50,14 @@ printf '0\n' | (cd "$tmp" && ./restore-dots.sh >/dev/null)
 rm -rf "$tmp"
 printf 'exit path OK: restore-dots.sh\n'
 
+grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
+printf 'restore-dots settings menu OK\n'
+
+grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
+printf 'restore-serv menu OK\n'
+
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"

@@ -109,16 +109,19 @@ show_menu() {
   cat <<'EOF'
 Select action:
   0 - Exit
+============================
   1 - Install DOTS
-  2 - Restore Wallpapers
-  3 - Restore FastFetch
+  2 - Install FONTS
+============================
+  3 - Restore HYPR
   4 - Restore KITTY
-  5 - Restore ROFI
-  6 - Restore WAYBAR
-  7 - Restore HYPR
-  8 - Install FONTS
-  9 - Restore ZSHRC
-  10 - Restore Settings
+  5 - Restore ZSHRC
+  6 - Restore ROFI
+  7 - Restore WAYBAR
+  8 - Restore FastFetch
+  9 - Restore Wallpapers
+============================
+  99 - Restore Settings
 EOF
 }
 
@@ -377,30 +380,30 @@ while true; do
     install_dots
     ;;
   2)
-    restore_wallpapers
+    install_fonts
     ;;
   3)
-    restore_fastfetch
+    restore_hypr
     ;;
   4)
     restore_kitty
     ;;
   5)
-    restore_rofi
-    ;;
-  6)
-    restore_waybar
-    ;;
-  7)
-    restore_hypr
-    ;;
-  8)
-    install_fonts
-    ;;
-  9)
     restore_zshrc
     ;;
-  10)
+  6)
+    restore_rofi
+    ;;
+  7)
+    restore_waybar
+    ;;
+  8)
+    restore_fastfetch
+    ;;
+  9)
+    restore_wallpapers
+    ;;
+  99)
     restore_settings
     ;;
   *)
