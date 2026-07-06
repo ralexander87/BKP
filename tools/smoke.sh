@@ -51,7 +51,7 @@ rm -rf "$tmp"
 printf 'exit path OK: restore-dots.sh\n'
 
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '10 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '8 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
 printf 'restore-dots settings menu OK\n'

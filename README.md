@@ -76,11 +76,11 @@ Backup runs write terminal output, progress summaries, warnings, errors, and aud
 logs/bkp.log
 ```
 
-Each backup includes `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied folder list, and git commit when available.
+Each backup includes `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied folder list, git commit when available, and final dashboard status counters.
 
 Each main backup records `backup_status` in `backup-manifest.txt`. New restores are blocked when this value is not `complete`; older backups with a separate `backup.status` file still restore.
 
-Terminal output is intentionally minimal. The scripts show top-level folder status, current-folder transfer progress, and errors instead of printing every copied file.
+Terminal output is intentionally grouped. The backup scripts show a lightweight dashboard with task status, selected options, separator lines between task groups, recent warnings/errors, and a final success/failure summary instead of printing every copied file.
 
 Restore the main backup from inside a backup folder:
 
@@ -196,6 +196,7 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 `Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
 
 `bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder.
+When ignored `config/local/restore-dots-settings.sh` exists, it is copied into `DOTS/config/local/` and can be run by `99 - Restore Settings`.
 
 Run dotfiles restore actions from inside a backup `DOTS` folder:
 
@@ -216,9 +217,9 @@ Current options:
 - `5 - Restore ZSHRC`: moves an existing `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/zshrc` folder to a safety snapshot, then copies `zshrc` from the current `DOTS` folder.
 - `6 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder.
 - `7 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
-- `8 - Restore FastFetch`: moves the existing FastFetch folder to a safety snapshot, then copies `fastfetch` from the current `DOTS` folder.
-- `9 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot, then copies `ml4w/wallpapers` from the current `DOTS` folder.
-- `10 - Restore MATUGEN`: copies `matugen/config.toml` from the current `DOTS` folder to the matching ML4W config path.
+- `8 - Restore MATUGEN`: copies `matugen/config.toml` from the current `DOTS` folder to the matching ML4W config path.
+- `9 - Restore FASTFETCH`: moves the existing FastFetch folder to a safety snapshot, then copies `fastfetch` from the current `DOTS` folder.
+- `10 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot, then copies `ml4w/wallpapers` from the current `DOTS` folder.
 - `98 - Collect pre-restore`: moves `*-pre-restore-*` files and folders found under `$HOME` into `$HOME/PreRestored`.
 - `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path, then applies local wlogout style adjustments.
 
@@ -228,6 +229,8 @@ If you answer `N`, the action is cancelled and the script returns to the menu.
 The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script.
 
 `config/serv.restore.conf` controls public service restore values for SMB directories and GRUB defaults. Local fstab entries can be stored in ignored `config/local/serv.restore.conf`; when present, this local file is copied into each `SERV` backup so restore behavior is tied to the backup that created it without publishing private mount details.
+
+`config/local/` is intentionally ignored by Git. It is used for machine-local restore data such as fstab entries and optional dotfiles restore hooks. `doctor.sh` checks the latest mounted backups for these local files when they exist in the project.
 
 ## Development
 
@@ -262,6 +265,8 @@ Run a read-only post-reinstall readiness report:
 ```bash
 make doctor
 ```
+
+`doctor.sh` checks required commands, source paths, latest mounted backup structure, backup status markers, local ignored restore files when present, Git state, GitHub SSH authentication, and smoke-check prerequisites.
 
 ## Versioning
 

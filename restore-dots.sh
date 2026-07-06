@@ -118,9 +118,9 @@ Select action:
   5 - Restore ZSHRC
   6 - Restore ROFI
   7 - Restore WAYBAR
-  8 - Restore FastFetch
-  9 - Restore Wallpapers
-  10 - Restore MATUGEN
+  8 - Restore MATUGEN
+  9 - Restore FASTFETCH
+  10 - Restore Wallpapers
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -496,13 +496,13 @@ while true; do
     restore_waybar
     ;;
   8)
-    restore_fastfetch
+    restore_matugen
     ;;
   9)
-    restore_wallpapers
+    restore_fastfetch
     ;;
   10)
-    restore_matugen
+    restore_wallpapers
     ;;
   98)
     collect_pre_restore
