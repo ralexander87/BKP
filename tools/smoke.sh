@@ -78,4 +78,10 @@ grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/bkp-serv.sh"
 printf 'local config copy paths OK\n'
 
+grep -Fq 'ui_add_task_separator_after "main-Documents"' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'Copy restore-main.sh' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'ui_add_task_separator_after "serv-creds"' "$PROJECT_ROOT/bkp-serv.sh"
+grep -Fq 'Copy restore-serv.sh' "$PROJECT_ROOT/bkp-serv.sh"
+printf 'dashboard task grouping OK\n'
+
 printf 'smoke OK\n'

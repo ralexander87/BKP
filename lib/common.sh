@@ -33,6 +33,7 @@ declare -a UI_MESSAGES=()
 declare -A UI_TASK_LABELS=()
 declare -A UI_TASK_STATUS=()
 declare -A UI_TASK_DETAIL=()
+declare -A UI_TASK_SEPARATOR_AFTER=()
 
 # Shared rsync argument profiles for backup and restore operations.
 RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids --info=progress2)
@@ -293,6 +294,7 @@ ui_init() {
   UI_TASK_LABELS=()
   UI_TASK_STATUS=()
   UI_TASK_DETAIL=()
+  UI_TASK_SEPARATOR_AFTER=()
   UI_FINAL_STATE=""
   UI_FINAL_MESSAGE=""
 
@@ -345,6 +347,17 @@ ui_add_task() {
   UI_TASK_LABELS["$task_id"]="$label"
   UI_TASK_STATUS["$task_id"]="$status"
   UI_TASK_DETAIL["$task_id"]="$detail"
+}
+
+# Draw a separator line after a dashboard task row.
+ui_add_task_separator_after() {
+  local task_id="$1"
+  UI_TASK_SEPARATOR_AFTER["$task_id"]=true
+}
+
+# Print the visual divider used between dashboard task groups.
+ui_print_task_separator() {
+  printf '%s\n' "##########################################################################################"
 }
 
 # Update status and detail for an existing dashboard task.
@@ -497,6 +510,9 @@ ui_render() {
       "${UI_TASK_LABELS[$task_id]:0:24}" \
       "$(ui_status_cell "$status_raw")" \
       "$(ui_colorize_detail "$status_raw" "$detail_raw")"
+    if [[ "${UI_TASK_SEPARATOR_AFTER[$task_id]:-}" == "true" ]]; then
+      ui_print_task_separator
+    fi
     ((i += 1))
   done
 
@@ -527,6 +543,7 @@ ui_render() {
       ;;
     esac
     [[ -n "$UI_FINAL_MESSAGE" ]] && printf '%s\n' "$UI_FINAL_MESSAGE"
+    ui_print_task_separator
   fi
 }
 

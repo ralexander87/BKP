@@ -280,12 +280,17 @@ ui_add_meta "Skipped Folders" "$skip_display"
 for item in "${HOME_ITEMS[@]}"; do
   ui_add_task "main-$item" "$item"
 done
-ui_add_task "main-restore-script" "copy restore-main.sh"
-ui_add_task "main-dots" "backup DOTS"
-ui_add_task "main-dots-restore" "copy restore-dots.sh"
-ui_add_task "main-manifest" "write manifest"
+ui_add_task_separator_after "main-Documents"
+ui_add_task_separator_after "main-.ssh"
+ui_add_task "main-restore-script" "Copy restore-main.sh"
+ui_add_task "main-dots" "Backup DOTS"
+ui_add_task "main-dots-restore" "Copy restore-dots.sh"
+ui_add_task "main-manifest" "Write manifest"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
-  ui_add_task "main-archive" "create archive"
+  ui_add_task "main-archive" "Create archive"
+  ui_add_task_separator_after "main-archive"
+else
+  ui_add_task_separator_after "main-manifest"
 fi
 ui_render "force"
 
