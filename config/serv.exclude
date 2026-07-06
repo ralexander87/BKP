@@ -1,5 +1,0 @@
-# Skip generated or machine-specific service data.
-/etc/mtab
-*.pacnew
-*.pacsave
-

@@ -382,18 +382,6 @@ ui_color() {
   fi
 }
 
-# Return colorized status label used in task table.
-ui_colorize_status() {
-  local status="$1"
-  case "$status" in
-  DONE) ui_color "$UI_COLOR_DONE" "$status" ;;
-  RUNNING) ui_color "$UI_COLOR_RUNNING" "$status" ;;
-  SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$status" ;;
-  ERROR) ui_color "$UI_COLOR_ERROR" "$status" ;;
-  *) ui_color "$UI_COLOR_PENDING" "$status" ;;
-  esac
-}
-
 # Render padded status text so colors stay visible and stable in the status column.
 ui_status_cell() {
   local status="$1"

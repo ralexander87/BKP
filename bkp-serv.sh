@@ -56,7 +56,7 @@ preflight_checks() {
 path_size_bytes() {
   local path="$1"
 
-  [[ -e "$path" ]] || {
+  sudo test -e "$path" || {
     printf '0\n'
     return
   }
@@ -144,13 +144,13 @@ backup_path() {
   local source_path="$2"
   local base_name
 
-  if [[ -e "$source_path" ]]; then
+  if sudo test -e "$source_path"; then
     base_name="$(basename -- "$source_path")"
     log "Backing up: $source_path"
     ui_update_task "$task_id" "RUNNING" "copying $source_path"
     ui_render
 
-    if [[ -d "$source_path" ]]; then
+    if sudo test -d "$source_path"; then
       sudo_rsync_backup_copy "$source_path/" "$BACKUP_DIR/$base_name/"
     else
       sudo_rsync_backup_copy "$source_path" "$BACKUP_DIR/"
