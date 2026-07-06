@@ -101,7 +101,7 @@ EOF
 
 # Ensure base dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync cp mv mkdir mktemp sed
+  require_all_cmds rsync cp mv mkdir mktemp sed find
 }
 
 # Show the currently available dotfiles restore actions.
@@ -122,6 +122,7 @@ Select action:
   9 - Restore Wallpapers
   10 - Restore MATUGEN
 ============================
+  98 - Collect pre-restore
   99 - Restore Settings
 EOF
 }
@@ -327,6 +328,51 @@ restore_matugen() {
   log "Done: Restore MATUGEN"
 }
 
+unique_collect_target() {
+  local collect_dir="$1"
+  local source_path="$2"
+  local name
+  local candidate
+  local counter=1
+
+  name="$(basename -- "$source_path")"
+  candidate="$collect_dir/$name"
+  while [[ -e "$candidate" ]]; do
+    candidate="$collect_dir/$name-$counter"
+    counter=$((counter + 1))
+  done
+
+  printf '%s\n' "$candidate"
+}
+
+# Move pre-restore snapshots into one home folder for easier review/removal.
+collect_pre_restore() {
+  local collect_dir="$HOME/PreRestored"
+  local source_path
+  local target_path
+  local count=0
+  local -a source_paths=()
+
+  confirm_action "Collect pre-restore" || return 0
+  mkdir -p "$collect_dir"
+
+  mapfile -d '' -t source_paths < <(
+    find "$HOME" \
+      -path "$collect_dir" -prune -o \
+      -name '*-pre-restore-*' -print0 -type d -prune
+  )
+
+  for source_path in "${source_paths[@]}"; do
+    [[ -e "$source_path" ]] || continue
+    target_path="$(unique_collect_target "$collect_dir" "$source_path")"
+    log "Moving pre-restore snapshot: $source_path -> $target_path"
+    mv -- "$source_path" "$target_path"
+    count=$((count + 1))
+  done
+
+  log "Done: Collect pre-restore ($count item(s) moved to $collect_dir)"
+}
+
 run_restore_settings_local_hook() {
   [[ -f "$RESTORE_SETTINGS_LOCAL_HOOK" ]] || {
     log "Skipping local Restore Settings hook; not found: $RESTORE_SETTINGS_LOCAL_HOOK"
@@ -457,6 +503,9 @@ while true; do
     ;;
   10)
     restore_matugen
+    ;;
+  98)
+    collect_pre_restore
     ;;
   99)
     restore_settings
