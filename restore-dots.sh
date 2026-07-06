@@ -120,6 +120,7 @@ Select action:
   7 - Restore WAYBAR
   8 - Restore FastFetch
   9 - Restore Wallpapers
+  10 - Restore MATUGEN
 ============================
   99 - Restore Settings
 EOF
@@ -216,7 +217,7 @@ restore_config_file() {
   cp -a -- "$source_file" "$target_file"
 }
 
-# Restore one folder from DOTS into the matching ML4W config path after HYPR confirmation.
+# Restore one folder from DOTS into the matching ML4W config path after action confirmation.
 restore_config_folder() {
   local label="$1"
   local source_rel="$2"
@@ -231,6 +232,20 @@ restore_config_folder() {
   log "Restoring $label folder: $source_rel"
   mkdir -p "$(dirname -- "$target_dir")"
   rsync_restore_copy "$source_dir/" "$target_dir/"
+}
+
+# Normalize quickshell overview fonts after restoring the backed-up config.
+customize_quickshell_overview_config() {
+  local target_file="$ML4W_CONFIG_ROOT/quickshell/overview/config.json"
+
+  [[ -f "$target_file" ]] || die "quickshell overview config target file not found: $target_file"
+
+  log "Customizing quickshell overview config: $target_file"
+  sed -i -E \
+    -e 's|^([[:space:]]*"main":[[:space:]]*)"Fira Sans Semibold"|\1"Monofur Nerd Font"|' \
+    -e 's|^([[:space:]]*"title":[[:space:]]*)"Fira Sans Semibold"|\1"Monofur Nerd Font"|' \
+    -e 's|^([[:space:]]*"expressive":[[:space:]]*)"Fira Sans Semibold"|\1"Monofur Nerd Font"|' \
+    "$target_file"
 }
 
 # Replace the ML4W wallpapers folder from the current DOTS backup.
@@ -296,11 +311,20 @@ restore_hypr() {
   restore_config_folder "HYPR" "quickshell/SidebarApp" "quickshell/SidebarApp"
   restore_config_folder "HYPR" "quickshell/WallpaperApp" "quickshell/WallpaperApp"
   restore_config_folder "HYPR" "quickshell/WelcomeApp" "quickshell/WelcomeApp"
+  restore_config_file "HYPR" "quickshell/overview/config.json" "quickshell/overview/config.json"
+  customize_quickshell_overview_config
   log "Done: Restore HYPR"
 }
 
 restore_zshrc() {
   restore_config_path "ZSHRC" "zshrc" "zshrc"
+}
+
+# Restore the matugen theme generator config from DOTS.
+restore_matugen() {
+  confirm_action "Restore MATUGEN" || return 0
+  restore_config_file "MATUGEN" "matugen/config.toml" "matugen/config.toml"
+  log "Done: Restore MATUGEN"
 }
 
 run_restore_settings_local_hook() {
@@ -315,8 +339,28 @@ run_restore_settings_local_hook() {
   source "$RESTORE_SETTINGS_LOCAL_HOOK"
 }
 
+# Apply local visual preferences after restoring the backed-up wlogout glass theme.
+customize_wlogout_glass_style() {
+  local target_file="$ML4W_CONFIG_ROOT/wlogout/themes/glass/style.css"
+
+  [[ -f "$target_file" ]] || die "wlogout glass style target file not found: $target_file"
+
+  log "Customizing wlogout glass style: $target_file"
+  sed -i -E \
+    's|^([[:space:]]*)font-family:[[:space:]]*.+$|\1font-family: "Monofur Nerd Font", FontAwesome, Roboto, Helvetica, Arial, sans-serif;|' \
+    "$target_file"
+  sed -i 's|border-radius: 20px;|border-radius: 5px;|g' "$target_file"
+}
+
 restore_settings() {
   confirm_action "Restore Settings" || return 0
+
+  # Toolkit theme settings.
+  restore_config_file "Settings" "gtk-3.0/settings.ini" "gtk-3.0/settings.ini"
+  restore_config_file "Settings" "gtk-4.0/settings.ini" "gtk-4.0/settings.ini"
+  restore_config_file "Settings" "qt6ct/qt6ct.conf" "qt6ct/qt6ct.conf"
+
+  # ML4W settings files.
   restore_config_file "Settings" "ml4w/settings/filemanager" "ml4w/settings/filemanager"
   restore_config_file "Settings" "ml4w/settings/kitty-cursor-trail.conf" "ml4w/settings/kitty-cursor-trail.conf"
   restore_config_file "Settings" "ml4w/settings/rofi-border-radius.rasi" "ml4w/settings/rofi-border-radius.rasi"
@@ -325,7 +369,15 @@ restore_settings() {
   restore_config_file "Settings" "ml4w/settings/rofi_bordersize.sh" "ml4w/settings/rofi_bordersize.sh"
   restore_config_file "Settings" "ml4w/settings/screenshot-editor" "ml4w/settings/screenshot-editor"
   restore_config_file "Settings" "ml4w/settings/screenshot-folder" "ml4w/settings/screenshot-folder"
+  restore_config_file "Settings" "ml4w/settings/terminal.sh" "ml4w/settings/terminal.sh"
   restore_config_file "Settings" "ml4w/settings/waybar-quicklinks.json" "ml4w/settings/waybar-quicklinks.json"
+  restore_config_file "Settings" "ml4w/settings/waybar_quicklinks.sh" "ml4w/settings/waybar_quicklinks.sh"
+  restore_config_file "Settings" "ml4w/settings/waybar_workspaces.sh" "ml4w/settings/waybar_workspaces.sh"
+
+  # Wlogout theme plus local post-restore style edits.
+  restore_config_file "Settings" "wlogout/themes/glass/style.css" "wlogout/themes/glass/style.css"
+  customize_wlogout_glass_style
+
   run_restore_settings_local_hook
   log "Done: Restore Settings"
 }
@@ -402,6 +454,9 @@ while true; do
     ;;
   9)
     restore_wallpapers
+    ;;
+  10)
+    restore_matugen
     ;;
   99)
     restore_settings

@@ -226,6 +226,7 @@ restore_file_to_dir() {
   sudo_rsync_restore_copy "$source_file" "$target_dir/"
 }
 
+# Resolve the non-root desktop user for ownership and Samba account actions.
 local_non_root_user() {
   local local_user="${SUDO_USER:-${USER:-}}"
 
@@ -310,6 +311,7 @@ restore_samba() {
     sudo testparm -s >/dev/null || die "samba config validation failed"
   fi
 
+  # Optionally register the local desktop user with Samba after config validation.
   local_user="$(local_non_root_user)"
   read -r -p "Add local user to samba ? [Yy/Nn] " answer
   case "$answer" in
@@ -426,7 +428,7 @@ set_grub_assignment() {
   fi
 }
 
-# Update GRUB defaults in /etc/default/grub to the expected values.
+# Update GRUB defaults, then regenerate the boot menu from the restored values.
 restore_grub_defaults() {
   local temp_grub
 

@@ -211,14 +211,15 @@ Current options:
 - `0 - Exit`
 - `1 - Install DOTS`: moves `$HOME/.config/hypr` to a safety snapshot, then runs `bash <(curl -s https://ml4w.com/os/stable)`.
 - `2 - Install fonts`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup).
-- `3 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua`, `hypr/conf/monitor.lua`, and `hypr/conf/windowrules/default.lua` into their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/` subfolders, copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`, copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`, copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`, copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`, and restores `quickshell/CalendarApp`, `quickshell/CustomTheme`, `quickshell/PowerApp`, `quickshell/SidebarApp`, `quickshell/WallpaperApp`, and `quickshell/WelcomeApp` to their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/quickshell/` subfolders.
+- `3 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua`, `hypr/conf/monitor.lua`, and `hypr/conf/windowrules/default.lua` into their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/` subfolders, copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`, copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`, copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`, copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`, restores quickshell app folders, and applies local font adjustments to `quickshell/overview/config.json`.
 - `4 - Restore KITTY`: moves the existing KITTY folder to a safety snapshot, then copies `kitty` from the current `DOTS` folder.
 - `5 - Restore ZSHRC`: moves an existing `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/zshrc` folder to a safety snapshot, then copies `zshrc` from the current `DOTS` folder.
 - `6 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder.
 - `7 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
 - `8 - Restore FastFetch`: moves the existing FastFetch folder to a safety snapshot, then copies `fastfetch` from the current `DOTS` folder.
 - `9 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot, then copies `ml4w/wallpapers` from the current `DOTS` folder.
-- `99 - Restore Settings`: copies selected files from `ml4w/settings/` in the current `DOTS` folder to the matching ML4W config path.
+- `10 - Restore MATUGEN`: copies `matugen/config.toml` from the current `DOTS` folder to the matching ML4W config path.
+- `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path, then applies local wlogout style adjustments.
 
 Each restore option asks for confirmation before changing local configuration.
 If you answer `N`, the action is cancelled and the script returns to the menu.
