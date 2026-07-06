@@ -175,7 +175,7 @@ EOF
 
 # Ensure required dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync sudo cp sed grep tee modprobe findmnt install mktemp
+  require_all_cmds rsync sudo cp sed grep tee modprobe findmnt install mktemp grub-mkconfig
 }
 
 # Show currently available service restore actions.
@@ -226,6 +226,14 @@ restore_file_to_dir() {
   sudo_rsync_restore_copy "$source_file" "$target_dir/"
 }
 
+local_non_root_user() {
+  local local_user="${SUDO_USER:-${USER:-}}"
+
+  [[ -n "$local_user" ]] || local_user="$(id -un)"
+  [[ "$local_user" != "root" ]] || die "could not determine a non-root user"
+  printf '%s\n' "$local_user"
+}
+
 # Snapshot target path before modifying it and register rollback command.
 snapshot_target() {
   local target="$1"
@@ -266,6 +274,8 @@ restore_samba() {
   local source_smb="smb.conf"
   local source_samba_dir="$SCRIPT_DIR"
   local target_dir="/etc/samba"
+  local local_user
+  local answer
   local -a creds_files=()
   local creds_file
 
@@ -300,6 +310,22 @@ restore_samba() {
     sudo testparm -s >/dev/null || die "samba config validation failed"
   fi
 
+  local_user="$(local_non_root_user)"
+  read -r -p "Add local user to samba ? [Yy/Nn] " answer
+  case "$answer" in
+  [Yy])
+    require_cmd smbpasswd
+    log "Adding local user to samba: smbpasswd -a $local_user"
+    sudo smbpasswd -a "$local_user"
+    ;;
+  [Nn] | "")
+    log "Skipping samba user add for: $local_user"
+    ;;
+  *)
+    log "Skipping samba user add; invalid answer: $answer"
+    ;;
+  esac
+
   audit_log "action_completed"
   log "Done: Restore samba"
 }
@@ -320,13 +346,11 @@ restore_ssh() {
 
 # Create SMB folders and set ownership/perms for the local non-root user.
 create_smb_tree() {
-  local local_user="${SUDO_USER:-${USER:-}}"
+  local local_user
   local dir
 
-  [[ -n "$local_user" ]] || local_user="$(id -un)"
-  [[ "$local_user" != "root" ]] || die "could not determine a non-root user for ownership"
-
   confirm_action "Create SMB" || return 0
+  local_user="$(local_non_root_user)"
 
   for dir in "${SMB_DIRS[@]}"; do
     log "Ensuring SMB directory: $dir"
@@ -422,6 +446,8 @@ restore_grub_defaults() {
 
   grep -Fqx "GRUB_THEME=\"$GRUB_THEME_VALUE\"" "$temp_grub" || die "grub theme line validation failed"
   sudo install -m 0644 "$temp_grub" /etc/default/grub
+  log "Regenerating GRUB menu: /boot/grub/grub.cfg"
+  sudo grub-mkconfig -o /boot/grub/grub.cfg
   audit_log "action_completed"
   log "Done: Restore GRUB"
 }

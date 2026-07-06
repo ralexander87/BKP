@@ -159,11 +159,11 @@ Current options:
 
 - `0 - Exit`
 - `1 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-kali`, `/SMB/pneuma-win`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`, then sets ownership to the local non-root user and permissions to `750`.
-- `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`.
+- `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`, then optionally runs `sudo smbpasswd -a <local-user>`.
 - `3 - Restore SSH`: restores `sshd_config` to `/etc/ssh/`.
 - `4 - Restore fstab`: runs `sudo modprobe cifs`, adds one blank line, then appends the SMB mount entries to `/etc/fstab`.
 - `5 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`.
-- `6 - Restore GRUB`: updates `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path.
+- `6 - Restore GRUB`: updates `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path, then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`.
 
 Service restore fail-safes:
 
