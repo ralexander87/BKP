@@ -175,7 +175,7 @@ EOF
 
 # Ensure required dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync sudo cp mv chown sed grep tee modprobe findmnt install mktemp grub-mkconfig
+  require_all_cmds rsync sudo cp mv chown sed grep tee modprobe findmnt install mktemp grub-mkconfig systemctl
 }
 
 # Show currently available service restore actions.
@@ -329,6 +329,11 @@ restore_samba() {
     ;;
   esac
 
+  log "Enabling smb.service"
+  sudo systemctl enable smb.service
+  log "Starting smb.service"
+  sudo systemctl start smb.service
+
   audit_log "action_completed"
   log "Done: Restore samba"
 }
@@ -343,6 +348,10 @@ restore_ssh() {
   if command -v sshd >/dev/null 2>&1; then
     sudo sshd -t || die "sshd config validation failed"
   fi
+  log "Enabling sshd.service"
+  sudo systemctl enable sshd.service
+  log "Starting sshd.service"
+  sudo systemctl start sshd.service
   audit_log "action_completed"
   log "Done: Restore SSH"
 }

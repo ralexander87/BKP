@@ -113,7 +113,7 @@ printf 'BKP doctor\n'
 printf 'Project: %s\n\n' "$PROJECT_ROOT"
 
 printf 'Dependencies\n'
-for cmd in bash rsync pigz shellcheck shfmt git make flock findmnt df du install sudo cryptsetup lsblk tar curl numfmt awk sed grep tee; do
+for cmd in bash rsync pigz shellcheck shfmt git make flock findmnt df du install sudo cryptsetup lsblk tar curl numfmt awk sed grep tee systemctl; do
   check_cmd "$cmd"
 done
 
@@ -129,6 +129,7 @@ for path in \
   "$HOME/.themes" \
   "$HOME/.icons" \
   "$HOME/.ssh" \
+  "$HOME/.vscode-oss" \
   "$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config" \
   "/etc/samba/smb.conf" \
   "/etc/ssh/sshd_config" \

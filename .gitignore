@@ -17,6 +17,7 @@ restore-serv-rollback-*.sh
 *.local
 *.secret
 config/local/
+RESTORE-README.md
 
 # Temporary files
 *.tmp

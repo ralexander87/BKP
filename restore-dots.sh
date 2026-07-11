@@ -113,15 +113,15 @@ Select action:
   1 - Install DOTS
   2 - Install FONTS
 ============================
-  3 - Restore HYPR
-  4 - Restore KITTY
-  5 - Restore ZSHRC
-  6 - Restore ROFI
-  7 - Restore WAYBAR
-  8 - Restore MATUGEN
-  9 - Restore FASTFETCH
-  10 - Restore Wallpapers
-  11 - Install HyprMod
+  3 - Restore Wallpapers
+  4 - Install HyprMod
+  5 - Restore FASTFETCH
+  6 - Restore KITTY
+  7 - Restore ZSHRC
+  8 - Restore HYPR
+  9 - Restore ROFI
+  10 - Restore WAYBAR
+  11 - Restore MATUGEN
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -538,31 +538,31 @@ while true; do
     install_fonts
     ;;
   3)
-    restore_hypr
-    ;;
-  4)
-    restore_kitty
-    ;;
-  5)
-    restore_zshrc
-    ;;
-  6)
-    restore_rofi
-    ;;
-  7)
-    restore_waybar
-    ;;
-  8)
-    restore_matugen
-    ;;
-  9)
-    restore_fastfetch
-    ;;
-  10)
     restore_wallpapers
     ;;
-  11)
+  4)
     install_hyprmod
+    ;;
+  5)
+    restore_fastfetch
+    ;;
+  6)
+    restore_kitty
+    ;;
+  7)
+    restore_zshrc
+    ;;
+  8)
+    restore_hypr
+    ;;
+  9)
+    restore_rofi
+    ;;
+  10)
+    restore_waybar
+    ;;
+  11)
+    restore_matugen
     ;;
   98)
     collect_pre_restore

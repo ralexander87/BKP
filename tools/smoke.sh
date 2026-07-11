@@ -51,8 +51,10 @@ rm -rf "$tmp"
 printf 'exit path OK: restore-dots.sh\n'
 
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '8 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '11 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '3 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '4 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '8 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '11 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
@@ -62,6 +64,8 @@ printf 'restore-dots settings menu OK\n'
 grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'systemctl enable smb.service' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'systemctl enable sshd.service' "$PROJECT_ROOT/restore-serv.sh"
 printf 'restore-serv menu OK\n'
 
 tmp="$(mktemp -d)"
@@ -80,6 +84,8 @@ grep -Fq 'config/local/restore-dots-settings.sh' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'DOTS/config/local/restore-dots-settings.sh' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/bkp-serv.sh"
+grep -Fq '".vscode-oss"' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq '".vscode-oss"' "$PROJECT_ROOT/restore-main.sh"
 printf 'local config copy paths OK\n'
 
 grep -Fq 'ui_add_task_separator_after "main-Documents"' "$PROJECT_ROOT/bkp-main.sh"

@@ -101,6 +101,7 @@ estimate_backup_size_bytes() {
   local item path size
 
   for item in "${HOME_ITEMS[@]}"; do
+    [[ -n "${SKIP_HOME_ITEMS[$item]:-}" ]] && continue
     path="$HOME/$item"
     size="$(path_size_bytes "$path")"
     total=$((total + size))
