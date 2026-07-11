@@ -434,6 +434,9 @@ install_fonts() {
   local candidate_local="$SCRIPT_DIR/BIG/fonts/install.sh"
   local candidate_device=""
   local installer=""
+  local big_root=""
+  local steelfish_font=""
+  local target_font_dir="$HOME/.local/share/fonts"
 
   if device_root="$(cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)"; then
     candidate_device="$device_root/BIG/fonts/install.sh"
@@ -441,16 +444,28 @@ install_fonts() {
 
   if [[ -f "$candidate_device" ]]; then
     installer="$candidate_device"
+    big_root="$device_root/BIG"
   elif [[ -f "$candidate_local" ]]; then
     installer="$candidate_local"
+    big_root="$SCRIPT_DIR/BIG"
   else
     die "fonts installer not found. Expected BIG/fonts/install.sh on backup device"
   fi
+
+  steelfish_font="$big_root/Steelfish Outline.ttf"
+  [[ -f "$steelfish_font" ]] || die "Steelfish font file not found: $steelfish_font"
 
   require_cmd bash
   confirm_action "Install fonts" || return 0
   log "Running fonts installer: $installer"
   bash "$installer"
+  log "Installing font file: $steelfish_font -> $target_font_dir"
+  mkdir -p "$target_font_dir"
+  cp -a -- "$steelfish_font" "$target_font_dir/"
+  if command -v fc-cache >/dev/null 2>&1; then
+    log "Refreshing font cache: $target_font_dir"
+    fc-cache -f "$target_font_dir"
+  fi
   log "Done: Install fonts"
 }
 
