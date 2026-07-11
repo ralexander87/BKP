@@ -252,6 +252,7 @@ HOME_ITEMS=(
   ".themes"
   ".icons"
   ".ssh"
+  ".vscode-oss"
 )
 
 # Optional skip map keyed by item names selected in prompt_skip_home_items.
@@ -281,7 +282,7 @@ for item in "${HOME_ITEMS[@]}"; do
   ui_add_task "main-$item" "$item"
 done
 ui_add_task_separator_after "main-Documents"
-ui_add_task_separator_after "main-.ssh"
+ui_add_task_separator_after "main-.vscode-oss"
 ui_add_task "main-restore-script" "Copy restore-main.sh"
 ui_add_task "main-dots" "Backup DOTS"
 ui_add_task "main-dots-restore" "Copy restore-dots.sh"

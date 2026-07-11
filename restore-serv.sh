@@ -175,7 +175,7 @@ EOF
 
 # Ensure required dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync sudo cp sed grep tee modprobe findmnt install mktemp grub-mkconfig
+  require_all_cmds rsync sudo cp mv chown sed grep tee modprobe findmnt install mktemp grub-mkconfig
 }
 
 # Show currently available service restore actions.
@@ -192,6 +192,7 @@ Select action:
   5 - Restore grub theme
   6 - Restore GRUB
 ============================
+  98 - Collect pre-restore
 EOF
 }
 
@@ -454,6 +455,64 @@ restore_grub_defaults() {
   log "Done: Restore GRUB"
 }
 
+unique_collect_target() {
+  local collect_dir="$1"
+  local source_path="$2"
+  local name
+  local candidate
+  local counter=1
+
+  name="$(basename -- "$source_path")"
+  candidate="$collect_dir/$name"
+  while [[ -e "$candidate" ]]; do
+    candidate="$collect_dir/$name-$counter"
+    counter=$((counter + 1))
+  done
+
+  printf '%s\n' "$candidate"
+}
+
+# Move service pre-restore snapshots into the same home folder used by restore-dots.
+collect_pre_restore() {
+  local collect_dir="$HOME/PreRestored"
+  local local_user
+  local source_path
+  local target_path
+  local count=0
+  local -a search_dirs=(
+    "/etc"
+    "/etc/default"
+    "/etc/samba"
+    "/etc/ssh"
+    "/boot/grub/themes"
+  )
+  local -a source_paths=()
+  local dir
+
+  confirm_action "Collect pre-restore" || return 0
+  local_user="$(local_non_root_user)"
+  mkdir -p "$collect_dir"
+
+  mapfile -d '' -t source_paths < <(
+    for dir in "${search_dirs[@]}"; do
+      [[ -d "$dir" ]] || continue
+      sudo find "$dir" -maxdepth 1 -name '*-pre-restore-*' -print0
+    done
+  )
+
+  for source_path in "${source_paths[@]}"; do
+    [[ -e "$source_path" ]] || continue
+    target_path="$(unique_collect_target "$collect_dir" "$source_path")"
+    log "Moving pre-restore snapshot: $source_path -> $target_path"
+    sudo mv -- "$source_path" "$target_path"
+    sudo chown -R "$local_user:$local_user" "$target_path"
+    count=$((count + 1))
+  done
+
+  audit_log "action_completed"
+  log "Done: Collect pre-restore ($count item(s) moved to $collect_dir)"
+}
+
 # Initialize rollback helper script for this restore run.
 init_rollback_script() {
   cat >"$ROLLBACK_FILE" <<EOF
@@ -522,6 +581,9 @@ while true; do
     ;;
   6)
     restore_grub_defaults
+    ;;
+  98)
+    collect_pre_restore
     ;;
   *)
     log_warn "invalid selection: $selection"

@@ -121,6 +121,7 @@ Select action:
   8 - Restore MATUGEN
   9 - Restore FASTFETCH
   10 - Restore Wallpapers
+  11 - Install HyprMod
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -252,6 +253,19 @@ customize_quickshell_overview_config() {
 # Replace the ML4W wallpapers folder from the current DOTS backup.
 restore_wallpapers() {
   restore_config_path "Wallpapers" "ml4w/wallpapers" "ml4w/wallpapers"
+}
+
+# Run the ML4W HyprMod installer from the restored dotfiles tree.
+install_hyprmod() {
+  local installer="$ML4W_CONFIG_ROOT/ml4w/scripts/ml4w-install-hyprmod"
+
+  require_cmd bash
+  [[ -f "$installer" ]] || die "HyprMod installer not found: $installer"
+
+  confirm_action "Install HyprMod" || return 0
+  log "Running HyprMod installer: $installer"
+  bash "$installer"
+  log "Done: Install HyprMod"
 }
 
 # Replace the FastFetch config folder from the current DOTS backup.
@@ -398,6 +412,18 @@ customize_wlogout_glass_style() {
   sed -i 's|border-radius: 20px;|border-radius: 5px;|g' "$target_file"
 }
 
+customize_thunar_custom_actions() {
+  local target_file="$HOME/.config/Thunar/uca.xml"
+
+  if [[ ! -f "$target_file" ]]; then
+    log_warn "Skipping Thunar custom action update; file not found: $target_file"
+    return 0
+  fi
+
+  log "Customizing Thunar custom actions: $target_file"
+  sed -i -E 's|^([[:space:]]*)<command>.*</command>[[:space:]]*$|\1<command>kitty</command>|' "$target_file"
+}
+
 restore_settings() {
   confirm_action "Restore Settings" || return 0
 
@@ -423,6 +449,7 @@ restore_settings() {
   # Wlogout theme plus local post-restore style edits.
   restore_config_file "Settings" "wlogout/themes/glass/style.css" "wlogout/themes/glass/style.css"
   customize_wlogout_glass_style
+  customize_thunar_custom_actions
 
   run_restore_settings_local_hook
   log "Done: Restore Settings"
@@ -518,6 +545,9 @@ while true; do
     ;;
   10)
     restore_wallpapers
+    ;;
+  11)
+    install_hyprmod
     ;;
   98)
     collect_pre_restore

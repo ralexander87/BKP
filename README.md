@@ -164,6 +164,7 @@ Current options:
 - `4 - Restore fstab`: runs `sudo modprobe cifs`, adds one blank line, then appends the SMB mount entries to `/etc/fstab`.
 - `5 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`.
 - `6 - Restore GRUB`: updates `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path, then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`.
+- `98 - Collect pre-restore`: moves service `*-pre-restore-*` files and folders from known restore target locations into `$HOME/PreRestored`.
 
 Service restore fail-safes:
 
@@ -192,6 +193,7 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 - `.themes`
 - `.icons`
 - `.ssh`
+- `.vscode-oss`
 
 `Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
 
@@ -220,8 +222,9 @@ Current options:
 - `8 - Restore MATUGEN`: copies `matugen/config.toml` from the current `DOTS` folder to the matching ML4W config path.
 - `9 - Restore FASTFETCH`: moves the existing FastFetch folder to a safety snapshot, then copies `fastfetch` from the current `DOTS` folder.
 - `10 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot, then copies `ml4w/wallpapers` from the current `DOTS` folder.
+- `11 - Install HyprMod`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-install-hyprmod`.
 - `98 - Collect pre-restore`: moves `*-pre-restore-*` files and folders found under `$HOME` into `$HOME/PreRestored`.
-- `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path, then applies local wlogout style adjustments.
+- `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path, then applies local wlogout style adjustments and changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists.
 
 Each restore option asks for confirmation before changing local configuration.
 If you answer `N`, the action is cancelled and the script returns to the menu.

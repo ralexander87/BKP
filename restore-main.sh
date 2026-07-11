@@ -98,6 +98,7 @@ HOME_ITEMS=(
   ".themes"
   ".icons"
   ".ssh"
+  ".vscode-oss"
 )
 
 # Print command usage for help requests.
