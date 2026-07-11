@@ -55,6 +55,7 @@ grep -Fq '8 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '11 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
 printf 'restore-dots settings menu OK\n'
 

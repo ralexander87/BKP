@@ -424,6 +424,20 @@ customize_thunar_custom_actions() {
   sed -i -E 's|^([[:space:]]*)<command>.*</command>[[:space:]]*$|\1<command>kitty</command>|' "$target_file"
 }
 
+restore_qbittorrent_theme() {
+  local device_root=""
+  local source_file=""
+  local target_file="$HOME/.config/qBittorrent/dracula.qbtheme"
+
+  device_root="$(cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  source_file="$device_root/BIG/dracula.qbtheme"
+  [[ -f "$source_file" ]] || die "qBittorrent theme file not found: $source_file"
+
+  log "Restoring qBittorrent theme: $source_file -> $target_file"
+  mkdir -p "$(dirname -- "$target_file")"
+  cp -a -- "$source_file" "$target_file"
+}
+
 restore_settings() {
   confirm_action "Restore Settings" || return 0
 
@@ -450,6 +464,7 @@ restore_settings() {
   restore_config_file "Settings" "wlogout/themes/glass/style.css" "wlogout/themes/glass/style.css"
   customize_wlogout_glass_style
   customize_thunar_custom_actions
+  restore_qbittorrent_theme
 
   run_restore_settings_local_hook
   log "Done: Restore Settings"

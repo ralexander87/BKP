@@ -224,7 +224,7 @@ Current options:
 - `10 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot, then copies `ml4w/wallpapers` from the current `DOTS` folder.
 - `11 - Install HyprMod`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-install-hyprmod`.
 - `98 - Collect pre-restore`: moves `*-pre-restore-*` files and folders found under `$HOME` into `$HOME/PreRestored`.
-- `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path, then applies local wlogout style adjustments and changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists.
+- `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path, copies `BIG/dracula.qbtheme` from the backup device to `$HOME/.config/qBittorrent/dracula.qbtheme`, then applies local wlogout style adjustments and changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists.
 
 Each restore option asks for confirmation before changing local configuration.
 If you answer `N`, the action is cancelled and the script returns to the menu.
