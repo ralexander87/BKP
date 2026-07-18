@@ -175,7 +175,7 @@ EOF
 
 # Ensure required dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync sudo cp mv chown sed grep tee modprobe findmnt install mktemp grub-mkconfig systemctl
+  require_all_cmds rsync sudo cp mv chown chmod awk sed grep tee modprobe findmnt install mktemp grub-mkconfig systemctl
 }
 
 # Show currently available service restore actions.
@@ -375,10 +375,34 @@ create_smb_tree() {
   log "Done: Create SMB"
 }
 
-# Load cifs module and append SMB mount entries to /etc/fstab.
-restore_fstab() {
+# Replace entries for configured mountpoints in an fstab file.
+replace_managed_fstab_entries() {
+  local fstab_file="$1"
   local line
-  local -a new_lines=()
+  local mount_target
+  local filtered_fstab
+
+  filtered_fstab="$(mktemp)"
+  register_temp_path "$filtered_fstab"
+
+  for line in "${FSTAB_LINES[@]}"; do
+    read -r _ mount_target _ <<<"$line"
+    [[ -n "$mount_target" ]] || die "invalid configured fstab line: $line"
+
+    awk -v target="$mount_target" '
+      /^[[:space:]]*#/ || NF < 2 || $2 != target { print }
+    ' "$fstab_file" >"$filtered_fstab"
+    mv -- "$filtered_fstab" "$fstab_file"
+  done
+
+  printf '\n' >>"$fstab_file"
+  for line in "${FSTAB_LINES[@]}"; do
+    printf '%s\n' "$line" >>"$fstab_file"
+  done
+}
+
+# Replace configured SMB mount targets in /etc/fstab.
+restore_fstab() {
   local temp_fstab
 
   confirm_action "Restore fstab" || return 0
@@ -394,31 +418,18 @@ restore_fstab() {
   log "Loading cifs kernel module"
   sudo modprobe cifs
 
-  for line in "${FSTAB_LINES[@]}"; do
-    if ! sudo grep -Fqx "$line" /etc/fstab; then
-      new_lines+=("$line")
-    fi
-  done
+  temp_fstab="$(mktemp)"
+  register_temp_path "$temp_fstab"
+  sudo cp /etc/fstab "$temp_fstab"
 
-  if [[ "${#new_lines[@]}" -eq 0 ]]; then
-    log "All SMB fstab entries already exist; no append needed"
-  else
-    temp_fstab="$(mktemp)"
-    register_temp_path "$temp_fstab"
-    sudo cp /etc/fstab "$temp_fstab"
-
-    log "Appending missing SMB mount entries to /etc/fstab (atomic update)"
-    printf '\n' >>"$temp_fstab"
-    for line in "${new_lines[@]}"; do
-      printf '%s\n' "$line" >>"$temp_fstab"
-    done
-
-    sudo install -m 0644 "$temp_fstab" /etc/fstab
-  fi
+  log "Replacing configured SMB mount entries in /etc/fstab (atomic update)"
+  replace_managed_fstab_entries "$temp_fstab"
 
   if command -v findmnt >/dev/null 2>&1; then
-    sudo findmnt --verify >/dev/null || die "fstab validation failed"
+    findmnt --verify --tab-file "$temp_fstab" >/dev/null || die "fstab validation failed"
   fi
+
+  sudo install -m 0644 "$temp_fstab" /etc/fstab
 
   audit_log "action_completed"
   log "Done: Restore fstab"
@@ -481,10 +492,44 @@ unique_collect_target() {
   printf '%s\n' "$candidate"
 }
 
+update_rollback_snapshot_path() {
+  local old_path="$1"
+  local new_path="$2"
+  local old_escaped
+  local new_escaped
+  local rollback_file
+  local rollback_temp
+  local -a rollback_files=()
+
+  printf -v old_escaped '%q' "$old_path"
+  printf -v new_escaped '%q' "$new_path"
+
+  shopt -s nullglob
+  rollback_files=("$SCRIPT_DIR"/restore-serv-rollback-*.sh)
+  shopt -u nullglob
+
+  for rollback_file in "${rollback_files[@]}"; do
+    grep -Fq "$old_escaped" "$rollback_file" || continue
+    rollback_temp="$(mktemp)"
+    register_temp_path "$rollback_temp"
+    awk -v old="$old_escaped" -v new="$new_escaped" '
+      {
+        line = $0
+        while ((position = index(line, old)) > 0) {
+          line = substr(line, 1, position - 1) new substr(line, position + length(old))
+        }
+        print line
+      }
+    ' "$rollback_file" >"$rollback_temp"
+    chmod --reference="$rollback_file" "$rollback_temp"
+    mv -- "$rollback_temp" "$rollback_file"
+    log "Updated rollback snapshot path: $rollback_file"
+  done
+}
+
 # Move service pre-restore snapshots into the same home folder used by restore-dots.
 collect_pre_restore() {
   local collect_dir="$HOME/PreRestored"
-  local local_user
   local source_path
   local target_path
   local count=0
@@ -499,7 +544,6 @@ collect_pre_restore() {
   local dir
 
   confirm_action "Collect pre-restore" || return 0
-  local_user="$(local_non_root_user)"
   mkdir -p "$collect_dir"
 
   mapfile -d '' -t source_paths < <(
@@ -514,7 +558,7 @@ collect_pre_restore() {
     target_path="$(unique_collect_target "$collect_dir" "$source_path")"
     log "Moving pre-restore snapshot: $source_path -> $target_path"
     sudo mv -- "$source_path" "$target_path"
-    sudo chown -R "$local_user:$local_user" "$target_path"
+    update_rollback_snapshot_path "$source_path" "$target_path"
     count=$((count + 1))
   done
 

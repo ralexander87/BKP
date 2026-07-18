@@ -47,8 +47,8 @@ preflight_checks() {
     sudo test -e "$path" || die "required source path missing: $path"
   done
 
-  if ! sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' | grep -q .; then
-    log_warn "no /etc/samba/creds* files found"
+  if ! sudo find /etc/samba -maxdepth 1 -type f -name 'creds-*' | grep -q .; then
+    log_warn "no /etc/samba/creds-* files found"
   fi
 }
 
@@ -64,7 +64,7 @@ path_size_bytes() {
   sudo du -sb "$path" 2>/dev/null | awk '{ print $1 }'
 }
 
-# Estimate source size for selected service paths and samba creds* files.
+# Estimate source size for selected service paths and samba creds-* files.
 estimate_backup_size_bytes() {
   local total=0
   local item size
@@ -75,7 +75,7 @@ estimate_backup_size_bytes() {
     total=$((total + size))
   done
 
-  mapfile -t creds_files < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' 2>/dev/null || true)
+  mapfile -t creds_files < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds-*' 2>/dev/null || true)
   for item in "${creds_files[@]}"; do
     size="$(path_size_bytes "$item")"
     total=$((total + size))
@@ -131,7 +131,7 @@ write_manifest() {
     printf 'service_restore_config=%s\n' "$PROJECT_ROOT/config/serv.restore.conf"
     printf 'local_service_restore_config=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'present' || printf 'missing')"
     printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
-    printf 'samba_creds_glob=%s\n' "/etc/samba/creds*"
+    printf 'samba_creds_glob=%s\n' "/etc/samba/creds-*"
   } >"$manifest"
 
   MANIFEST_FILE="$manifest"
@@ -379,15 +379,15 @@ backup_path "serv-theme" "/boot/grub/themes/lateralus"
 backup_path "serv-grub" "/etc/default/grub"
 backup_path "serv-mkinitcpio" "/etc/mkinitcpio.conf"
 
-# Back up all samba creds* files.
-ui_update_task "serv-creds" "RUNNING" "scanning /etc/samba/creds*"
+# Back up all samba creds-* files.
+ui_update_task "serv-creds" "RUNNING" "scanning /etc/samba/creds-*"
 ui_render
 creds_found=false
 while IFS= read -r creds_file; do
   [[ -n "$creds_file" ]] || continue
   creds_found=true
   backup_path "serv-creds" "$creds_file"
-done < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds*' 2>/dev/null || true)
+done < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds-*' 2>/dev/null || true)
 if [[ "$creds_found" == "false" ]]; then
   ui_update_task "serv-creds" "SKIPPED" "no creds-* files found"
   ui_render

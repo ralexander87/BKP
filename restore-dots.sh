@@ -283,23 +283,16 @@ restore_rofi() {
   restore_config_path "ROFI" "rofi" "rofi"
 }
 
-# Save the current WAYBAR themes as themes-bkp, then restore backed-up themes.
+# Snapshot the current WAYBAR themes, then restore backed-up themes.
 restore_waybar() {
   local source_dir="$SCRIPT_DIR/waybar/themes"
   local target_dir="$ML4W_CONFIG_ROOT/waybar/themes"
-  local backup_dir="$ML4W_CONFIG_ROOT/waybar/themes-bkp"
 
   require_cmd rsync
   [[ -d "$source_dir" ]] || die "waybar themes source folder not found: $source_dir"
 
   confirm_action "Restore WAYBAR" || return 0
-  if [[ -e "$target_dir" ]]; then
-    [[ ! -e "$backup_dir" ]] || die "backup folder already exists: $backup_dir"
-    log "Renaming: $target_dir -> $backup_dir"
-    mv -- "$target_dir" "$backup_dir"
-  else
-    log "Skipping rename; target folder not found: $target_dir"
-  fi
+  snapshot_existing_target "$target_dir"
 
   log "Restoring WAYBAR themes from: $source_dir"
   mkdir -p "$(dirname -- "$target_dir")"

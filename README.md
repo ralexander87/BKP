@@ -120,7 +120,7 @@ Service backup:
 It requests root authentication at startup, then backs up:
 
 - `/etc/samba/smb.conf`
-- `/etc/samba/creds*`
+- `/etc/samba/creds-*`
 - `/etc/ssh/sshd_config`
 - `/boot/grub/themes/lateralus/`
 - `/etc/default/grub`
@@ -161,10 +161,10 @@ Current options:
 - `1 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-kali`, `/SMB/pneuma-win`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`, then sets ownership to the local non-root user and permissions to `750`.
 - `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`, optionally runs `sudo smbpasswd -a <local-user>`, then enables and starts `smb.service`.
 - `3 - Restore SSH`: restores `sshd_config` to `/etc/ssh/`, then enables and starts `sshd.service`.
-- `4 - Restore fstab`: runs `sudo modprobe cifs`, adds one blank line, then appends the SMB mount entries to `/etc/fstab`.
+- `4 - Restore fstab`: runs `sudo modprobe cifs`, replaces existing entries for the configured SMB mountpoints, validates the generated table, then atomically installs it as `/etc/fstab`.
 - `5 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`.
 - `6 - Restore GRUB`: updates `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path, then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`.
-- `98 - Collect pre-restore`: moves service `*-pre-restore-*` files and folders from known restore target locations into `$HOME/PreRestored`.
+- `98 - Collect pre-restore`: moves service `*-pre-restore-*` files and folders from known restore target locations into `$HOME/PreRestored`, preserves their ownership, and updates generated rollback scripts to the new paths.
 
 Service restore fail-safes:
 
@@ -173,7 +173,7 @@ Service restore fail-safes:
 - per-action confirmation prompts
 - automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
 - generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
-- idempotent `fstab` updates (only missing lines are appended)
+- idempotent `fstab` updates by configured mountpoint (stale entries for those mountpoints are replaced)
 - atomic file update flow for `/etc/fstab` and `/etc/default/grub` (temp file + install)
 - post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
 - permission hardening for sensitive files (`/etc/samba/creds-*`, `/etc/ssh/sshd_config`)
@@ -221,7 +221,7 @@ Current options:
 - `7 - Restore ZSHRC`: moves an existing `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/zshrc` folder to a safety snapshot, then copies `zshrc` from the current `DOTS` folder.
 - `8 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua`, `hypr/conf/monitor.lua`, and `hypr/conf/windowrules/default.lua` into their matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/` subfolders, copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`, copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`, copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`, copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`, restores quickshell app folders, and applies local font adjustments to `quickshell/overview/config.json`.
 - `9 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder.
-- `10 - Restore WAYBAR`: renames `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/themes` to `themes-bkp`, then copies `waybar/themes` from the current `DOTS` folder.
+- `10 - Restore WAYBAR`: moves the existing Waybar themes folder to a timestamped pre-restore snapshot, then copies `waybar/themes` from the current `DOTS` folder.
 - `11 - Restore MATUGEN`: copies `matugen/config.toml` from the current `DOTS` folder to the matching ML4W config path.
 - `98 - Collect pre-restore`: moves `*-pre-restore-*` files and folders found under `$HOME` into `$HOME/PreRestored`.
 - `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path, copies `BIG/dracula.qbtheme` from the backup device to `$HOME/.config/qBittorrent/dracula.qbtheme`, then applies local wlogout style adjustments and changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists.
