@@ -137,6 +137,42 @@ rm -rf "$tmp"
 printf 'restore-serv managed fstab and rollback path OK\n'
 
 tmp="$(mktemp -d)"
+mkdir -p "$tmp/bin" "$tmp/lib"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+cat >"$tmp/bin/findmnt" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == *"TARGET,SOURCE,FSTYPE"* ]]; then
+  printf '%s\n' '/run/media/ralexander/HD4-04 /dev/sdd1 ext4'
+  printf '%s\n' '/run/media/ralexander/1\x20TB\x20SSD /dev/sde1 ext4'
+  exit 0
+fi
+exit 1
+EOF
+cat >"$tmp/bin/lsblk" <<'EOF'
+#!/usr/bin/env bash
+case "${@: -1}" in
+/dev/sdd1) printf '%s\n' 'HD4-04' ;;
+/dev/sde1) printf '%s\n' '1 TB SSD' ;;
+*) exit 1 ;;
+esac
+EOF
+cat >"$tmp/bin/df" <<'EOF'
+#!/usr/bin/env bash
+target="${@: -1}"
+printf '%s\n' 'Filesystem 1024-blocks Used Available Capacity Mounted on'
+printf '%s\n' "/dev/mock 100 1 1.2T 1% $target"
+EOF
+chmod +x "$tmp/bin/findmnt" "$tmp/bin/lsblk" "$tmp/bin/df"
+(cd "$tmp" && PATH="$tmp/bin:$PATH" bash -c '
+  source lib/common.sh
+  mapfile -t mounts < <(list_external_mounts)
+  [[ "${#mounts[@]}" -eq 2 ]]
+  [[ "${mounts[1]}" == "/run/media/ralexander/1 TB SSD|/dev/sde1|ext4|1 TB SSD|1.2T free" ]]
+')
+rm -rf "$tmp"
+printf 'external mount picker path decoding OK\n'
+
+tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
 awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"

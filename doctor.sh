@@ -43,6 +43,10 @@ latest_backup_dir() {
   find "$root" -maxdepth 1 -type d -name 'BKP-*' 2>/dev/null | sort | tail -n 1
 }
 
+decode_findmnt_path() {
+  printf '%b' "$1"
+}
+
 check_main_backup() {
   local backup_dir="$1"
   local manifest_file="$backup_dir/backup-manifest.txt"
@@ -149,6 +153,8 @@ if [[ "${#mounts[@]}" -eq 0 ]]; then
 else
   for mount in "${mounts[@]}"; do
     IFS='|' read -r target source fstype <<<"$mount"
+    target="$(decode_findmnt_path "$target")"
+    source="$(decode_findmnt_path "$source")"
     ok "mounted backup candidate: $target ($source, $fstype)"
     check_main_backup "$(latest_backup_dir "$target/MAIN")"
     check_serv_backup "$(latest_backup_dir "$target/SERV")"

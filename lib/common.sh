@@ -204,6 +204,11 @@ system_hostname() {
   printf '%s\n' "$name"
 }
 
+# Decode findmnt's escaped path bytes, for example "\x20" in mount names.
+decode_findmnt_path() {
+  printf '%b' "$1"
+}
+
 # Return likely external/removable mount details from real block devices.
 list_external_mounts() {
   require_cmd findmnt
@@ -213,19 +218,19 @@ list_external_mounts() {
       $2 ~ "^/dev/" &&
       $1 ~ "^(/media/|/run/media/|/mnt/)" &&
       $3 !~ "^(swap|tmpfs|devtmpfs|proc|sysfs|cgroup|cgroup2|overlay|squashfs)$" {
-        print $1
+        print $1 "|" $2 "|" $3
       }
     ' |
-    while IFS= read -r target; do
-      local source fstype label avail
-      source="$(findmnt -rn -o SOURCE --target "$target")"
-      fstype="$(findmnt -rn -o FSTYPE --target "$target")"
+    while IFS='|' read -r target source fstype; do
+      local label avail
+      target="$(decode_findmnt_path "$target")"
+      source="$(decode_findmnt_path "$source")"
       label="-"
       if command -v lsblk >/dev/null 2>&1; then
-        label="$(lsblk -no LABEL "$source" 2>/dev/null | head -n 1)"
+        label="$(lsblk -no LABEL "$source" 2>/dev/null | head -n 1 || true)"
         label="${label:-"-"}"
       fi
-      avail="$(df -hP "$target" 2>/dev/null | awk 'NR == 2 { print $4 " free" }')"
+      avail="$(df -hP "$target" 2>/dev/null | awk 'NR == 2 { print $4 " free" }' || true)"
       avail="${avail:-"unknown free"}"
       printf '%s|%s|%s|%s|%s\n' "$target" "$source" "$fstype" "$label" "$avail"
     done
