@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load shared helpers when bundled, but keep this restore script usable by itself.
 # BEGIN RESTORE BOOTSTRAP
+# Load bundled shared helpers, or define a minimal fallback for old backups.
 load_restore_helpers() {
   local helper
 
@@ -90,6 +91,7 @@ STATUS_FILE="$SCRIPT_DIR/backup.status"
 MANIFEST_FILE="$SCRIPT_DIR/backup-manifest.txt"
 SERVICE_RESTORE_CONFIG=""
 
+# Set built-in restore values before any bundled or local config overrides.
 set_service_restore_defaults() {
   SMB_DIRS=(
     "/SMB"
@@ -111,6 +113,7 @@ set_service_restore_defaults() {
   GRUB_THEME_VALUE="/boot/grub/themes/lateralus/theme.txt"
 }
 
+# Load service restore config files from the backup first, then project-local fallbacks.
 load_service_restore_config() {
   local candidate
   local -a loaded_configs=()
@@ -435,6 +438,7 @@ restore_fstab() {
   log "Done: Restore fstab"
 }
 
+# Set or append one quoted GRUB assignment inside a temp config file.
 set_grub_assignment() {
   local file="$1"
   local key="$2"
@@ -475,6 +479,7 @@ restore_grub_defaults() {
   log "Done: Restore GRUB"
 }
 
+# Return a non-conflicting target path inside the PreRestored collection folder.
 unique_collect_target() {
   local collect_dir="$1"
   local source_path="$2"
@@ -492,6 +497,7 @@ unique_collect_target() {
   printf '%s\n' "$candidate"
 }
 
+# Rewrite generated rollback scripts after a snapshot is moved into PreRestored.
 update_rollback_snapshot_path() {
   local old_path="$1"
   local new_path="$2"

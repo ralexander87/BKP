@@ -251,6 +251,7 @@ verify_destination_mount() {
   [[ -w "$DEST_DEVICE" ]] || die "destination is not writable: $DEST_DEVICE"
 }
 
+# Update run status in memory and persist it through the manifest.
 set_backup_status() {
   local status="$1"
   RUN_RESULT="$status"

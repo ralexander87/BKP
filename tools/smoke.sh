@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Verify a restore script can show help without bundled shared helpers.
 run_standalone_help() {
   local script="$1"
   local tmp
@@ -15,6 +16,7 @@ run_standalone_help() {
   printf 'standalone help OK: %s\n' "$script"
 }
 
+# Verify a restore script can show help with bundled shared helpers.
 run_bundled_help() {
   local script="$1"
   local tmp
@@ -29,6 +31,7 @@ run_bundled_help() {
   printf 'bundled help OK: %s\n' "$script"
 }
 
+# Assert that a menu selection dispatches to the expected function.
 assert_dispatch() {
   local script="$1"
   local selection="$2"

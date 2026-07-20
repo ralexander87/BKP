@@ -164,12 +164,14 @@ write_manifest() {
   log "Wrote manifest: $manifest"
 }
 
+# Update run status in memory and persist it through the manifest.
 set_backup_status() {
   local status="$1"
   RUN_RESULT="$status"
   write_manifest
 }
 
+# Verify required files exist before the backup is marked complete.
 verify_backup_contents() {
   local required_item
   local -a required_items=(
@@ -191,6 +193,7 @@ verify_backup_contents() {
   fi
 }
 
+# Persist final complete/failed status when the script exits.
 finalize_status() {
   local exit_code="$1"
 

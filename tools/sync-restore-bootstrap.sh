@@ -10,6 +10,7 @@ restore_scripts=(
   "$project_root/restore-dots.sh"
 )
 
+# Replace the generated bootstrap block in one restore script.
 replace_bootstrap() {
   local script="$1"
   local tmp
@@ -39,6 +40,7 @@ replace_bootstrap() {
   rm -f "$tmp"
 }
 
+# Compare one restore script's generated bootstrap block with the source copy.
 check_bootstrap() {
   local script="$1"
   local tmp

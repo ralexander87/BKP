@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load shared helpers when bundled, but keep this restore script usable by itself.
 # BEGIN RESTORE BOOTSTRAP
+# Load bundled shared helpers, or define a minimal fallback for old backups.
 load_restore_helpers() {
   local helper
 
@@ -324,6 +325,7 @@ restore_hypr() {
   log "Done: Restore HYPR"
 }
 
+# Replace the backed-up zshrc config folder in the ML4W config tree.
 restore_zshrc() {
   restore_config_path "ZSHRC" "zshrc" "zshrc"
 }
@@ -335,6 +337,7 @@ restore_matugen() {
   log "Done: Restore MATUGEN"
 }
 
+# Return a non-conflicting target path inside the PreRestored collection folder.
 unique_collect_target() {
   local collect_dir="$1"
   local source_path="$2"
@@ -380,6 +383,7 @@ collect_pre_restore() {
   log "Done: Collect pre-restore ($count item(s) moved to $collect_dir)"
 }
 
+# Run the optional ignored local hook for machine-specific settings restore steps.
 run_restore_settings_local_hook() {
   [[ -f "$RESTORE_SETTINGS_LOCAL_HOOK" ]] || {
     log "Skipping local Restore Settings hook; not found: $RESTORE_SETTINGS_LOCAL_HOOK"
@@ -405,6 +409,7 @@ customize_wlogout_glass_style() {
   sed -i 's|border-radius: 20px;|border-radius: 5px;|g' "$target_file"
 }
 
+# Point Thunar custom actions at kitty after restoring backed-up settings.
 customize_thunar_custom_actions() {
   local target_file="$HOME/.config/Thunar/uca.xml"
 
@@ -417,6 +422,7 @@ customize_thunar_custom_actions() {
   sed -i -E 's|^([[:space:]]*)<command>.*</command>[[:space:]]*$|\1<command>kitty</command>|' "$target_file"
 }
 
+# Copy the qBittorrent Dracula theme from the backup device BIG folder.
 restore_qbittorrent_theme() {
   local device_root=""
   local source_file=""
@@ -431,6 +437,7 @@ restore_qbittorrent_theme() {
   cp -a -- "$source_file" "$target_file"
 }
 
+# Restore selected desktop settings and apply local post-restore customizations.
 restore_settings() {
   confirm_action "Restore Settings" || return 0
 

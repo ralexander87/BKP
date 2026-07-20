@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load shared helpers when bundled, but keep this restore script usable by itself.
 # BEGIN RESTORE BOOTSTRAP
+# Load bundled shared helpers, or define a minimal fallback for old backups.
 load_restore_helpers() {
   local helper
 
@@ -139,6 +140,7 @@ snapshot_existing_target() {
   mv -- "$target" "$snapshot"
 }
 
+# Block restore from incomplete backups while allowing older backup status formats.
 verify_backup_status() {
   local manifest_status=""
 

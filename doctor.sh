@@ -4,13 +4,19 @@ set -Eeuo pipefail
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 EXIT_CODE=0
 
+# Print a successful doctor check line.
 ok() { printf '[OK] %s\n' "$*"; }
+
+# Print a non-fatal doctor warning line.
 warn() { printf '[WARN] %s\n' "$*"; }
+
+# Print a failed check line and remember the failing exit status.
 fail() {
   printf '[FAIL] %s\n' "$*"
   EXIT_CODE=1
 }
 
+# Check that a required command is available in PATH.
 check_cmd() {
   local cmd="$1"
   if command -v "$cmd" >/dev/null 2>&1; then
@@ -20,6 +26,7 @@ check_cmd() {
   fi
 }
 
+# Check that an expected local source path exists.
 check_path() {
   local path="$1"
   if [[ -e "$path" ]]; then
@@ -29,6 +36,7 @@ check_path() {
   fi
 }
 
+# Check that a required file exists inside a discovered backup.
 check_file_in_backup() {
   local file="$1"
   if [[ -e "$file" ]]; then
@@ -38,15 +46,18 @@ check_file_in_backup() {
   fi
 }
 
+# Return the newest BKP-* directory under a backup root.
 latest_backup_dir() {
   local root="$1"
   find "$root" -maxdepth 1 -type d -name 'BKP-*' 2>/dev/null | sort | tail -n 1
 }
 
+# Decode findmnt path escapes before printing paths for humans.
 decode_findmnt_path() {
   printf '%b' "$1"
 }
 
+# Validate the latest MAIN backup layout and status markers.
 check_main_backup() {
   local backup_dir="$1"
   local manifest_file="$backup_dir/backup-manifest.txt"
@@ -82,6 +93,7 @@ check_main_backup() {
   fi
 }
 
+# Validate the latest SERV backup layout and status markers.
 check_serv_backup() {
   local backup_dir="$1"
   local status_file="$backup_dir/backup.status"

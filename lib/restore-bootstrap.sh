@@ -1,3 +1,4 @@
+# Load bundled shared helpers, or define a minimal fallback for old backups.
 load_restore_helpers() {
   local helper
 
