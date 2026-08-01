@@ -78,7 +78,7 @@ grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'confirm_yes_no "Start $label?" "Y"' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "confirm_yes_no \"Start \$label?\" \"Y\"" "$PROJECT_ROOT/restore-dots.sh"
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_dots
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 restore_wallpapers
