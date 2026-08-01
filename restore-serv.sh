@@ -416,10 +416,10 @@ restore_fstab() {
     return 0
   fi
 
-  snapshot_target "/etc/fstab"
-
   log "Loading cifs kernel module"
   sudo modprobe cifs
+
+  snapshot_target "/etc/fstab"
 
   temp_fstab="$(mktemp)"
   register_temp_path "$temp_fstab"

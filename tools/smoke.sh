@@ -78,6 +78,7 @@ grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'confirm_yes_no "Start $label?" "Y"' "$PROJECT_ROOT/restore-dots.sh"
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_dots
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 restore_wallpapers
@@ -105,6 +106,20 @@ assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 4 restore_fstab
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 5 restore_grub_theme
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 6 restore_grub_defaults
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 98 collect_pre_restore
+awk '
+  /^restore_fstab\(\) / { in_func = 1 }
+  in_func && /sudo modprobe cifs/ { modprobe_seen = 1 }
+  in_func && /sudo install -m 0644 "\$temp_fstab" \/etc\/fstab/ {
+    install_seen = 1
+    if (!modprobe_seen) {
+      exit 1
+    }
+  }
+  in_func && /^}/ { exit(modprobe_seen && install_seen ? 0 : 1) }
+' "$PROJECT_ROOT/restore-serv.sh" || {
+  printf 'restore_fstab must run sudo modprobe cifs before installing /etc/fstab\n' >&2
+  exit 1
+}
 printf 'restore-serv menu OK\n'
 
 tmp="$(mktemp -d)"

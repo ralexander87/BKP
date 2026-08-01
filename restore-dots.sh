@@ -145,7 +145,7 @@ snapshot_existing_target() {
 confirm_action() {
   local label="$1"
 
-  confirm_yes_no "Start $label?" "N" || {
+  confirm_yes_no "Start $label?" "Y" || {
     log "$label cancelled"
     return 1
   }
