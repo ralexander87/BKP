@@ -136,6 +136,94 @@ human_bytes() {
   numfmt --to=iec --suffix=B "$bytes" 2>/dev/null || printf '%sB\n' "$bytes"
 }
 
+# Return the current repository commit when Git metadata is available.
+git_short_commit() {
+  if command -v git >/dev/null 2>&1; then
+    git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || printf 'unknown\n'
+  else
+    printf 'unknown\n'
+  fi
+}
+
+# Estimate a readable path's size in bytes; missing paths count as zero.
+path_size_bytes() {
+  local path="$1"
+
+  [[ -e "$path" ]] || {
+    printf '0\n'
+    return
+  }
+
+  du -sb "$path" 2>/dev/null | awk '{ print $1 }'
+}
+
+# Estimate a root-owned path's size in bytes; missing paths count as zero.
+sudo_path_size_bytes() {
+  local path="$1"
+
+  sudo test -e "$path" || {
+    printf '0\n'
+    return
+  }
+
+  sudo du -sb "$path" 2>/dev/null | awk '{ print $1 }'
+}
+
+# Warn when destination free space is lower than an already-computed source size.
+check_destination_space_for_size() {
+  local destination="$1"
+  local required="$2"
+  local available
+
+  require_cmd df
+  available="$(df -PB1 "$destination" | awk 'NR == 2 { print $4 }')"
+
+  log "Estimated source size: $(human_bytes "$required")"
+  log "Destination free space: $(human_bytes "$available")"
+
+  if ((required > available)); then
+    log_warn "estimated backup size is larger than available destination space"
+    confirm_yes_no "Continue anyway?" "N" || die "backup cancelled because destination may be too small"
+  fi
+}
+
+# Print manifest fields shared by main and service backups.
+write_common_manifest_fields() {
+  local backup_type="$1"
+
+  printf 'backup_type=%s\n' "$backup_type"
+  printf 'created_at=%s\n' "$(date -Is)"
+  printf 'hostname=%s\n' "$(system_hostname)"
+  printf 'user=%s\n' "${USER:-unknown}"
+  printf 'project_root=%s\n' "$PROJECT_ROOT"
+  printf 'git_commit=%s\n' "$(git_short_commit)"
+  printf 'destination_device=%s\n' "$DEST_DEVICE"
+  printf 'backup_dir=%s\n' "$BACKUP_DIR"
+  printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
+  printf 'archive_path=%s\n' "$ARCHIVE_NAME"
+  printf 'backup_status=%s\n' "$RUN_RESULT"
+  printf 'run_result=%s\n' "$RUN_RESULT"
+}
+
+# Update a backup run status and persist it through the script's manifest writer.
+set_backup_status() {
+  local status="$1"
+
+  RUN_RESULT="$status"
+  write_manifest
+}
+
+# Return the final manifest status for a backup script at process exit.
+backup_final_status() {
+  local exit_code="$1"
+
+  if [[ "$BACKUP_COMPLETE" == "true" && "$exit_code" -eq 0 ]]; then
+    printf 'complete\n'
+  else
+    printf 'failed\n'
+  fi
+}
+
 # Parse shared flags and leave script-specific args in SCRIPT_ARGS.
 parse_common_args() {
   local arg

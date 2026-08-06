@@ -80,7 +80,7 @@ Each backup includes `backup-manifest.txt` with timestamp, host, user, destinati
 
 Each main backup records `backup_status` in `backup-manifest.txt`. New restores are blocked when this value is not `complete`; older backups with a separate `backup.status` file still restore.
 
-Terminal output is intentionally grouped. The backup scripts show a lightweight dashboard with task status, selected options, separator lines between task groups, recent warnings/errors, and a final success/failure summary instead of printing every copied file.
+Terminal output is intentionally grouped. The backup scripts show a lightweight dashboard with compact run metrics, selected options, named task sections, recent warnings/errors, and a final success/failure summary instead of printing every copied file.
 
 Restore the main backup from inside a backup folder:
 
@@ -122,7 +122,7 @@ It requests root authentication at startup, then backs up:
 - `/etc/samba/smb.conf`
 - `/etc/samba/creds-*`
 - `/etc/ssh/sshd_config`
-- `/boot/grub/themes/lateralus/`
+- `/boot/grub/themes/lateralus/` when present
 - `/etc/default/grub`
 - `/etc/mkinitcpio.conf`
 
@@ -138,7 +138,7 @@ Service backup content is stored as standalone entries in the backup root (for e
 
 Service backup fail-safes:
 
-- preflight checks for required commands and source paths
+- preflight checks for required commands and required source paths
 - destination mount/writable verification before copy
 - `backup_status` marker (`in_progress`, `complete`, `failed`) in `backup-manifest.txt` for restore safety
 - completeness verification of expected backup content before marking complete
@@ -197,7 +197,7 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 
 `Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
 
-`bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder.
+`bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder. When `$HOME/.mydotfiles` or the nested ML4W config folder is missing, the DOTS backup tasks are skipped without failing the main backup.
 When ignored `config/local/restore-dots-settings.sh` exists, it is copied into `DOTS/config/local/` and can be run by `99 - Restore Settings`.
 
 Run dotfiles restore actions from inside a backup `DOTS` folder:

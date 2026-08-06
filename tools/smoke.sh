@@ -212,16 +212,30 @@ grep -Fq '".vscode-oss"' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq '".vscode-oss"' "$PROJECT_ROOT/restore-main.sh"
 printf 'local config copy paths OK\n'
 
-grep -Fq 'ui_add_task_separator_after "main-Documents" "Hidden folders"' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq 'ui_add_task_separator_after "main-.vscode-oss" "Post backup"' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq 'Copy restore-main.sh' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq 'ui_add_task_separator_after "serv-creds" "Post backup"' "$PROJECT_ROOT/bkp-serv.sh"
-grep -Fq 'Copy restore-serv.sh' "$PROJECT_ROOT/bkp-serv.sh"
-grep -Fq '=== Metric | Value ===' "$PROJECT_ROOT/lib/common.sh"
-grep -Fq '=== Selected Options ===' "$PROJECT_ROOT/lib/common.sh"
-grep -Fq '=== Tasks ===' "$PROJECT_ROOT/lib/common.sh"
-grep -Fq "ui_metric_pair \"Total\" \"\$total\" 11" "$PROJECT_ROOT/lib/common.sh"
-grep -Fq "ui_metric_pair \"Done\" \"\$done\" 10" "$PROJECT_ROOT/lib/common.sh"
+tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
+(cd "$tmp" && NO_COLOR=1 bash -c '
+  source common.sh
+  UI_ENABLED=true
+  UI_USE_COLOR=false
+  UI_STARTED_AT="19:40:18"
+  UI_LAST_RENDER_TS=0
+  ui_add_meta "Destination" "/run/media/ralexander/netac"
+  ui_add_task "downloads" "Downloads" "DONE" "copied"
+  ui_add_task "pictures" "Pictures" "RUNNING" "copying"
+  ui_add_task_separator_after "pictures" "Hidden folders"
+  ui_add_task "themes" ".themes" "PENDING" "waiting"
+  ui_add_task_separator_after "themes" "Post backup"
+  ui_add_task "manifest" "Write manifest" "PENDING" "waiting"
+  ui_render force
+' >dashboard.out)
+grep -Fq '=== Metric | Value ===' "$tmp/dashboard.out"
+grep -Eq '^Total = 4[[:space:]]+\| Done = 1[[:space:]]+\| Running = 1$' "$tmp/dashboard.out"
+grep -Fq '=== Selected Options ===' "$tmp/dashboard.out"
+grep -Fq '=== Tasks ===' "$tmp/dashboard.out"
+grep -Fq '=== Hidden folders ===' "$tmp/dashboard.out"
+grep -Fq '=== Post backup ===' "$tmp/dashboard.out"
+rm -rf "$tmp"
 printf 'dashboard task grouping OK\n'
 
 printf 'smoke OK\n'

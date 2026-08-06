@@ -178,7 +178,7 @@ EOF
 
 # Ensure required dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync sudo cp mv chown chmod awk sed grep tee modprobe findmnt install mktemp grub-mkconfig systemctl
+  require_all_cmds sudo awk cat
 }
 
 # Show currently available service restore actions.
@@ -258,6 +258,7 @@ restore_grub_theme() {
   local source_dir="$SCRIPT_DIR/lateralus"
   local target_dir="/boot/grub/themes/lateralus"
 
+  require_all_cmds sudo cp mkdir rsync
   [[ -d "$source_dir" ]] || die "grub theme source folder not found: $source_dir"
 
   confirm_action "Restore grub theme" || return 0
@@ -284,6 +285,7 @@ restore_samba() {
   local -a creds_files=()
   local creds_file
 
+  require_all_cmds sudo cp mkdir rsync chown chmod systemctl
   confirm_action "Restore samba" || return 0
   snapshot_target "/etc/samba/smb.conf"
   restore_file_to_dir "samba" "$source_smb" "$target_dir"
@@ -343,6 +345,8 @@ restore_samba() {
 
 # Restore sshd_config into /etc/ssh/.
 restore_ssh() {
+  require_all_cmds sudo cp mkdir rsync chown chmod systemctl
+
   confirm_action "Restore SSH" || return 0
   snapshot_target "/etc/ssh/sshd_config"
   restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
@@ -364,6 +368,7 @@ create_smb_tree() {
   local local_user
   local dir
 
+  require_all_cmds sudo mkdir chown chmod
   confirm_action "Create SMB" || return 0
   local_user="$(local_non_root_user)"
 
@@ -385,6 +390,7 @@ replace_managed_fstab_entries() {
   local mount_target
   local filtered_fstab
 
+  require_all_cmds awk mv mktemp
   filtered_fstab="$(mktemp)"
   register_temp_path "$filtered_fstab"
 
@@ -408,6 +414,7 @@ replace_managed_fstab_entries() {
 restore_fstab() {
   local temp_fstab
 
+  require_all_cmds sudo cp install mktemp modprobe
   confirm_action "Restore fstab" || return 0
   if [[ "${#FSTAB_LINES[@]}" -eq 0 ]]; then
     log "No SMB fstab entries configured; add local entries in config/local/serv.restore.conf"
@@ -445,6 +452,7 @@ set_grub_assignment() {
   local value="$3"
   local escaped
 
+  require_all_cmds grep sed
   escaped="$(printf '%s' "$value" | sed 's/[&|]/\\&/g')"
   if grep -Eq "^#?${key}=" "$file"; then
     sed -i -E "s|^#?${key}=.*|${key}=\"${escaped}\"|" "$file"
@@ -457,6 +465,7 @@ set_grub_assignment() {
 restore_grub_defaults() {
   local temp_grub
 
+  require_all_cmds sudo cp install mktemp grep sed grub-mkconfig
   confirm_action "Restore GRUB" || return 0
   snapshot_target "/etc/default/grub"
 
@@ -549,6 +558,7 @@ collect_pre_restore() {
   local -a source_paths=()
   local dir
 
+  require_all_cmds sudo find mv mkdir grep mktemp
   confirm_action "Collect pre-restore" || return 0
   mkdir -p "$collect_dir"
 
@@ -574,6 +584,8 @@ collect_pre_restore() {
 
 # Initialize rollback helper script for this restore run.
 init_rollback_script() {
+  require_cmd chmod
+
   cat >"$ROLLBACK_FILE" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail

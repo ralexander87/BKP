@@ -83,18 +83,6 @@ prompt_skip_home_items() {
   fi
 }
 
-# Estimate a path's size in bytes; missing paths count as zero.
-path_size_bytes() {
-  local path="$1"
-
-  [[ -e "$path" ]] || {
-    printf '0\n'
-    return
-  }
-
-  du -sb "$path" 2>/dev/null | awk '{ print $1 }'
-}
-
 # Estimate the source data size before backup so destination space can be checked.
 estimate_backup_size_bytes() {
   local total=0
@@ -113,48 +101,12 @@ estimate_backup_size_bytes() {
   printf '%s\n' "$total"
 }
 
-# Warn if the selected destination appears too small for the backup.
-check_destination_space() {
-  local destination="$1"
-  local required available
-
-  require_cmd df
-  require_cmd du
-
-  required="$(estimate_backup_size_bytes)"
-  available="$(df -PB1 "$destination" | awk 'NR == 2 { print $4 }')"
-
-  log "Estimated source size: $(human_bytes "$required")"
-  log "Destination free space: $(human_bytes "$available")"
-
-  if ((required > available)); then
-    log_warn "estimated backup size is larger than available destination space"
-    confirm_yes_no "Continue anyway?" "N" || die "backup cancelled because destination may be too small"
-  fi
-}
-
 # Write backup metadata that helps identify what this run copied.
 write_manifest() {
   local manifest="$BACKUP_DIR/backup-manifest.txt"
-  local git_commit="unknown"
-
-  if command -v git >/dev/null 2>&1; then
-    git_commit="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
-  fi
 
   {
-    printf 'backup_type=main\n'
-    printf 'created_at=%s\n' "$(date -Is)"
-    printf 'hostname=%s\n' "$(system_hostname)"
-    printf 'user=%s\n' "${USER:-unknown}"
-    printf 'project_root=%s\n' "$PROJECT_ROOT"
-    printf 'git_commit=%s\n' "$git_commit"
-    printf 'destination_device=%s\n' "$DEST_DEVICE"
-    printf 'backup_dir=%s\n' "$BACKUP_DIR"
-    printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
-    printf 'archive_path=%s\n' "$ARCHIVE_NAME"
-    printf 'backup_status=%s\n' "$RUN_RESULT"
-    printf 'run_result=%s\n' "$RUN_RESULT"
+    write_common_manifest_fields "main"
     printf 'dots_root=%s\n' "$DOTS_ROOT"
     printf 'dots_source=%s\n' "$DOTS_SOURCE"
     printf 'local_restore_dots_settings_hook=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')"
@@ -163,13 +115,6 @@ write_manifest() {
 
   MANIFEST_FILE="$manifest"
   log "Wrote manifest: $manifest"
-}
-
-# Update run status in memory and persist it through the manifest.
-set_backup_status() {
-  local status="$1"
-  RUN_RESULT="$status"
-  write_manifest
 }
 
 # Verify required files exist before the backup is marked complete.
@@ -199,11 +144,7 @@ finalize_status() {
   local exit_code="$1"
 
   if [[ -d "$BACKUP_DIR" ]]; then
-    if [[ "$BACKUP_COMPLETE" == "true" && "$exit_code" -eq 0 ]]; then
-      set_backup_status "complete"
-    else
-      set_backup_status "failed"
-    fi
+    set_backup_status "$(backup_final_status "$exit_code")"
   fi
 }
 
@@ -268,7 +209,7 @@ declare -A SKIP_HOME_ITEMS=()
 prompt_skip_home_items
 
 # Check destination free space before creating the backup folder.
-check_destination_space "$DEST_DEVICE"
+check_destination_space_for_size "$DEST_DEVICE" "$(estimate_backup_size_bytes)"
 
 mkdir -p "$BACKUP_DIR"
 log "Backup destination: $BACKUP_DIR"

@@ -12,14 +12,20 @@ LUKS_HEADER_FILE="luks.bin"
 LUKS_HEADER_CREATED=false
 MANIFEST_FILE=""
 
-# Fixed critical service files/folders for this backup profile.
-SERVICE_PATHS=(
+# Service paths required for a complete restore profile.
+SERVICE_REQUIRED_PATHS=(
   "/etc/samba/smb.conf"
   "/etc/ssh/sshd_config"
-  "/boot/grub/themes/lateralus"
   "/etc/default/grub"
   "/etc/mkinitcpio.conf"
 )
+
+# Service paths that are backed up when present, but do not block a run.
+SERVICE_OPTIONAL_PATHS=(
+  "/boot/grub/themes/lateralus"
+)
+
+SERVICE_PATHS=("${SERVICE_REQUIRED_PATHS[@]}" "${SERVICE_OPTIONAL_PATHS[@]}")
 
 # Print command usage for help requests.
 usage() {
@@ -43,25 +49,13 @@ preflight_checks() {
 
   require_all_cmds rsync sudo flock findmnt df du cryptsetup install lsblk
 
-  for path in "${SERVICE_PATHS[@]}"; do
+  for path in "${SERVICE_REQUIRED_PATHS[@]}"; do
     sudo test -e "$path" || die "required source path missing: $path"
   done
 
   if ! sudo find /etc/samba -maxdepth 1 -type f -name 'creds-*' | grep -q .; then
     log_warn "no /etc/samba/creds-* files found"
   fi
-}
-
-# Estimate a path's size in bytes; missing paths count as zero.
-path_size_bytes() {
-  local path="$1"
-
-  sudo test -e "$path" || {
-    printf '0\n'
-    return
-  }
-
-  sudo du -sb "$path" 2>/dev/null | awk '{ print $1 }'
 }
 
 # Estimate source size for selected service paths and samba creds-* files.
@@ -71,65 +65,32 @@ estimate_backup_size_bytes() {
   local -a creds_files=()
 
   for item in "${SERVICE_PATHS[@]}"; do
-    size="$(path_size_bytes "$item")"
+    size="$(sudo_path_size_bytes "$item")"
     total=$((total + size))
   done
 
   mapfile -t creds_files < <(sudo find /etc/samba -maxdepth 1 -type f -name 'creds-*' 2>/dev/null || true)
   for item in "${creds_files[@]}"; do
-    size="$(path_size_bytes "$item")"
+    size="$(sudo_path_size_bytes "$item")"
     total=$((total + size))
   done
 
   printf '%s\n' "$total"
 }
 
-# Warn if the selected destination appears too small for the backup.
-check_destination_space() {
-  local destination="$1"
-  local required available
-
-  require_cmd df
-
-  required="$(estimate_backup_size_bytes)"
-  available="$(df -PB1 "$destination" | awk 'NR == 2 { print $4 }')"
-
-  log "Estimated source size: $(human_bytes "$required")"
-  log "Destination free space: $(human_bytes "$available")"
-
-  if ((required > available)); then
-    log_warn "estimated backup size is larger than available destination space"
-    confirm_yes_no "Continue anyway?" "N" || die "backup cancelled because destination may be too small"
-  fi
-}
-
 # Write backup metadata that helps identify what this run copied.
 write_manifest() {
   local manifest="$BACKUP_DIR/backup-manifest.txt"
-  local git_commit="unknown"
-
-  if command -v git >/dev/null 2>&1; then
-    git_commit="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
-  fi
 
   {
-    printf 'backup_type=serv\n'
-    printf 'created_at=%s\n' "$(date -Is)"
-    printf 'hostname=%s\n' "$(system_hostname)"
-    printf 'user=%s\n' "${USER:-unknown}"
-    printf 'project_root=%s\n' "$PROJECT_ROOT"
-    printf 'git_commit=%s\n' "$git_commit"
-    printf 'destination_device=%s\n' "$DEST_DEVICE"
-    printf 'backup_dir=%s\n' "$BACKUP_DIR"
-    printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
-    printf 'archive_path=%s\n' "$ARCHIVE_NAME"
-    printf 'backup_status=%s\n' "$RUN_RESULT"
-    printf 'run_result=%s\n' "$RUN_RESULT"
+    write_common_manifest_fields "serv"
     printf 'luks_device=%s\n' "$LUKS_DEVICE_PATH"
     printf 'luks_header_file=%s\n' "$LUKS_HEADER_FILE"
     printf 'luks_header_created=%s\n' "$LUKS_HEADER_CREATED"
     printf 'service_restore_config=%s\n' "$PROJECT_ROOT/config/serv.restore.conf"
     printf 'local_service_restore_config=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'present' || printf 'missing')"
+    printf 'required_service_paths=%s\n' "${SERVICE_REQUIRED_PATHS[*]}"
+    printf 'optional_service_paths=%s\n' "${SERVICE_OPTIONAL_PATHS[*]}"
     printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
     printf 'samba_creds_glob=%s\n' "/etc/samba/creds-*"
   } >"$manifest"
@@ -251,20 +212,12 @@ verify_destination_mount() {
   [[ -w "$DEST_DEVICE" ]] || die "destination is not writable: $DEST_DEVICE"
 }
 
-# Update run status in memory and persist it through the manifest.
-set_backup_status() {
-  local status="$1"
-  RUN_RESULT="$status"
-  write_manifest
-}
-
 # Verify expected standalone backup content exists before marking complete.
 verify_backup_contents() {
   local required_item
   local -a required_items=(
     "smb.conf"
     "sshd_config"
-    "lateralus"
     "grub"
     "mkinitcpio.conf"
     "restore-serv.sh"
@@ -276,6 +229,10 @@ verify_backup_contents() {
   for required_item in "${required_items[@]}"; do
     [[ -e "$BACKUP_DIR/$required_item" ]] || die "missing expected backup item: $required_item"
   done
+
+  if sudo test -e "/boot/grub/themes/lateralus"; then
+    [[ -e "$BACKUP_DIR/lateralus" ]] || die "missing expected backup item: lateralus"
+  fi
 
   if [[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]]; then
     [[ -f "$BACKUP_DIR/config/local/serv.restore.conf" ]] || die "missing expected backup item: config/local/serv.restore.conf"
@@ -291,11 +248,10 @@ finalize_status() {
   local exit_code="$1"
 
   if [[ -d "$BACKUP_DIR" ]]; then
-    if [[ "$BACKUP_COMPLETE" == "true" && "$exit_code" -eq 0 ]]; then
-      set_backup_status "complete"
+    set_backup_status "$(backup_final_status "$exit_code")"
+    if [[ "$RUN_RESULT" == "complete" ]]; then
       audit_log "completed"
     else
-      set_backup_status "failed"
       audit_log "failed"
     fi
   fi
@@ -340,7 +296,7 @@ fi
 log "Archive selection: $CREATE_ARCHIVE"
 
 # Check destination free space before creating the backup folder.
-check_destination_space "$DEST_DEVICE"
+check_destination_space_for_size "$DEST_DEVICE" "$(estimate_backup_size_bytes)"
 verify_destination_mount
 
 mkdir -p "$BACKUP_DIR"
