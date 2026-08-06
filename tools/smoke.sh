@@ -204,17 +204,24 @@ printf 'blank skip selection OK: bkp-main.sh\n'
 
 grep -Fq 'config/local/restore-dots-settings.sh' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'DOTS/config/local/restore-dots-settings.sh' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq "[[ -d \"\$DOTS_ROOT\" && -d \"\$DOTS_SOURCE\" ]]" "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq "Skipping missing dotfiles root: \$DOTS_ROOT" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/bkp-serv.sh"
 grep -Fq '".vscode-oss"' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq '".vscode-oss"' "$PROJECT_ROOT/restore-main.sh"
 printf 'local config copy paths OK\n'
 
-grep -Fq 'ui_add_task_separator_after "main-Documents"' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq 'ui_add_task_separator_after "main-.vscode-oss"' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'ui_add_task_separator_after "main-Documents" "Hidden folders"' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'ui_add_task_separator_after "main-.vscode-oss" "Post backup"' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'Copy restore-main.sh' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq 'ui_add_task_separator_after "serv-creds"' "$PROJECT_ROOT/bkp-serv.sh"
+grep -Fq 'ui_add_task_separator_after "serv-creds" "Post backup"' "$PROJECT_ROOT/bkp-serv.sh"
 grep -Fq 'Copy restore-serv.sh' "$PROJECT_ROOT/bkp-serv.sh"
+grep -Fq '=== Metric | Value ===' "$PROJECT_ROOT/lib/common.sh"
+grep -Fq '=== Selected Options ===' "$PROJECT_ROOT/lib/common.sh"
+grep -Fq '=== Tasks ===' "$PROJECT_ROOT/lib/common.sh"
+grep -Fq "ui_metric_pair \"Total\" \"\$total\" 11" "$PROJECT_ROOT/lib/common.sh"
+grep -Fq "ui_metric_pair \"Done\" \"\$done\" 10" "$PROJECT_ROOT/lib/common.sh"
 printf 'dashboard task grouping OK\n'
 
 printf 'smoke OK\n'

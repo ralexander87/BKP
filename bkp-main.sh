@@ -155,6 +155,7 @@ write_manifest() {
     printf 'archive_path=%s\n' "$ARCHIVE_NAME"
     printf 'backup_status=%s\n' "$RUN_RESULT"
     printf 'run_result=%s\n' "$RUN_RESULT"
+    printf 'dots_root=%s\n' "$DOTS_ROOT"
     printf 'dots_source=%s\n' "$DOTS_SOURCE"
     printf 'local_restore_dots_settings_hook=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')"
     printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
@@ -234,6 +235,7 @@ ARCHIVE_NAME="$MAIN_DIR/$RUN_ID.tar.gz"
 CREATE_ARCHIVE=false
 
 # Dotfiles source is copied into DOTS, which is the renamed backup copy of .config.
+DOTS_ROOT="$HOME/.mydotfiles"
 DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 DOTS_DIR="$BACKUP_DIR/DOTS"
 
@@ -285,8 +287,8 @@ ui_add_meta "Skipped Folders" "$skip_display"
 for item in "${HOME_ITEMS[@]}"; do
   ui_add_task "main-$item" "$item"
 done
-ui_add_task_separator_after "main-Documents"
-ui_add_task_separator_after "main-.vscode-oss"
+ui_add_task_separator_after "main-Documents" "Hidden folders"
+ui_add_task_separator_after "main-.vscode-oss" "Post backup"
 ui_add_task "main-restore-script" "Copy restore-main.sh"
 ui_add_task "main-dots" "Backup DOTS"
 ui_add_task "main-dots-restore" "Copy restore-dots.sh"
@@ -342,7 +344,7 @@ ui_update_task "main-restore-script" "DONE" "copied"
 ui_render
 
 # Copy the ML4W dotfiles .config tree into DOTS and include its restore helper.
-if [[ -d "$DOTS_SOURCE" ]]; then
+if [[ -d "$DOTS_ROOT" && -d "$DOTS_SOURCE" ]]; then
   log "Backing up dotfiles config: $DOTS_SOURCE"
   ui_update_task "main-dots" "RUNNING" "copying dotfiles config"
   ui_render
@@ -363,7 +365,11 @@ if [[ -d "$DOTS_SOURCE" ]]; then
   ui_update_task "main-dots-restore" "DONE" "copied"
   ui_render
 else
-  log "Skipping missing dotfiles config: $DOTS_SOURCE"
+  if [[ ! -d "$DOTS_ROOT" ]]; then
+    log "Skipping missing dotfiles root: $DOTS_ROOT"
+  else
+    log "Skipping missing dotfiles config: $DOTS_SOURCE"
+  fi
   ui_update_task "main-dots" "SKIPPED" "dotfiles path missing"
   ui_update_task "main-dots-restore" "SKIPPED" "dotfiles path missing"
   ui_render

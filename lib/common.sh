@@ -11,7 +11,6 @@ QUIET="${QUIET:-false}"
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 SCRIPT_NAME="${SCRIPT_NAME:-$(basename -- "${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}")}"
 UI_ENABLED=false
-UI_TITLE=""
 UI_STARTED_AT=""
 UI_LAST_RENDER_TS=0
 UI_RENDER_MIN_INTERVAL=1
@@ -290,7 +289,7 @@ confirm_yes_no() {
 
 # Render a lightweight terminal dashboard for backup scripts.
 ui_init() {
-  UI_TITLE="$1"
+  : "${1:-}"
   UI_STARTED_AT="$(date '+%H:%M:%S')"
   UI_LAST_RENDER_TS=0
   UI_META_LINES=()
@@ -357,12 +356,19 @@ ui_add_task() {
 # Draw a separator line after a dashboard task row.
 ui_add_task_separator_after() {
   local task_id="$1"
-  UI_TASK_SEPARATOR_AFTER["$task_id"]=true
+  local label="${2:-true}"
+  UI_TASK_SEPARATOR_AFTER["$task_id"]="$label"
 }
 
 # Print the visual divider used between dashboard task groups.
 ui_print_task_separator() {
-  printf '%s\n' "##########################################################################################"
+  local label="${1:-true}"
+
+  if [[ "$label" != "true" ]]; then
+    printf '=== %s ===\n' "$label"
+  else
+    printf '%s\n' "##########################################################################################"
+  fi
 }
 
 # Update status and detail for an existing dashboard task.
@@ -454,6 +460,20 @@ ui_metric_value() {
   esac
 }
 
+# Print one aligned inline metric pair while keeping ANSI color codes out of padding math.
+ui_metric_pair() {
+  local key="$1"
+  local value="$2"
+  local width="$3"
+  local raw="${key} = ${value}"
+  local pad=$((width - ${#raw}))
+
+  printf '%s = %s' "$key" "$(ui_metric_value "$key" "$value")"
+  if ((pad > 0)); then
+    printf '%*s' "$pad" ''
+  fi
+}
+
 # Draw dashboard if enabled (rate-limited unless forced).
 ui_render() {
   local mode="${1:-}"
@@ -482,27 +502,27 @@ ui_render() {
   total="${#UI_TASK_ORDER[@]}"
 
   printf '\033[H\033[2J'
-  printf '%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== $UI_TITLE ===")"
-  printf 'Run Metrics\n'
-  printf '%-16s | %s\n' "Metric" "Value"
-  printf '%-16s-+-%s\n' "----------------" "------------------------------"
-  printf '%-16s | %s\n' "Started" "$(ui_metric_value "Started" "$UI_STARTED_AT")"
-  printf '%-16s | %s\n' "Time" "$(ui_metric_value "Time" "$(date '+%H:%M:%S')")"
-  printf '%-16s | %s\n' "Total" "$(ui_metric_value "Total" "$total")"
-  printf '%-16s | %s\n' "Done" "$(ui_metric_value "Done" "$done")"
-  printf '%-16s | %s\n' "Running" "$(ui_metric_value "Running" "$running")"
-  printf '%-16s | %s\n' "Skipped" "$(ui_metric_value "Skipped" "$skipped")"
-  printf '%-16s | %s\n' "Errors" "$(ui_metric_value "Errors" "$failed")"
-  printf '%-16s | %s\n' "Pending" "$(ui_metric_value "Pending" "$pending")"
+  printf '%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== Metric | Value ===")"
+  printf 'Started = %s | Time = %s\n' \
+    "$(ui_metric_value "Started" "$UI_STARTED_AT")" \
+    "$(ui_metric_value "Time" "$(date '+%H:%M:%S')")"
+  ui_metric_pair "Total" "$total" 11
+  printf ' | '
+  ui_metric_pair "Done" "$done" 10
+  printf ' | Running = %s\n' "$(ui_metric_value "Running" "$running")"
+  ui_metric_pair "Skipped" "$skipped" 11
+  printf ' | '
+  ui_metric_pair "Errors" "$failed" 10
+  printf ' | Pending = %s\n' "$(ui_metric_value "Pending" "$pending")"
   printf '\n'
-  printf 'Selected Options\n'
+  printf '%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== Selected Options ===")"
   printf '%-18s | %s\n' "Option" "Value"
   printf '%-18s-+-%s\n' "------------------" "----------------------------------------------"
   for line in "${UI_META_LINES[@]}"; do
     printf '%-18s | %s\n' "${line%%|*}" "${line#*|}"
   done
 
-  printf '\nTasks\n'
+  printf '\n%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== Tasks ===")"
   printf '%-3s | %-24s | %-8s | %s\n' "#" "Item" "Status" "Details"
   printf '%-3s-+-%-24s-+-%-8s-+-%s\n' "---" "------------------------" "--------" "----------------------------------------------"
   local i=1
@@ -515,8 +535,8 @@ ui_render() {
       "${UI_TASK_LABELS[$task_id]:0:24}" \
       "$(ui_status_cell "$status_raw")" \
       "$(ui_colorize_detail "$status_raw" "$detail_raw")"
-    if [[ "${UI_TASK_SEPARATOR_AFTER[$task_id]:-}" == "true" ]]; then
-      ui_print_task_separator
+    if [[ -n "${UI_TASK_SEPARATOR_AFTER[$task_id]:-}" ]]; then
+      ui_print_task_separator "${UI_TASK_SEPARATOR_AFTER[$task_id]}"
     fi
     ((i += 1))
   done
