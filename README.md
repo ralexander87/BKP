@@ -197,7 +197,8 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 
 `Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
 
-`bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder. When `$HOME/.mydotfiles` or the nested ML4W config folder is missing, the DOTS backup tasks are skipped without failing the main backup.
+`bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder. `ml4w/wallpapers/` is excluded from each per-run `DOTS` copy and is stored in the shared backup-device folder `BIG/wallpapers/` instead. When `$HOME/.mydotfiles` or the nested ML4W config folder is missing, the DOTS backup tasks are skipped without failing the main backup.
+Wallpaper backup copies only files missing from `BIG/wallpapers/`; existing files in that shared folder are left untouched.
 When ignored `config/local/restore-dots-settings.sh` exists, it is copied into `DOTS/config/local/` and can be run by `99 - Restore Settings`.
 
 Run dotfiles restore actions from inside a backup `DOTS` folder:
@@ -214,7 +215,7 @@ Current options:
 - `0 - Exit`
 - `1 - Install DOTS`: moves `$HOME/.config/hypr` to a safety snapshot, then runs `bash <(curl -s https://ml4w.com/os/stable)`.
 - `2 - Install fonts`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup), copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`, and refreshes that font cache when `fc-cache` is available.
-- `3 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot, then copies `ml4w/wallpapers` from the current `DOTS` folder.
+- `3 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot, then copies wallpapers from the backup device's shared `BIG/wallpapers/` folder.
 - `4 - Install HyprMod`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-install-hyprmod`.
 - `5 - Restore FASTFETCH`: moves the existing FastFetch folder to a safety snapshot, then copies `fastfetch` from the current `DOTS` folder.
 - `6 - Restore KITTY`: moves the existing KITTY folder to a safety snapshot, then copies `kitty` from the current `DOTS` folder.

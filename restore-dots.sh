@@ -237,6 +237,11 @@ restore_config_folder() {
   rsync_restore_copy "$source_dir/" "$target_dir/"
 }
 
+# Resolve the backup device root from a script running inside MAIN/BKP-*/DOTS.
+resolve_backup_device_root() {
+  cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd
+}
+
 # Normalize quickshell overview fonts after restoring the backed-up config.
 customize_quickshell_overview_config() {
   local target_file="$ML4W_CONFIG_ROOT/quickshell/overview/config.json"
@@ -251,9 +256,24 @@ customize_quickshell_overview_config() {
     "$target_file"
 }
 
-# Replace the ML4W wallpapers folder from the current DOTS backup.
+# Replace the ML4W wallpapers folder from the shared BIG/wallpapers backup.
 restore_wallpapers() {
-  restore_config_path "Wallpapers" "ml4w/wallpapers" "ml4w/wallpapers"
+  local device_root
+  local source_dir
+  local target_dir="$ML4W_CONFIG_ROOT/ml4w/wallpapers"
+
+  require_cmd rsync
+  device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  source_dir="$device_root/BIG/wallpapers"
+  [[ -d "$source_dir" ]] || die "wallpapers source folder not found: $source_dir"
+
+  confirm_action "Restore Wallpapers" || return 0
+  snapshot_existing_target "$target_dir"
+
+  log "Restoring Wallpapers from: $source_dir"
+  mkdir -p "$(dirname -- "$target_dir")"
+  rsync_restore_copy "$source_dir/" "$target_dir/"
+  log "Done: Restore Wallpapers"
 }
 
 # Run the ML4W HyprMod installer from the restored dotfiles tree.
@@ -428,7 +448,7 @@ restore_qbittorrent_theme() {
   local source_file=""
   local target_file="$HOME/.config/qBittorrent/dracula.qbtheme"
 
-  device_root="$(cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
   source_file="$device_root/BIG/dracula.qbtheme"
   [[ -f "$source_file" ]] || die "qBittorrent theme file not found: $source_file"
 
@@ -480,7 +500,7 @@ install_fonts() {
   local steelfish_font=""
   local target_font_dir="$HOME/.local/share/fonts"
 
-  if device_root="$(cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)"; then
+  if device_root="$(resolve_backup_device_root)"; then
     candidate_device="$device_root/BIG/fonts/install.sh"
   fi
 

@@ -109,6 +109,8 @@ write_manifest() {
     write_common_manifest_fields "main"
     printf 'dots_root=%s\n' "$DOTS_ROOT"
     printf 'dots_source=%s\n' "$DOTS_SOURCE"
+    printf 'wallpapers_source=%s\n' "$WALLPAPERS_SOURCE"
+    printf 'big_wallpapers_dir=%s\n' "$BIG_WALLPAPERS_DIR"
     printf 'local_restore_dots_settings_hook=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')"
     printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
   } >"$manifest"
@@ -136,6 +138,10 @@ verify_backup_contents() {
     if [[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]]; then
       [[ -f "$DOTS_DIR/config/local/restore-dots-settings.sh" ]] || die "missing expected backup item: DOTS/config/local/restore-dots-settings.sh"
     fi
+  fi
+
+  if [[ -d "$WALLPAPERS_SOURCE" ]]; then
+    [[ -d "$BIG_WALLPAPERS_DIR" ]] || die "missing expected shared wallpaper folder: $BIG_WALLPAPERS_DIR"
   fi
 }
 
@@ -179,6 +185,8 @@ CREATE_ARCHIVE=false
 DOTS_ROOT="$HOME/.mydotfiles"
 DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 DOTS_DIR="$BACKUP_DIR/DOTS"
+WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
+BIG_WALLPAPERS_DIR="$DEST_DEVICE/BIG/wallpapers"
 
 # Ask for archive creation before copying starts so required tools fail early.
 if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N"; then
@@ -233,6 +241,7 @@ ui_add_task_separator_after "main-.vscode-oss" "Post backup"
 ui_add_task "main-restore-script" "Copy restore-main.sh"
 ui_add_task "main-dots" "Backup DOTS"
 ui_add_task "main-dots-restore" "Copy restore-dots.sh"
+ui_add_task "main-wallpapers" "Backup wallpapers"
 ui_add_task "main-manifest" "Write manifest"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   ui_add_task "main-archive" "Create archive"
@@ -290,7 +299,7 @@ if [[ -d "$DOTS_ROOT" && -d "$DOTS_SOURCE" ]]; then
   ui_update_task "main-dots" "RUNNING" "copying dotfiles config"
   ui_render
   mkdir -p "$DOTS_DIR"
-  ui_run_command "main-dots" "copying dotfiles config" run_rsync_main rsync_backup_copy "$DOTS_SOURCE/" "$DOTS_DIR/"
+  ui_run_command "main-dots" "copying dotfiles config" run_rsync_main rsync_backup_copy --exclude='ml4w/wallpapers/' "$DOTS_SOURCE/" "$DOTS_DIR/"
   ui_update_task "main-dots" "DONE" "copied"
   ui_update_task "main-dots-restore" "RUNNING" "copying restore-dots.sh"
   ui_render
@@ -316,6 +325,21 @@ else
   ui_render
 fi
 
+# Copy missing wallpapers into the shared BIG/wallpapers folder on the backup device.
+if [[ -d "$WALLPAPERS_SOURCE" ]]; then
+  log "Backing up missing wallpapers: $WALLPAPERS_SOURCE -> $BIG_WALLPAPERS_DIR"
+  ui_update_task "main-wallpapers" "RUNNING" "copying missing wallpapers"
+  ui_render
+  mkdir -p "$BIG_WALLPAPERS_DIR"
+  ui_run_command "main-wallpapers" "copying missing wallpapers" run_rsync_main rsync_backup_copy --ignore-existing "$WALLPAPERS_SOURCE/" "$BIG_WALLPAPERS_DIR/"
+  ui_update_task "main-wallpapers" "DONE" "copied missing files"
+  ui_render
+else
+  log "Skipping missing wallpapers folder: $WALLPAPERS_SOURCE"
+  ui_update_task "main-wallpapers" "SKIPPED" "wallpapers path missing"
+  ui_render
+fi
+
 # Add a manifest to the backup before optional compression.
 ui_update_task "main-manifest" "RUNNING" "writing manifest"
 ui_render
@@ -330,7 +354,7 @@ if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   log "Creating archive: $ARCHIVE_NAME"
   ui_update_task "main-archive" "RUNNING" "compressing backup"
   ui_render
-  tar -C "$MAIN_DIR" -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
+  tar -C "$MAIN_DIR" --exclude='./BIG/wallpapers' --exclude='./BIG/wallpapers/**' -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
   log "Archive created: $ARCHIVE_NAME"
   ui_update_task "main-archive" "DONE" "created"
   ui_render "force"
