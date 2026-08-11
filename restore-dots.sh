@@ -90,6 +90,17 @@ LOG_FILE="${LOG_FILE:-$RESTORE_LOG_ROOT/restore.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 ML4W_CONFIG_ROOT="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 RESTORE_SETTINGS_LOCAL_HOOK="$SCRIPT_DIR/config/local/restore-dots-settings.sh"
+EXTRA_PACKAGES=(
+  jefferson
+  yubico-authenticator-bin
+  hashid
+  python-ubi-reader-git
+  rambox-pro-bin
+)
+EXTRA_FLATPAKS=(
+  org.videolan.VLC
+  org.gnome.Calculator
+)
 
 # Print command usage for help requests.
 usage() {
@@ -105,6 +116,17 @@ preflight_checks() {
   require_all_cmds rsync cp mv mkdir mktemp sed find
 }
 
+# Return the configured login shell for the current user.
+current_login_shell() {
+  local shell_path=""
+
+  if command -v getent >/dev/null 2>&1; then
+    shell_path="$(getent passwd "${USER:-}" 2>/dev/null | awk -F: '{ print $7; exit }')"
+  fi
+
+  printf '%s\n' "${shell_path:-${SHELL:-}}"
+}
+
 # Show the currently available dotfiles restore actions.
 show_menu() {
   cat <<'EOF'
@@ -113,16 +135,17 @@ Select action:
 ============================
   1 - Install DOTS
   2 - Install FONTS
+  3 - Install HyprMod
+  4 - Install Extra
 ============================
-  3 - Restore Wallpapers
-  4 - Install HyprMod
-  5 - Restore FASTFETCH
-  6 - Restore KITTY
-  7 - Restore ZSHRC
-  8 - Restore HYPR
-  9 - Restore ROFI
-  10 - Restore WAYBAR
-  11 - Restore MATUGEN
+  10 - Restore Wallpapers
+  11 - Restore ZSHRC
+  12 - Restore KITTY
+  13 - Restore FASTFETCH
+  14 - Restore HYPR
+  15 - Restore ROFI
+  16 - Restore WAYBAR
+  17 - Restore MATUGEN
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -289,6 +312,81 @@ install_hyprmod() {
   log "Done: Install HyprMod"
 }
 
+# Install extra Arch/AUR packages and Flatpaks after showing what is missing.
+install_extra() {
+  local app
+  local pkg
+  local remove_repo_vlc=false
+  local -a missing_flatpaks=()
+  local -a missing_packages=()
+
+  require_all_cmds pacman yay flatpak
+
+  log "Checking Extra packages"
+  if pacman -Q vlc >/dev/null 2>&1; then
+    log "Repository VLC is installed and will be removed before Flatpak VLC install"
+    remove_repo_vlc=true
+  else
+    log "Repository VLC is not installed"
+  fi
+
+  for pkg in "${EXTRA_PACKAGES[@]}"; do
+    if pacman -Q "$pkg" >/dev/null 2>&1; then
+      log "Extra package already installed: $pkg"
+    else
+      log "Extra package missing: $pkg"
+      missing_packages+=("$pkg")
+    fi
+  done
+
+  for app in "${EXTRA_FLATPAKS[@]}"; do
+    if flatpak info "$app" >/dev/null 2>&1; then
+      log "Extra Flatpak already installed: $app"
+    else
+      log "Extra Flatpak missing: $app"
+      missing_flatpaks+=("$app")
+    fi
+  done
+
+  if [[ "$remove_repo_vlc" != "true" && "${#missing_packages[@]}" -eq 0 && "${#missing_flatpaks[@]}" -eq 0 ]]; then
+    log "Done: Install Extra (all items already installed)"
+    return 0
+  fi
+
+  if [[ "$remove_repo_vlc" == "true" ]]; then
+    printf 'Repository packages to remove first:\n'
+    printf '  vlc\n'
+  fi
+  if [[ "${#missing_flatpaks[@]}" -gt 0 ]]; then
+    printf 'Missing Extra Flatpaks:\n'
+    printf '  %s\n' "${missing_flatpaks[@]}"
+  fi
+  if [[ "${#missing_packages[@]}" -gt 0 ]]; then
+    printf 'Missing Extra packages:\n'
+    printf '  %s\n' "${missing_packages[@]}"
+  fi
+  confirm_action "Install Extra" || return 0
+
+  if [[ "$remove_repo_vlc" == "true" ]]; then
+    require_cmd sudo
+    log "Removing repository VLC package"
+    sudo pacman -R vlc
+  fi
+
+  if [[ "${#missing_flatpaks[@]}" -gt 0 ]]; then
+    for app in "${missing_flatpaks[@]}"; do
+      log "Installing Extra Flatpak: $app"
+      flatpak install "$app"
+    done
+  fi
+
+  if [[ "${#missing_packages[@]}" -gt 0 ]]; then
+    log "Installing Extra packages with yay: ${missing_packages[*]}"
+    yay -S --needed -- "${missing_packages[@]}"
+  fi
+  log "Done: Install Extra"
+}
+
 # Replace the FastFetch config folder from the current DOTS backup.
 restore_fastfetch() {
   restore_config_path "FastFetch" "fastfetch" "fastfetch"
@@ -345,8 +443,29 @@ restore_hypr() {
   log "Done: Restore HYPR"
 }
 
+# Offer to run ML4W's shell changer when zsh is not the login shell.
+offer_zsh_shell_change() {
+  local shell_path
+  local changer="$ML4W_CONFIG_ROOT/ml4w/scripts/ml4w-change-shell"
+
+  shell_path="$(current_login_shell)"
+  log "Current login shell: ${shell_path:-unknown}"
+  [[ "$(basename -- "$shell_path")" == "zsh" ]] && return 0
+
+  confirm_yes_no "ZSH is not default shell, run script?" "N" || {
+    log "ZSH shell change skipped"
+    return 0
+  }
+
+  require_cmd bash
+  [[ -f "$changer" ]] || die "ML4W shell change script not found: $changer"
+  log "Running ML4W shell change script: $changer"
+  bash "$changer"
+}
+
 # Replace the backed-up zshrc config folder in the ML4W config tree.
 restore_zshrc() {
+  offer_zsh_shell_change
   restore_config_path "ZSHRC" "zshrc" "zshrc"
 }
 
@@ -558,30 +677,33 @@ while true; do
     install_fonts
     ;;
   3)
-    restore_wallpapers
-    ;;
-  4)
     install_hyprmod
     ;;
-  5)
-    restore_fastfetch
-    ;;
-  6)
-    restore_kitty
-    ;;
-  7)
-    restore_zshrc
-    ;;
-  8)
-    restore_hypr
-    ;;
-  9)
-    restore_rofi
+  4)
+    install_extra
     ;;
   10)
-    restore_waybar
+    restore_wallpapers
     ;;
   11)
+    restore_zshrc
+    ;;
+  12)
+    restore_kitty
+    ;;
+  13)
+    restore_fastfetch
+    ;;
+  14)
+    restore_hypr
+    ;;
+  15)
+    restore_rofi
+    ;;
+  16)
+    restore_waybar
+    ;;
+  17)
     restore_matugen
     ;;
   98)

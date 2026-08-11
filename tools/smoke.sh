@@ -70,27 +70,40 @@ rm -rf "$tmp"
 printf 'exit path OK: restore-dots.sh\n'
 
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '3 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '4 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '8 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '11 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '10 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '14 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '17 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'sudo pacman -R vlc' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "flatpak install \"\$app\"" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "yay -S --needed -- \"\${missing_packages[@]}\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "confirm_yes_no \"Start \$label?\" \"Y\"" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'current_login_shell()' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'ZSH is not default shell, run script?' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'BIG/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_dots
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 restore_wallpapers
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_hyprmod
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 5 restore_fastfetch
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 6 restore_kitty
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 7 restore_zshrc
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 8 restore_hypr
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 9 restore_rofi
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 10 restore_waybar
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 11 restore_matugen
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 install_hyprmod
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_extra
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 10 restore_wallpapers
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 11 restore_zshrc
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 12 restore_kitty
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 13 restore_fastfetch
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 14 restore_hypr
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 15 restore_rofi
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 16 restore_waybar
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 17 restore_matugen
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'
