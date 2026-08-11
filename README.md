@@ -149,7 +149,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 Current options:
 
 - `0 - Exit`
-- `1 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-kali`, `/SMB/pneuma-win`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`
+- `1 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-kali`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`
 	- Then sets ownership to the local non-root user and permissions to `750`.
 - `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`
 	- Optionally runs `sudo smbpasswd -a <local-user>`, then enables and starts `smb.service`.

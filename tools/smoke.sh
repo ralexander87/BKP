@@ -111,6 +111,11 @@ printf 'restore-dots settings menu OK\n'
 grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/restore-serv.sh"
+if grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/config/serv.restore.conf"; then
+  printf 'retired SMB directory should not be in public restore config\n' >&2
+  exit 1
+fi
 grep -Fq 'systemctl enable smb.service' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'systemctl enable sshd.service' "$PROJECT_ROOT/restore-serv.sh"
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 1 create_smb_tree
@@ -151,6 +156,7 @@ printf '%s\n' \
   '# test fstab' \
   'UUID=root / ext4 defaults 0 1' \
   '//old/share /SMB/test cifs old 0 0' \
+  '//old/share /SMB/pneuma-win cifs old 0 0' \
   '//keep/share /SMB/keep cifs keep 0 0' >"$tmp/fstab"
 printf '%s\n' \
   '#!/usr/bin/env bash' \
@@ -160,6 +166,10 @@ chmod +x "$tmp/restore-serv-rollback-test.sh"
 grep -Fq '//new/share   /SMB/test' "$tmp/fstab"
 if grep -Fq '//old/share' "$tmp/fstab"; then
   printf 'stale managed fstab entry was not removed\n' >&2
+  exit 1
+fi
+if grep -Fq '/SMB/pneuma-win' "$tmp/fstab"; then
+  printf 'retired fstab entry was not removed\n' >&2
   exit 1
 fi
 grep -Fq '//keep/share /SMB/keep' "$tmp/fstab"

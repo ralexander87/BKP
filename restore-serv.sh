@@ -97,7 +97,6 @@ set_service_restore_defaults() {
     "/SMB"
     "/SMB/euclid"
     "/SMB/pneuma-kali"
-    "/SMB/pneuma-win"
     "/SMB/lateralus"
     "/SMB/SCP"
     "/SMB/SCP/HDD-01"
@@ -106,11 +105,47 @@ set_service_restore_defaults() {
   )
 
   FSTAB_LINES=()
+  RETIRED_FSTAB_TARGETS=(
+    "/SMB/pneuma-win"
+  )
 
   GRUB_CMDLINE_LINUX_DEFAULT_VALUE="loglevel=3 quiet splash"
   GRUB_TERMINAL_OUTPUT_VALUE="gfxterm"
   GRUB_GFXMODE_VALUE="1440x1080x32"
   GRUB_THEME_VALUE="/boot/grub/themes/lateralus/theme.txt"
+}
+
+# Return success when a mount target is retired and should be removed.
+is_retired_fstab_target() {
+  local target="$1"
+  local retired_target
+
+  for retired_target in "${RETIRED_FSTAB_TARGETS[@]}"; do
+    [[ "$target" == "$retired_target" ]] && return 0
+  done
+
+  return 1
+}
+
+# Drop retired SMB directories and fstab entries from loaded config overrides.
+prune_retired_service_restore_values() {
+  local dir
+  local line
+  local mount_target
+  local -a kept_fstab_lines=()
+  local -a kept_smb_dirs=()
+
+  for dir in "${SMB_DIRS[@]}"; do
+    is_retired_fstab_target "$dir" || kept_smb_dirs+=("$dir")
+  done
+  SMB_DIRS=("${kept_smb_dirs[@]}")
+
+  for line in "${FSTAB_LINES[@]}"; do
+    read -r _ mount_target _ <<<"$line"
+    [[ -n "$mount_target" ]] || die "invalid configured fstab line: $line"
+    is_retired_fstab_target "$mount_target" || kept_fstab_lines+=("$line")
+  done
+  FSTAB_LINES=("${kept_fstab_lines[@]}")
 }
 
 # Load service restore config files from the backup first, then project-local fallbacks.
@@ -141,6 +176,8 @@ load_service_restore_config() {
   if [[ "${#loaded_configs[@]}" -gt 0 ]]; then
     SERVICE_RESTORE_CONFIG="${loaded_configs[*]}"
   fi
+
+  prune_retired_service_restore_values
 }
 
 load_service_restore_config
@@ -389,6 +426,7 @@ replace_managed_fstab_entries() {
   local line
   local mount_target
   local filtered_fstab
+  local -a managed_targets=()
 
   require_all_cmds awk mv mktemp
   filtered_fstab="$(mktemp)"
@@ -397,7 +435,11 @@ replace_managed_fstab_entries() {
   for line in "${FSTAB_LINES[@]}"; do
     read -r _ mount_target _ <<<"$line"
     [[ -n "$mount_target" ]] || die "invalid configured fstab line: $line"
+    managed_targets+=("$mount_target")
+  done
+  managed_targets+=("${RETIRED_FSTAB_TARGETS[@]}")
 
+  for mount_target in "${managed_targets[@]}"; do
     awk -v target="$mount_target" '
       /^[[:space:]]*#/ || NF < 2 || $2 != target { print }
     ' "$fstab_file" >"$filtered_fstab"
@@ -416,7 +458,7 @@ restore_fstab() {
 
   require_all_cmds sudo cp install mktemp modprobe
   confirm_action "Restore fstab" || return 0
-  if [[ "${#FSTAB_LINES[@]}" -eq 0 ]]; then
+  if [[ "${#FSTAB_LINES[@]}" -eq 0 && "${#RETIRED_FSTAB_TARGETS[@]}" -eq 0 ]]; then
     log "No SMB fstab entries configured; add local entries in config/local/serv.restore.conf"
     RUN_RESULT="skipped"
     audit_log "action_skipped"
