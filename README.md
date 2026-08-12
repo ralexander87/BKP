@@ -1,6 +1,7 @@
+
 # BKPv3
 
-Bash scripts for backing up and restoring Linux user folders, service-related files, and dotfiles.
+> Bash scripts for backing up and restoring Linux user folders, service-related files, and dotfiles.
 
 ## Scripts
 
@@ -18,7 +19,7 @@ Bash scripts for backing up and restoring Linux user folders, service-related fi
 
 ## Quick Start
 
-Run the main backup:
+#### Run the main backup:
 
 ```bash
 ./bkp-main.sh
@@ -30,15 +31,17 @@ Use `--quiet` to hide INFO-level terminal output while still writing full logs:
 ./bkp-main.sh --quiet
 ```
 
-- The script lists external mounted devices with source device, filesystem, label, and free space. If one device is mounted, it is selected automatically. If multiple devices are mounted, select the destination by number.
+- The script lists external mounted devices with source device, filesystem, label, and free space. 
+	- If one device is mounted, it is selected automatically
+	- If multiple devices are mounted, select the destination by number.
 
-Each main backup is written to:
+#### Each main backup is written to:
 
 ```bash
 /path/to/device/MAIN/BKP-<timestamp>
 ```
 
-The backup folder contains the selected `$HOME` folders directly:
+#### The backup folder contains the selected `$HOME` folders directly:
 
 ```text
 BKP-<timestamp>/
@@ -50,52 +53,62 @@ BKP-<timestamp>/
   restore-main.sh
 ```
 
-The timestamp format is:
+##### The timestamp format is:
 
 ```bash
 date +%j-%d-%m-%H-%M-%S
 ```
 
-- Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup. The default answer is `N`; when you answer `Y`, compression uses `pigz`.
+- Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup
+	- The default answer is `N`; when you answer `Y`, compression uses `pigz`
 
-Main archives are written beside the backup folder:
+#### Main archives are written beside the backup folder:
 
 ```bash
 /path/to/device/MAIN/BKP-<timestamp>.tar.gz
 ```
 
-- The shared backup-device folders `BIG/wallpapers/` and `BIG/Firmware/` are not part of the per-run `BKP-*` folder and are explicitly excluded from compressed main archives.
-- Before backup starts, `bkp-main.sh` also offers a numbered skip list for `Documents`, `Downloads`, `Pictures`, `Music`, `Videos`, `Obsidian`, and `Code`. Enter one or more numbers separated by spaces or commas (for example `7 3` or `7,3`) to exclude those folders.
-- Before starting the backup, the script checks estimated source size against destination free space. If the destination appears too small, it warns and asks whether to continue.
-- Only one main backup can run at a time. A lock file in `logs/` prevents accidental overlapping runs.
+- The shared backup-device folders `BIG/wallpapers/` and `BIG/Firmware/` are not part of the per-run
+	- `BKP-*` folder and are explicitly excluded from compressed main archives
+- The shared backup-device folder `BIG/wallpapers/` is not part of the per-run `BKP-*` folder and is explicitly excluded from compressed main archives
+- Before backup starts, `bkp-main.sh` also offers a numbered skip list for `Documents`, `Downloads`, `Pictures`, `Music`, `Videos`, `Obsidian`, and `Code`. Enter one or more numbers separated by spaces or commas (for example `7 3` or `7,3`) to exclude those folders
+- Before starting the backup, the script checks estimated source size against destination free space
+	- If the destination appears too small, it warns and asks whether to continue
+- Only one main backup can run at a time
+	- A lock file in `logs/` prevents accidental overlapping runs
 
-Backup runs write terminal output, progress summaries, warnings, errors, and audit-style entries to one shared project log:
+#### Backup runs write terminal output, progress summaries, warnings, errors, and audit-style entries to one shared project log:
 
 ```bash
 logs/bkp.log
 ```
 
 - Each backup includes `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied folder list, git commit when available, and final dashboard status counters.
-- Each main backup records `backup_status` in `backup-manifest.txt`. New restores are blocked when this value is not `complete`; older backups with a separate `backup.status` file still restore.
-- Terminal output is intentionally grouped. The backup scripts show a lightweight dashboard with compact run metrics, selected options, named task sections, recent warnings/errors, and a final success/failure summary instead of printing every copied file.
+- Each main backup records `backup_status` in `backup-manifest.txt`
+	- New restores are blocked when this value is not `complete`; older backups with a separate `backup.status` file still restore.
+- Terminal output is intentionally grouped. 
+	- The backup scripts show a lightweight dashboard with compact run metrics, selected options, named task sections, recent warnings/errors.
+	- And a final success/failure summary instead of printing every copied file.
 
-Restore the main backup from inside a backup folder:
+#### Restore the main backup from inside a backup folder:
 
 ```bash
 cd /path/to/device/MAIN/BKP-<timestamp>
 ./restore-main.sh
 ```
 
-`restore-main.sh` also supports `--quiet`.
+`restore-main.sh` also supports `--quiet`
 
-- Each backup includes a copy of `restore-main.sh`. It restores from its current folder back into `$HOME` after you confirm with `Y`.
-- Restore runs write their output and results to `restore.log` in the backup folder. `restore-dots.sh` writes to the parent backup folder's `restore.log` when it is run from `DOTS`.
-- Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing.
-- Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes.
+- Each backup includes a copy of `restore-main.sh`
+	- It restores from its current folder back into `$HOME` after you confirm with `Y`
+- Restore runs write their output and results to `restore.log` in the backup folder
+	- `restore-dots.sh` writes to the parent backup folder's `restore.log` when it is run from `DOTS`
+- Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing
+- Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes
 - Before restoring a folder into `$HOME`, `restore-main.sh` moves an existing target folder to `<name>-pre-restore-<timestamp>`.
-- After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`.
+- After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`
 
-Service backup:
+#### Service backup:
 
 ```bash
 ./bkp-serv.sh
@@ -108,7 +121,7 @@ Service backup:
 /path/to/device/SERV/BKP-<timestamp>
 ```
 
-It requests root authentication at startup, then backs up:
+#### It requests root authentication at startup, then backs up:
 
 - `/etc/samba/smb.conf`
 - `/etc/samba/creds-*`
@@ -117,9 +130,10 @@ It requests root authentication at startup, then backs up:
 - `/etc/default/grub`
 - `/etc/mkinitcpio.conf`
 
-- Each service backup includes a copy of `restore-serv.sh` inside the backup folder and supports optional `.tar.gz` compression with `pigz`.
+- Each service backup includes a copy of `restore-serv.sh` inside the backup folder.
+	- And supports optional `.tar.gz` compression with `pigz`.
 
-Service archives are written beside the backup folder:
+#### Service archives are written beside the backup folder:
 
 ```bash
 /path/to/device/SERV/BKP-<timestamp>.tar.gz
@@ -127,7 +141,7 @@ Service archives are written beside the backup folder:
 
 - Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `lateralus/`, `grub`, `mkinitcpio.conf`, `creds-*`, `luks.bin`), not as full `/etc/...` or `/boot/...` directory trees.
 
-Service backup fail-safes:
+#### Service backup fail-safes:
 
 - Preflight checks for required commands and required source paths
 - Destination mount/writable verification before copy
@@ -137,7 +151,7 @@ Service backup fail-safes:
 - Restore value config copied to `config/serv.restore.conf`
 - LUKS header backup saved as `luks.bin` when a LUKS source is detected; set `LUKS_DEVICE=/dev/...` to force a specific source device
 
-Restore service backup from inside a `SERV/BKP-*` folder:
+#### Restore service backup from inside a `SERV/BKP-*` folder:
 
 ```bash
 cd /path/to/device/SERV/BKP-<timestamp>
@@ -146,26 +160,26 @@ cd /path/to/device/SERV/BKP-<timestamp>
 
 `restore-serv.sh` also supports `--quiet`.
 
-Current options:
+##### Current options:
 
 - `0 - Exit`
 - `1 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-kali`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`
-	- Then sets ownership to the local non-root user and permissions to `750`.
+	- Then sets ownership to the local non-root user and permissions to `750`
 - `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`
-	- Optionally runs `sudo smbpasswd -a <local-user>`, then enables and starts `smb.service`.
+	- Optionally runs `sudo smbpasswd -a <local-user>`, then enables and starts `smb.service`
 - `3 - Restore SSH`: restores `sshd_config` to `/etc/ssh/`
-	- Then enables and starts `sshd.service`.
+	- Then enables and starts `sshd.service`
 - `4 - Restore fstab`: runs `sudo modprobe cifs`
 	- Replaces existing entries for the configured SMB mountpoints
 	- Validates the generated table
 	- Then atomically installs it as `/etc/fstab`
-- `5 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`.
+- `5 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`
 - `6 - Restore GRUB`: updates `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path
-	- Then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`.
+	- Then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`
 - `98 - Collect pre-restore`: moves service `*-pre-restore-*` files and folders from known restore target locations into `$HOME/PreRestored`
-	- Preserves their ownership, and updates generated rollback scripts to the new paths.
+	- Preserves their ownership, and updates generated rollback scripts to the new paths
 
-Service restore fail-safes:
+#### Service restore fail-safes:
 
 - Restore is blocked unless `backup_status` in `backup-manifest.txt` is `complete`
 - SMB directories and GRUB target values are loaded from `config/serv.restore.conf` when present, with local fstab entries loaded from ignored `config/local/serv.restore.conf` when present
@@ -196,17 +210,19 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 
 `Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
 
-- `bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder.
-- `ml4w/wallpapers/` is excluded from each per-run `DOTS` copy and is stored in the shared backup-device folder `BIG/wallpapers/` instead.
-- When `$HOME/.mydotfiles` or the nested ML4W config folder is missing, the DOTS backup tasks are skipped without failing the main backup.
-- Wallpaper backup copies only files missing from `BIG/wallpapers/`; existing files in that shared folder are left untouched. The shared `BIG/wallpapers/` folder is not included in compressed `MAIN/BKP-*.tar.gz` archives.
+- `bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder
+- `ml4w/wallpapers/` is excluded from each per-run `DOTS` copy and is stored in the shared backup-device folder `BIG/wallpapers/` instead
+- When `$HOME/.mydotfiles` or the nested ML4W config folder is missing, the DOTS backup tasks are skipped without failing the main backup
+- Wallpaper backup copies only files missing from `BIG/wallpapers/`
+	- existing files in that shared folder are left untouched.
+	- The shared `BIG/wallpapers/` folder is not included in compressed `MAIN/BKP-*.tar.gz` archives
 - `Documents/Firmware/` is excluded from each per-run `Documents` copy and is stored in the shared backup-device folder `BIG/Firmware/` instead.
 	- Firmware backup copies only files missing from `BIG/Firmware/`; existing files in that shared folder are left untouched.
 	- `restore-main.sh` restores `BIG/Firmware/` back to `$HOME/Documents/Firmware/` when that shared folder exists.
 	- The shared `BIG/Firmware/` folder and per-run `Documents/Firmware/` path are excluded from compressed `MAIN/BKP-*.tar.gz` archives.
-- When ignored `config/local/restore-dots-settings.sh` exists, it is copied into `DOTS/config/local/` and can be run by `99 - Restore Settings`.
+- When ignored `config/local/restore-dots-settings.sh` exists, it is copied into `DOTS/config/local/` and can be run by `99 - Restore Settings`
 
-Run dotfiles restore actions from inside a backup `DOTS` folder:
+#### Run dotfiles restore actions from inside a backup `DOTS` folder:
 
 ```bash
 cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
@@ -215,7 +231,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 
 `restore-dots.sh` also supports `--quiet`.
 
-Current options:
+##### Current options:
 
 - `0 - Exit`
 - `1 - Install DOTS`: moves `$HOME/.config/hypr` to a safety snapshot
@@ -263,13 +279,13 @@ Current options:
 
 ## Development
 
-Check dependencies:
+#### Check dependencies:
 
 ```bash
 make deps
 ```
 
-Run shell checks:
+#### Run shell checks:
 
 ```bash
 make check
@@ -277,19 +293,19 @@ make check
 
 `shellcheck` is required for `make check`. `shfmt` remains optional.
 
-For CI-equivalent local checks:
+#### For CI-equivalent local checks:
 
 ```bash
 make ci-check
 ```
 
-Run restore portability smoke checks:
+#### Run restore portability smoke checks:
 
 ```bash
 make smoke
 ```
 
-Run a read-only post-reinstall readiness report:
+#### Run a read-only post-reinstall readiness report:
 
 ```bash
 make doctor
