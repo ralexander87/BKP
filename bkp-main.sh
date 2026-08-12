@@ -111,6 +111,8 @@ write_manifest() {
     printf 'dots_source=%s\n' "$DOTS_SOURCE"
     printf 'wallpapers_source=%s\n' "$WALLPAPERS_SOURCE"
     printf 'big_wallpapers_dir=%s\n' "$BIG_WALLPAPERS_DIR"
+    printf 'firmware_source=%s\n' "$FIRMWARE_SOURCE"
+    printf 'big_firmware_dir=%s\n' "$BIG_FIRMWARE_DIR"
     printf 'local_restore_dots_settings_hook=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')"
     printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
   } >"$manifest"
@@ -142,6 +144,10 @@ verify_backup_contents() {
 
   if [[ -d "$WALLPAPERS_SOURCE" ]]; then
     [[ -d "$BIG_WALLPAPERS_DIR" ]] || die "missing expected shared wallpaper folder: $BIG_WALLPAPERS_DIR"
+  fi
+
+  if [[ -d "$FIRMWARE_SOURCE" ]]; then
+    [[ -d "$BIG_FIRMWARE_DIR" ]] || die "missing expected shared firmware folder: $BIG_FIRMWARE_DIR"
   fi
 }
 
@@ -187,6 +193,8 @@ DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 DOTS_DIR="$BACKUP_DIR/DOTS"
 WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
 BIG_WALLPAPERS_DIR="$DEST_DEVICE/BIG/wallpapers"
+FIRMWARE_SOURCE="$HOME/Documents/Firmware"
+BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/Firmware"
 
 # Ask for archive creation before copying starts so required tools fail early.
 if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N"; then
@@ -242,6 +250,7 @@ ui_add_task "main-restore-script" "Copy restore-main.sh"
 ui_add_task "main-dots" "Backup DOTS"
 ui_add_task "main-dots-restore" "Copy restore-dots.sh"
 ui_add_task "main-wallpapers" "Backup wallpapers"
+ui_add_task "main-firmware" "Backup firmware"
 ui_add_task "main-manifest" "Write manifest"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   ui_add_task "main-archive" "Create archive"
@@ -265,6 +274,7 @@ for item in "${HOME_ITEMS[@]}"; do
 
   # Skip ISO files from Downloads and the nested .ssh/agent folder.
   case "$item" in
+  "Documents") item_args+=(--exclude='Firmware/') ;;
   "Downloads") item_args+=(--exclude='*.iso') ;;
   ".ssh") item_args+=(--exclude='agent/') ;;
   esac
@@ -340,6 +350,21 @@ else
   ui_render
 fi
 
+# Copy missing firmware files into the shared BIG/Firmware folder on the backup device.
+if [[ -d "$FIRMWARE_SOURCE" ]]; then
+  log "Backing up missing firmware: $FIRMWARE_SOURCE -> $BIG_FIRMWARE_DIR"
+  ui_update_task "main-firmware" "RUNNING" "copying missing firmware"
+  ui_render
+  mkdir -p "$BIG_FIRMWARE_DIR"
+  ui_run_command "main-firmware" "copying missing firmware" run_rsync_main rsync_backup_copy --ignore-existing "$FIRMWARE_SOURCE/" "$BIG_FIRMWARE_DIR/"
+  ui_update_task "main-firmware" "DONE" "copied missing files"
+  ui_render
+else
+  log "Skipping missing firmware folder: $FIRMWARE_SOURCE"
+  ui_update_task "main-firmware" "SKIPPED" "firmware path missing"
+  ui_render
+fi
+
 # Add a manifest to the backup before optional compression.
 ui_update_task "main-manifest" "RUNNING" "writing manifest"
 ui_render
@@ -354,7 +379,14 @@ if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   log "Creating archive: $ARCHIVE_NAME"
   ui_update_task "main-archive" "RUNNING" "compressing backup"
   ui_render
-  tar -C "$MAIN_DIR" --exclude='./BIG/wallpapers' --exclude='./BIG/wallpapers/**' -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
+  tar -C "$MAIN_DIR" \
+    --exclude='./BIG/wallpapers' \
+    --exclude='./BIG/wallpapers/**' \
+    --exclude='./BIG/Firmware' \
+    --exclude='./BIG/Firmware/**' \
+    --exclude="$RUN_ID/Documents/Firmware" \
+    --exclude="$RUN_ID/Documents/Firmware/**" \
+    -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
   log "Archive created: $ARCHIVE_NAME"
   ui_update_task "main-archive" "DONE" "created"
   ui_render "force"

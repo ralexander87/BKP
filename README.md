@@ -64,7 +64,7 @@ Main archives are written beside the backup folder:
 /path/to/device/MAIN/BKP-<timestamp>.tar.gz
 ```
 
-- The shared backup-device folder `BIG/wallpapers/` is not part of the per-run `BKP-*` folder and is explicitly excluded from compressed main archives.
+- The shared backup-device folders `BIG/wallpapers/` and `BIG/Firmware/` are not part of the per-run `BKP-*` folder and are explicitly excluded from compressed main archives.
 - Before backup starts, `bkp-main.sh` also offers a numbered skip list for `Documents`, `Downloads`, `Pictures`, `Music`, `Videos`, `Obsidian`, and `Code`. Enter one or more numbers separated by spaces or commas (for example `7 3` or `7,3`) to exclude those folders.
 - Before starting the backup, the script checks estimated source size against destination free space. If the destination appears too small, it warns and asks whether to continue.
 - Only one main backup can run at a time. A lock file in `logs/` prevents accidental overlapping runs.
@@ -200,6 +200,10 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 - `ml4w/wallpapers/` is excluded from each per-run `DOTS` copy and is stored in the shared backup-device folder `BIG/wallpapers/` instead.
 - When `$HOME/.mydotfiles` or the nested ML4W config folder is missing, the DOTS backup tasks are skipped without failing the main backup.
 - Wallpaper backup copies only files missing from `BIG/wallpapers/`; existing files in that shared folder are left untouched. The shared `BIG/wallpapers/` folder is not included in compressed `MAIN/BKP-*.tar.gz` archives.
+- `Documents/Firmware/` is excluded from each per-run `Documents` copy and is stored in the shared backup-device folder `BIG/Firmware/` instead.
+	- Firmware backup copies only files missing from `BIG/Firmware/`; existing files in that shared folder are left untouched.
+	- `restore-main.sh` restores `BIG/Firmware/` back to `$HOME/Documents/Firmware/` when that shared folder exists.
+	- The shared `BIG/Firmware/` folder and per-run `Documents/Firmware/` path are excluded from compressed `MAIN/BKP-*.tar.gz` archives.
 - When ignored `config/local/restore-dots-settings.sh` exists, it is copied into `DOTS/config/local/` and can be run by `99 - Restore Settings`.
 
 Run dotfiles restore actions from inside a backup `DOTS` folder:

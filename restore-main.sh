@@ -140,6 +140,31 @@ snapshot_existing_target() {
   mv -- "$target" "$snapshot"
 }
 
+# Resolve the backup device root from a script running inside MAIN/BKP-*.
+resolve_backup_device_root() {
+  cd -- "$SCRIPT_DIR/../.." 2>/dev/null && pwd
+}
+
+# Restore shared firmware stored outside the per-run MAIN/BKP-* folder.
+restore_shared_firmware() {
+  local device_root
+  local source_dir
+  local target_dir="$HOME/Documents/Firmware"
+
+  device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  source_dir="$device_root/BIG/Firmware"
+
+  if [[ ! -d "$source_dir" ]]; then
+    log "Skipping missing shared firmware folder: $source_dir"
+    return 0
+  fi
+
+  log "Restoring shared firmware: $source_dir -> $target_dir"
+  snapshot_existing_target "$target_dir"
+  mkdir -p "$target_dir"
+  rsync_restore_copy "$source_dir/" "$target_dir/"
+}
+
 # Block restore from incomplete backups while allowing older backup status formats.
 verify_backup_status() {
   local manifest_status=""
@@ -193,6 +218,9 @@ for item in "${HOME_ITEMS[@]}"; do
     log "Skipping missing backup item: $item"
   fi
 done
+
+# Restore shared BIG content after the main Documents folder is in place.
+restore_shared_firmware
 
 # Normalize SSH file modes after rsync completes.
 fix_ssh_permissions
