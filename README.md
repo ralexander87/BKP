@@ -1,4 +1,3 @@
-
 # BKPv3
 
 > Bash scripts for backing up and restoring Linux user folders, service-related files, and dotfiles.
@@ -163,29 +162,50 @@ cd /path/to/device/SERV/BKP-<timestamp>
 ##### Current options:
 
 - `0 - Exit`
-- `1 - Create SMB`: creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-kali`, `/SMB/lateralus`, `/SMB/SCP`, `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, `/SMB/SCP/HDD-03`
+- `1 - Create SMB`: creates 
+	- `/SMB`
+		- `/SMB/euclid`
+		- `/SMB/pneuma-kali`
+		- `/SMB/lateralus`
+	- `/SMB/SCP`
+		- `/SMB/SCP/HDD-01`
+		- `/SMB/SCP/HDD-02`
+		- `/SMB/SCP/HDD-03`
 	- Then sets ownership to the local non-root user and permissions to `750`
-- `2 - Restore samba`: restores `smb.conf` and `creds-*` files to `/etc/samba/`
-	- Optionally runs `sudo smbpasswd -a <local-user>`, then enables and starts `smb.service`
-- `3 - Restore SSH`: restores `sshd_config` to `/etc/ssh/`
+- `2 - Restore samba`: restores 
+	- `smb.conf`
+	- `creds-*` 
+		- to `/etc/samba/`
+	- Optionally runs `sudo smbpasswd -a <local-user>`
+		- Then enables and starts `smb.service`
+- `3 - Restore SSH`: restores 
+	- `sshd_config`
+		- to `/etc/ssh/`
 	- Then enables and starts `sshd.service`
-- `4 - Restore fstab`: runs `sudo modprobe cifs`
-	- Replaces existing entries for the configured SMB mountpoints
-	- Validates the generated table
-	- Then atomically installs it as `/etc/fstab`
-- `5 - Restore grub theme`: restores `lateralus` to `/boot/grub/themes/`
-- `6 - Restore GRUB`: updates `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path
-	- Then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`
-- `98 - Collect pre-restore`: moves service `*-pre-restore-*` files and folders from known restore target locations into `$HOME/PreRestored`
+- `4 - Restore fstab`: runs 
+	- `sudo modprobe cifs`
+		- Replaces existing entries for the configured SMB mountpoints
+		- Validates the generated table
+		- Then atomically installs it as `/etc/fstab`
+- `5 - Restore grub theme`: restores 
+	- `lateralus`
+		- to `/boot/grub/themes/`
+- `6 - Restore GRUB`: updates 
+	- `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path
+		- Then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`
+- `98 - Collect pre-restore`: moves service 
+	- `*-pre-restore-*` files and folders from known restore target locations into `$HOME/PreRestored`
 	- Preserves their ownership, and updates generated rollback scripts to the new paths
 
 #### Service restore fail-safes:
 
-- Restore is blocked unless `backup_status` in `backup-manifest.txt` is `complete`
-- SMB directories and GRUB target values are loaded from `config/serv.restore.conf` when present, with local fstab entries loaded from ignored `config/local/serv.restore.conf` when present
+- Restore is blocked unless 
+	- `backup_status` in `backup-manifest.txt` is `complete`
+- SMB directories and GRUB target values are loaded from `config/serv.restore.conf` when presen
+	- With local fstab entries loaded from ignored `config/local/serv.restore.conf` when present
 - Per-action confirmation prompts
 - Automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
-- generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
+- Generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
 - Idempotent `fstab` updates by configured mountpoint (stale entries for those mountpoints are replaced)
 - Atomic file update flow for `/etc/fstab` and `/etc/default/grub` (temp file + install)
 - Post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
@@ -321,10 +341,10 @@ Current version is tracked in the `VERSION` file.
 
 ### 0.4.0
 
-- centralized common script helpers (logging, prompts, rsync profiles, dependency checks)
-- added log levels and `--quiet` mode across backup/restore scripts
-- standardized rsync execution paths for backup and restore operations
-- added script-specific preflight dependency checks
-- improved restore menu behavior to return to menu after cancelled actions
-- switched critical config writes to atomic temp-file updates in service restore
-- added GitHub Actions shell CI (`bash -n`, `shellcheck`, `shfmt -d`)
+- Centralized common script helpers (logging, prompts, rsync profiles, dependency checks)
+- Added log levels and `--quiet` mode across backup/restore scripts
+- Standardized rsync execution paths for backup and restore operations
+- Added script-specific preflight dependency checks
+- Improved restore menu behavior to return to menu after cancelled actions
+- Switched critical config writes to atomic temp-file updates in service restore
+- Added GitHub Actions shell CI (`bash -n`, `shellcheck`, `shfmt -d`)
