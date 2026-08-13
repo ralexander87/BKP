@@ -67,7 +67,7 @@ date +%j-%d-%m-%H-%M-%S
 /path/to/device/MAIN/BKP-<timestamp>.tar.gz
 ```
 
-- The shared backup-device folders `BIG/wallpapers/` and `BIG/Firmware/` are not part of the per-run
+- The shared backup-device folders `BIG/wallpapers/` and `BIG/030-Firmware/` are not part of the per-run
 	- `BKP-*` folder and are explicitly excluded from compressed main archives
 - The shared backup-device folder `BIG/wallpapers/` is not part of the per-run `BKP-*` folder and is explicitly excluded from compressed main archives
 - Before backup starts, `bkp-main.sh` also offers a numbered skip list for `Documents`, `Downloads`, `Pictures`, `Music`, `Videos`, `Obsidian`, and `Code`. Enter one or more numbers separated by spaces or commas (for example `7 3` or `7,3`) to exclude those folders
@@ -236,10 +236,16 @@ The current `bkp-main.sh` backs up these `$HOME` folders:
 - Wallpaper backup copies only files missing from `BIG/wallpapers/`
 	- existing files in that shared folder are left untouched.
 	- The shared `BIG/wallpapers/` folder is not included in compressed `MAIN/BKP-*.tar.gz` archives
-- `Documents/Firmware/` is excluded from each per-run `Documents` copy and is stored in the shared backup-device folder `BIG/Firmware/` instead.
-	- Firmware backup copies only files missing from `BIG/Firmware/`; existing files in that shared folder are left untouched.
-	- `restore-main.sh` restores `BIG/Firmware/` back to `$HOME/Documents/Firmware/` when that shared folder exists.
-	- The shared `BIG/Firmware/` folder and per-run `Documents/Firmware/` path are excluded from compressed `MAIN/BKP-*.tar.gz` archives.
+- `Documents/030-Firmware/` is excluded from each per-run `Documents` copy and is stored in the shared backup-device folder `BIG/030-Firmware/` instead.
+	- Firmware backup copies only files missing from `BIG/030-Firmware/`; existing files in that shared folder are left untouched.
+	- `restore-main.sh` restores `BIG/030-Firmware/` back to `$HOME/Documents/030-Firmware/` when that shared folder exists.
+	- The shared `BIG/030-Firmware/` folder and per-run `Documents/030-Firmware/` path are excluded from compressed `MAIN/BKP-*.tar.gz` archives.
+- Selected backup-only home files are copied directly into `BIG/`
+	- `.bash_history`
+	- `.zsh_history`
+	- `.zshrc`
+	- `.wget-hsts`
+		- These files are not restored by any restore script
 - When ignored `config/local/restore-dots-settings.sh` exists, it is copied into `DOTS/config/local/` and can be run by `99 - Restore Settings`
 
 #### Run dotfiles restore actions from inside a backup `DOTS` folder:

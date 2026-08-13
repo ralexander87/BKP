@@ -113,6 +113,8 @@ write_manifest() {
     printf 'big_wallpapers_dir=%s\n' "$BIG_WALLPAPERS_DIR"
     printf 'firmware_source=%s\n' "$FIRMWARE_SOURCE"
     printf 'big_firmware_dir=%s\n' "$BIG_FIRMWARE_DIR"
+    printf 'big_home_files_dir=%s\n' "$BIG_HOME_FILES_DIR"
+    printf 'home_hidden_files=%s\n' "${HOME_HIDDEN_FILES[*]}"
     printf 'local_restore_dots_settings_hook=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')"
     printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
   } >"$manifest"
@@ -149,6 +151,12 @@ verify_backup_contents() {
   if [[ -d "$FIRMWARE_SOURCE" ]]; then
     [[ -d "$BIG_FIRMWARE_DIR" ]] || die "missing expected shared firmware folder: $BIG_FIRMWARE_DIR"
   fi
+
+  for hidden_file in "${HOME_HIDDEN_FILES[@]}"; do
+    if [[ -f "$HOME/$hidden_file" ]]; then
+      [[ -f "$BIG_HOME_FILES_DIR/$hidden_file" ]] || die "missing expected shared hidden file: $BIG_HOME_FILES_DIR/$hidden_file"
+    fi
+  done
 }
 
 # Persist final complete/failed status when the script exits.
@@ -193,8 +201,9 @@ DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 DOTS_DIR="$BACKUP_DIR/DOTS"
 WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
 BIG_WALLPAPERS_DIR="$DEST_DEVICE/BIG/wallpapers"
-FIRMWARE_SOURCE="$HOME/Documents/Firmware"
-BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/Firmware"
+FIRMWARE_SOURCE="$HOME/Documents/030-Firmware"
+BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/030-Firmware"
+BIG_HOME_FILES_DIR="$DEST_DEVICE/BIG"
 
 # Ask for archive creation before copying starts so required tools fail early.
 if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N"; then
@@ -216,6 +225,14 @@ HOME_ITEMS=(
   ".icons"
   ".ssh"
   ".vscode-oss"
+)
+
+# Backup-only $HOME files copied into BIG and intentionally not restored.
+HOME_HIDDEN_FILES=(
+  ".bash_history"
+  ".zsh_history"
+  ".zshrc"
+  ".wget-hsts"
 )
 
 # Optional skip map keyed by item names selected in prompt_skip_home_items.
@@ -251,6 +268,7 @@ ui_add_task "main-dots" "Backup DOTS"
 ui_add_task "main-dots-restore" "Copy restore-dots.sh"
 ui_add_task "main-wallpapers" "Backup wallpapers"
 ui_add_task "main-firmware" "Backup firmware"
+ui_add_task "main-hidden-files" "Backup hidden files"
 ui_add_task "main-manifest" "Write manifest"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   ui_add_task "main-archive" "Create archive"
@@ -274,7 +292,7 @@ for item in "${HOME_ITEMS[@]}"; do
 
   # Skip ISO files from Downloads and the nested .ssh/agent folder.
   case "$item" in
-  "Documents") item_args+=(--exclude='Firmware/') ;;
+  "Documents") item_args+=(--exclude='030-Firmware/') ;;
   "Downloads") item_args+=(--exclude='*.iso') ;;
   ".ssh") item_args+=(--exclude='agent/') ;;
   esac
@@ -350,7 +368,7 @@ else
   ui_render
 fi
 
-# Copy missing firmware files into the shared BIG/Firmware folder on the backup device.
+# Copy missing firmware files into the shared BIG/030-Firmware folder on the backup device.
 if [[ -d "$FIRMWARE_SOURCE" ]]; then
   log "Backing up missing firmware: $FIRMWARE_SOURCE -> $BIG_FIRMWARE_DIR"
   ui_update_task "main-firmware" "RUNNING" "copying missing firmware"
@@ -364,6 +382,28 @@ else
   ui_update_task "main-firmware" "SKIPPED" "firmware path missing"
   ui_render
 fi
+
+# Copy selected backup-only hidden files into the shared BIG folder.
+hidden_files_copied=0
+ui_update_task "main-hidden-files" "RUNNING" "copying hidden files"
+ui_render
+mkdir -p "$BIG_HOME_FILES_DIR"
+for hidden_file in "${HOME_HIDDEN_FILES[@]}"; do
+  source_path="$HOME/$hidden_file"
+  if [[ -f "$source_path" ]]; then
+    log "Backing up hidden file: $source_path -> $BIG_HOME_FILES_DIR/"
+    run_rsync_main rsync_backup_copy "$source_path" "$BIG_HOME_FILES_DIR/"
+    hidden_files_copied=$((hidden_files_copied + 1))
+  else
+    log "Skipping missing hidden file: $source_path"
+  fi
+done
+if [[ "$hidden_files_copied" -gt 0 ]]; then
+  ui_update_task "main-hidden-files" "DONE" "copied $hidden_files_copied file(s)"
+else
+  ui_update_task "main-hidden-files" "SKIPPED" "hidden files missing"
+fi
+ui_render
 
 # Add a manifest to the backup before optional compression.
 ui_update_task "main-manifest" "RUNNING" "writing manifest"
@@ -382,10 +422,10 @@ if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   tar -C "$MAIN_DIR" \
     --exclude='./BIG/wallpapers' \
     --exclude='./BIG/wallpapers/**' \
-    --exclude='./BIG/Firmware' \
-    --exclude='./BIG/Firmware/**' \
-    --exclude="$RUN_ID/Documents/Firmware" \
-    --exclude="$RUN_ID/Documents/Firmware/**" \
+    --exclude='./BIG/030-Firmware' \
+    --exclude='./BIG/030-Firmware/**' \
+    --exclude="$RUN_ID/Documents/030-Firmware" \
+    --exclude="$RUN_ID/Documents/030-Firmware/**" \
     -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
   log "Archive created: $ARCHIVE_NAME"
   ui_update_task "main-archive" "DONE" "created"

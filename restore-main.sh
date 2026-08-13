@@ -149,10 +149,10 @@ resolve_backup_device_root() {
 restore_shared_firmware() {
   local device_root
   local source_dir
-  local target_dir="$HOME/Documents/Firmware"
+  local target_dir="$HOME/Documents/030-Firmware"
 
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  source_dir="$device_root/BIG/Firmware"
+  source_dir="$device_root/BIG/030-Firmware"
 
   if [[ ! -d "$source_dir" ]]; then
     log "Skipping missing shared firmware folder: $source_dir"
