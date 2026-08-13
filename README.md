@@ -40,15 +40,18 @@ Use `--quiet` to hide INFO-level terminal output while still writing full logs:
 /path/to/device/MAIN/BKP-<timestamp>
 ```
 
-#### The backup folder contains the selected `$HOME` folders directly:
+#### The backup folder contains selected discovered `$HOME` folders directly:
 
 ```text
 BKP-<timestamp>/
   Downloads/
   Pictures/
   Documents/
+  CustomFolder/
   .ssh/
   DOTS/
+  lib/
+  backup-manifest.txt
   restore-main.sh
 ```
 
@@ -69,7 +72,6 @@ date +%j-%d-%m-%H-%M-%S
 
 - The shared backup-device folders `BIG/wallpapers/` and `BIG/030-Firmware/` are not part of the per-run
 	- `BKP-*` folder and are explicitly excluded from compressed main archives
-- The shared backup-device folder `BIG/wallpapers/` is not part of the per-run `BKP-*` folder and is explicitly excluded from compressed main archives
 - Before backup starts, `bkp-main.sh` offers a numbered skip list of all discovered non-hidden `$HOME` folders
 	- Enter one or more numbers separated by spaces or commas to exclude those folders
 - Before starting the backup, the script checks estimated source size against destination free space
@@ -101,6 +103,9 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 
 - Each backup includes a copy of `restore-main.sh`
 	- It restores from its current folder back into `$HOME` after you confirm with `Y`
+- `restore-main.sh` discovers restorable top-level backup items from the current backup folder
+	- It skips backup helper content such as `DOTS`, `lib`, `restore-main.sh`, manifests, and logs
+	- It restores shared `BIG/030-Firmware/` back to `$HOME/Documents/030-Firmware/` when that shared folder exists
 - Restore runs write their output and results to `restore.log` in the backup folder
 	- `restore-dots.sh` writes to the parent backup folder's `restore.log` when it is run from `DOTS`
 - Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing
