@@ -87,19 +87,14 @@ RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
 MANIFEST_FILE="$SCRIPT_DIR/backup-manifest.txt"
 
-# Backup items expected inside the current backup folder.
-HOME_ITEMS=(
-  "Downloads"
-  "Pictures"
-  "Videos"
-  "Music"
-  "Obsidian"
-  "Code"
-  "Documents"
-  ".themes"
-  ".icons"
-  ".ssh"
-  ".vscode-oss"
+# Top-level backup internals that should never be restored into $HOME.
+RESTORE_EXCLUDED_ITEMS=(
+  "DOTS"
+  "backup-manifest.txt"
+  "backup.status"
+  "lib"
+  "restore-main.sh"
+  "restore.log"
 )
 
 # Print command usage for help requests.
@@ -113,7 +108,32 @@ EOF
 
 # Ensure required dependencies exist before restore starts.
 preflight_checks() {
-  require_all_cmds rsync find mv
+  require_all_cmds rsync find mv sort
+}
+
+# Return success when a backup item is restore metadata or helper content.
+is_restore_excluded_item() {
+  local item="$1"
+  local excluded_item
+
+  for excluded_item in "${RESTORE_EXCLUDED_ITEMS[@]}"; do
+    [[ "$item" == "$excluded_item" ]] && return 0
+  done
+
+  return 1
+}
+
+# Discover restorable backup items from the current backup folder.
+discover_restore_items() {
+  local item
+  local path
+
+  HOME_ITEMS=()
+
+  while IFS= read -r -d '' path; do
+    item="${path##*/}"
+    is_restore_excluded_item "$item" || HOME_ITEMS+=("$item")
+  done < <(find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -print0 | sort -z)
 }
 
 # Enforce SSH's strict permission expectations after restoring .ssh.
@@ -205,6 +225,8 @@ if ! confirm_yes_no "Start restore from current folder to \$HOME?" "N"; then
   log "Restore cancelled"
   exit 0
 fi
+
+discover_restore_items
 
 # Restore each available backup item into $HOME while preserving metadata.
 for item in "${HOME_ITEMS[@]}"; do

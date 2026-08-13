@@ -215,19 +215,37 @@ rm -rf "$tmp"
 printf 'external mount picker path decoding OK\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/lib"
+mkdir -p "$tmp/lib" "$tmp/logs"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
 awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
 cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+SKIPPABLE_HOME_ITEMS=(Documents Downloads Pictures)
 declare -A SKIP_HOME_ITEMS=()
-printf '\n' | prompt_skip_home_items >/dev/null
+prompt_skip_home_items >/dev/null <<<''
 EOF
 (cd "$tmp" && bash bkp-main-partial.sh)
 rm -rf "$tmp"
 printf 'blank skip selection OK: bkp-main.sh\n'
 
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/logs"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+SKIPPABLE_HOME_ITEMS=(Alpha Beta Gamma)
+declare -A SKIP_HOME_ITEMS=()
+prompt_skip_home_items >/dev/null <<<'2'
+[[ -n "${SKIP_HOME_ITEMS[Beta]:-}" ]]
+[[ -z "${SKIP_HOME_ITEMS[Alpha]:-}" ]]
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh)
+rm -rf "$tmp"
+printf 'dynamic skip selection OK: bkp-main.sh\n'
+
 grep -Fq 'config/local/restore-dots-settings.sh' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'DOTS/config/local/restore-dots-settings.sh' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'discover_home_items' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'SKIPPABLE_HOME_ITEMS' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "[[ -d \"\$DOTS_ROOT\" && -d \"\$DOTS_SOURCE\" ]]" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "Skipping missing dotfiles root: \$DOTS_ROOT" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "BIG_WALLPAPERS_DIR=\"\$DEST_DEVICE/BIG/wallpapers\"" "$PROJECT_ROOT/bkp-main.sh"
@@ -248,6 +266,8 @@ grep -Fq -- "--exclude='./BIG/030-Firmware'" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq -- "--exclude='./BIG/030-Firmware/**'" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq -- "--exclude=\"\$RUN_ID/Documents/030-Firmware\"" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'restore_shared_firmware' "$PROJECT_ROOT/restore-main.sh"
+grep -Fq 'discover_restore_items' "$PROJECT_ROOT/restore-main.sh"
+grep -Fq 'RESTORE_EXCLUDED_ITEMS' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq 'BIG/030-Firmware' "$PROJECT_ROOT/restore-main.sh"
 if grep -Fq '".bash_history"' "$PROJECT_ROOT/restore-main.sh"; then
   printf 'backup-only hidden files should not be restored by restore-main.sh\n' >&2
@@ -256,7 +276,6 @@ fi
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/bkp-serv.sh"
 grep -Fq '".vscode-oss"' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq '".vscode-oss"' "$PROJECT_ROOT/restore-main.sh"
 printf 'local config copy paths OK\n'
 
 tmp="$(mktemp -d)"

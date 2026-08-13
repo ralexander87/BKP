@@ -20,7 +20,7 @@ EOF
 
 # Ensure required user-space dependencies exist before backup starts.
 preflight_checks() {
-  require_all_cmds rsync flock findmnt df du install
+  require_all_cmds rsync flock findmnt df du install sort
 }
 
 # Treat rsync "vanished source files" (exit 24) as warning, not hard failure.
@@ -39,24 +39,16 @@ prompt_skip_home_items() {
   local answer normalized token idx
   local -A selected=()
   local -a skip_items=()
-  local -a option_labels=(
-    "Documents"
-    "Downloads"
-    "Pictures"
-    "Music"
-    "Videos"
-    "Obsidian"
-    "Code"
-  )
 
   printf 'Optional: choose folders to skip (space or comma separated).\n'
-  printf '  1 - Documents\n'
-  printf '  2 - Downloads\n'
-  printf '  3 - Pictures\n'
-  printf '  4 - Music\n'
-  printf '  5 - Videos\n'
-  printf '  6 - Obsidian\n'
-  printf '  7 - Code\n'
+  if [[ "${#SKIPPABLE_HOME_ITEMS[@]}" -eq 0 ]]; then
+    printf '  No non-hidden folders found in %s.\n' "\$HOME"
+    return 0
+  fi
+
+  for idx in "${!SKIPPABLE_HOME_ITEMS[@]}"; do
+    printf '  %s - %s\n' "$((idx + 1))" "${SKIPPABLE_HOME_ITEMS[$idx]}"
+  done
   read -r -p "Skip selection (Enter for none): " answer
 
   # Empty input means no exclusions; keep full backup behavior.
@@ -65,13 +57,13 @@ prompt_skip_home_items() {
   normalized="${answer//,/ }"
   for token in $normalized; do
     [[ "$token" =~ ^[0-9]+$ ]] || die "invalid skip selection value: $token"
-    ((token >= 1 && token <= 7)) || die "skip selection out of range: $token"
+    ((token >= 1 && token <= ${#SKIPPABLE_HOME_ITEMS[@]})) || die "skip selection out of range: $token"
     selected["$token"]=1
   done
 
-  for idx in "${!option_labels[@]}"; do
+  for idx in "${!SKIPPABLE_HOME_ITEMS[@]}"; do
     if [[ -n "${selected[$((idx + 1))]:-}" ]]; then
-      skip_items+=("${option_labels[$idx]}")
+      skip_items+=("${SKIPPABLE_HOME_ITEMS[$idx]}")
     fi
   done
 
@@ -81,6 +73,26 @@ prompt_skip_home_items() {
     done
     log "Skipping selected folders: ${skip_items[*]}"
   fi
+}
+
+# Build the backup item list from every top-level non-hidden $HOME folder plus selected hidden folders.
+discover_home_items() {
+  local hidden_item
+  local item
+  local path
+
+  HOME_ITEMS=()
+  SKIPPABLE_HOME_ITEMS=()
+
+  while IFS= read -r path; do
+    item="${path##*/}"
+    SKIPPABLE_HOME_ITEMS+=("$item")
+    HOME_ITEMS+=("$item")
+  done < <(find "$HOME" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print | sort)
+
+  for hidden_item in "${HIDDEN_HOME_ITEMS[@]}"; do
+    HOME_ITEMS+=("$hidden_item")
+  done
 }
 
 # Estimate the source data size before backup so destination space can be checked.
@@ -212,15 +224,8 @@ if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N
   CREATE_ARCHIVE=true
 fi
 
-# Top-level $HOME items copied directly into the backup folder.
-HOME_ITEMS=(
-  "Downloads"
-  "Pictures"
-  "Videos"
-  "Music"
-  "Obsidian"
-  "Code"
-  "Documents"
+# Hidden $HOME folders copied directly into the backup folder when present.
+HIDDEN_HOME_ITEMS=(
   ".themes"
   ".icons"
   ".ssh"
@@ -237,6 +242,9 @@ HOME_HIDDEN_FILES=(
 
 # Optional skip map keyed by item names selected in prompt_skip_home_items.
 declare -A SKIP_HOME_ITEMS=()
+
+# Discover current top-level $HOME folders before showing the skip menu.
+discover_home_items
 
 # Ask for optional folder exclusions before backup starts.
 prompt_skip_home_items
@@ -261,7 +269,9 @@ ui_add_meta "Skipped Folders" "$skip_display"
 for item in "${HOME_ITEMS[@]}"; do
   ui_add_task "main-$item" "$item"
 done
-ui_add_task_separator_after "main-Documents" "Hidden folders"
+if [[ "${#SKIPPABLE_HOME_ITEMS[@]}" -gt 0 ]]; then
+  ui_add_task_separator_after "main-${SKIPPABLE_HOME_ITEMS[-1]}" "Hidden folders"
+fi
 ui_add_task_separator_after "main-.vscode-oss" "Post backup"
 ui_add_task "main-restore-script" "Copy restore-main.sh"
 ui_add_task "main-dots" "Backup DOTS"

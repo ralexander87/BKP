@@ -70,7 +70,8 @@ date +%j-%d-%m-%H-%M-%S
 - The shared backup-device folders `BIG/wallpapers/` and `BIG/030-Firmware/` are not part of the per-run
 	- `BKP-*` folder and are explicitly excluded from compressed main archives
 - The shared backup-device folder `BIG/wallpapers/` is not part of the per-run `BKP-*` folder and is explicitly excluded from compressed main archives
-- Before backup starts, `bkp-main.sh` also offers a numbered skip list for `Documents`, `Downloads`, `Pictures`, `Music`, `Videos`, `Obsidian`, and `Code`. Enter one or more numbers separated by spaces or commas (for example `7 3` or `7,3`) to exclude those folders
+- Before backup starts, `bkp-main.sh` offers a numbered skip list of all discovered non-hidden `$HOME` folders
+	- Enter one or more numbers separated by spaces or commas to exclude those folders
 - Before starting the backup, the script checks estimated source size against destination free space
 	- If the destination appears too small, it warns and asks whether to continue
 - Only one main backup can run at a time
@@ -214,19 +215,15 @@ cd /path/to/device/SERV/BKP-<timestamp>
 
 ## Configuration
 
-The current `bkp-main.sh` backs up these `$HOME` folders:
+The current `bkp-main.sh` backs up discovered `$HOME` folders:
 
-- `Downloads`
-- `Pictures`
-- `Videos`
-- `Music`
-- `Obsidian`
-- `Code`
-- `Documents`
-- `.themes`
-- `.icons`
-- `.ssh`
-- `.vscode-oss`
+- Every top-level non-hidden folder in `$HOME`
+	- Listed in a numbered prompt so the user can exclude any folder for that run
+- Selected hidden folders when present
+	- `.themes`
+	- `.icons`
+	- `.ssh`
+	- `.vscode-oss`
 
 `Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
 
