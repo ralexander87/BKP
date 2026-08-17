@@ -304,4 +304,77 @@ grep -Fq '=== Post backup ===' "$tmp/dashboard.out"
 rm -rf "$tmp"
 printf 'dashboard task grouping OK\n'
 
+tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
+(cd "$tmp" && NO_COLOR=1 bash -c '
+  source common.sh
+  UI_RENDER_STYLE=service
+  UI_BACKUP_LABEL=SERVICE
+  UI_STARTED_LABEL=Started
+  UI_ENABLED=true
+  UI_USE_COLOR=false
+  UI_STARTED_AT="19:40:18"
+  UI_LAST_RENDER_TS=0
+  ui_add_meta "Destination" "/SERV/BKP-229-17-08-18-15-34"
+  ui_add_meta "Archive" "NO"
+  ui_add_meta "LUKS Device" "YES [Auto-Detect]"
+  ui_add_task "smb" "SMB config" "DONE" "No Error"
+  ui_add_task "ssh" "SSH config" "DONE" "No Error"
+  ui_add_task "creds" "Samba creds-*" "RUNNING" "copying /etc/samba/creds-home (0s)"
+  ui_add_task_separator_after "creds" "Post Backup"
+  ui_add_task "restore" "Copy restore-serv.sh" "DONE" "COPIED"
+  ui_add_task "luks" "Backup luks.bin" "DONE" "SAVED: luks.bin"
+  ui_add_task "manifest" "Write manifest" "DONE" "WRITTEN"
+  ui_finalize "SUCCESS" "All selected SERVICE backup tasks completed."
+' >service-dashboard.out)
+grep -Fq 'Metric | Value' "$tmp/service-dashboard.out"
+grep -Fq 'Started = 19:40:18 | End =' "$tmp/service-dashboard.out"
+grep -Fq 'Destination        | /SERV/BKP-229-17-08-18-15-34' "$tmp/service-dashboard.out"
+grep -Fq 'Archive            | NO' "$tmp/service-dashboard.out"
+grep -Fq 'LUKS Device        | YES [Auto-Detect]' "$tmp/service-dashboard.out"
+grep -Fq 'SMB config               | OK/DONE  | NO ERROR' "$tmp/service-dashboard.out"
+grep -Fq 'Samba creds-*            | RUNNING  | COPY: /etc/samba/creds-home (0s)' "$tmp/service-dashboard.out"
+grep -Fq 'Post Backup' "$tmp/service-dashboard.out"
+grep -Fq '[INFO] : SUCCESS... SERVICE backup COMPLETED' "$tmp/service-dashboard.out"
+grep -Fq '[ERROR]: No Error Occurred' "$tmp/service-dashboard.out"
+rm -rf "$tmp"
+printf 'service dashboard OK\n'
+
+tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
+(cd "$tmp" && NO_COLOR=1 bash -c '
+  source common.sh
+  UI_RENDER_STYLE=main
+  UI_BACKUP_LABEL=MAIN
+  UI_STARTED_LABEL=Started
+  UI_ENABLED=true
+  UI_USE_COLOR=false
+  UI_STARTED_AT="19:40:18"
+  UI_LAST_RENDER_TS=0
+  ui_add_meta "Destination" "/MAIN/BKP-229-17-08-18-27-32"
+  ui_add_meta "Archive" "NO"
+  ui_add_meta "Skipped Folders" "1"
+  ui_add_task "code" "Code" "DONE" "No Error"
+  ui_add_task "templates" "Templates" "SKIPPED" "SKIPPED"
+  ui_add_task_separator_after "templates" "Hidden Folders"
+  ui_add_task "themes" ".themes" "RUNNING" "copying from $HOME/.themes (0s)"
+  ui_add_task_separator_after "themes" "Post Backup"
+  ui_add_task "restore" "Copy restore-main.sh" "DONE" "COPIED"
+  ui_add_task "hidden" "Backup hidden files" "DONE" "COPIED 4 file(s)"
+  ui_add_task "manifest" "Write manifest" "DONE" "WRITTEN"
+  ui_finalize "SUCCESS" "All selected MAIN backup tasks completed."
+' >main-dashboard.out)
+grep -Fq 'Started = 19:40:18 | End =' "$tmp/main-dashboard.out"
+grep -Fq 'Destination        | /MAIN/BKP-229-17-08-18-27-32' "$tmp/main-dashboard.out"
+grep -Fq 'Skipped Folders    | 1' "$tmp/main-dashboard.out"
+grep -Fq 'Code                     | OK/DONE  | NO ERROR' "$tmp/main-dashboard.out"
+grep -Fq 'Templates                | SKIPPED  | SKIPPED' "$tmp/main-dashboard.out"
+grep -Fq 'Hidden Folders' "$tmp/main-dashboard.out"
+grep -Fq '.themes                  | RUNNING  | COPY: /.themes (0s)' "$tmp/main-dashboard.out"
+grep -Fq 'Copy restore-main.sh     | OK/DONE  | COPIED' "$tmp/main-dashboard.out"
+grep -Fq '[INFO] : SUCCESS... MAIN backup COMPLETED' "$tmp/main-dashboard.out"
+grep -Fq '[ERROR]: No Error Occurred' "$tmp/main-dashboard.out"
+rm -rf "$tmp"
+printf 'main dashboard OK\n'
+
 printf 'smoke OK\n'

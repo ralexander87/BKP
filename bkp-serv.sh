@@ -5,6 +5,9 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # Unified backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp.log"
+UI_RENDER_STYLE=service
+UI_BACKUP_LABEL=SERVICE
+UI_STARTED_LABEL=Started
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
 LUKS_DEVICE_PATH=""
@@ -116,7 +119,7 @@ backup_path() {
     else
       sudo_rsync_backup_copy "$source_path" "$BACKUP_DIR/"
     fi
-    ui_update_task "$task_id" "DONE" "copied"
+    ui_update_task "$task_id" "DONE" "No Error"
     ui_render
   else
     log "Skipping missing path: $source_path"
@@ -202,7 +205,7 @@ backup_luks_header() {
   sudo cryptsetup luksHeaderBackup "$LUKS_DEVICE_PATH" --header-backup-file "$BACKUP_DIR/$LUKS_HEADER_FILE"
   LUKS_HEADER_CREATED=true
   log "Saved LUKS header backup: $BACKUP_DIR/$LUKS_HEADER_FILE"
-  ui_update_task "serv-luks" "DONE" "saved as $LUKS_HEADER_FILE"
+  ui_update_task "serv-luks" "DONE" "SAVED: $LUKS_HEADER_FILE"
   ui_render
 }
 
@@ -252,6 +255,8 @@ finalize_status() {
     if [[ "$RUN_RESULT" == "complete" ]]; then
       audit_log "completed"
     else
+      ui_finalize "FAILED" "${UI_LAST_ERROR_TEXT:-Service backup failed.}"
+      ui_append_final_status "$MANIFEST_FILE"
       audit_log "failed"
     fi
   fi
@@ -306,18 +311,25 @@ set_backup_status "in_progress"
 audit_log "started"
 
 # Start terminal dashboard for visual progress and selected options.
-ui_init "SERV Backup Progress"
-ui_add_meta "Destination" "$DEST_DEVICE"
-ui_add_meta "Backup Dir" "$BACKUP_DIR"
-ui_add_meta "Archive" "$CREATE_ARCHIVE"
-ui_add_meta "LUKS Device" "${LUKS_DEVICE:-auto-detect}"
+ui_init "SERVICE Backup Progress"
+ui_add_meta "Destination" "/SERV/$RUN_ID"
+if [[ "$CREATE_ARCHIVE" == "true" ]]; then
+  ui_add_meta "Archive" "YES"
+else
+  ui_add_meta "Archive" "NO"
+fi
+if [[ -n "${LUKS_DEVICE:-}" ]]; then
+  ui_add_meta "LUKS Device" "YES [$LUKS_DEVICE]"
+else
+  ui_add_meta "LUKS Device" "YES [Auto-Detect]"
+fi
 ui_add_task "serv-smbconf" "SMB config"
 ui_add_task "serv-sshd" "SSH config"
 ui_add_task "serv-theme" "GRUB theme lateralus"
 ui_add_task "serv-grub" "Default GRUB config"
 ui_add_task "serv-mkinitcpio" "Mkinitcpio config"
 ui_add_task "serv-creds" "Samba creds-*"
-ui_add_task_separator_after "serv-creds" "Post backup"
+ui_add_task_separator_after "serv-creds" "Post Backup"
 ui_add_task "serv-restore-script" "Copy restore-serv.sh"
 ui_add_task "serv-luks" "Backup luks.bin"
 ui_add_task "serv-manifest" "Write manifest"
@@ -349,7 +361,7 @@ if [[ "$creds_found" == "false" ]]; then
   ui_update_task "serv-creds" "SKIPPED" "no creds-* files found"
   ui_render
 else
-  ui_update_task "serv-creds" "DONE" "copied available creds-* files"
+  ui_update_task "serv-creds" "DONE" "No Error"
   ui_render
 fi
 
@@ -367,7 +379,7 @@ if [[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]]; then
   log "Copied local service restore config: $BACKUP_DIR/config/local/serv.restore.conf"
 fi
 log "Copied restore script: $BACKUP_DIR/restore-serv.sh"
-ui_update_task "serv-restore-script" "DONE" "copied"
+ui_update_task "serv-restore-script" "DONE" "COPIED"
 ui_render
 
 # Back up LUKS header into luks.bin in this backup folder.
@@ -383,7 +395,7 @@ ui_render
 set_backup_status "complete"
 verify_backup_contents
 BACKUP_COMPLETE=true
-ui_update_task "serv-manifest" "DONE" "written"
+ui_update_task "serv-manifest" "DONE" "WRITTEN"
 ui_render
 
 # Compress the finished backup folder only if selected at startup.
@@ -395,7 +407,7 @@ if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz | sudo tee "$local_archive_tmp" >/dev/null
   sudo mv "$local_archive_tmp" "$ARCHIVE_NAME"
   log "Archive created: $ARCHIVE_NAME"
-  ui_update_task "serv-archive" "DONE" "created"
+  ui_update_task "serv-archive" "DONE" "CREATED"
   ui_render "force"
 else
   log "Archive skipped"
@@ -403,6 +415,6 @@ fi
 
 log "Done: bkp-serv"
 ui_add_message "INFO" "Backup finished successfully"
-ui_finalize "SUCCESS" "All selected SERV backup tasks completed."
+ui_finalize "SUCCESS" "All selected SERVICE backup tasks completed."
 ui_append_final_status "$MANIFEST_FILE"
 log_ui_final_status

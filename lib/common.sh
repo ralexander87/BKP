@@ -26,6 +26,8 @@ UI_COLOR_PENDING=""
 UI_COLOR_SKIPPED=""
 UI_FINAL_STATE=""
 UI_FINAL_MESSAGE=""
+UI_LAST_ERROR_TEXT=""
+UI_ACTIVE_TASK_ID=""
 declare -a UI_META_LINES=()
 declare -a UI_TASK_ORDER=()
 declare -a UI_MESSAGES=()
@@ -59,6 +61,9 @@ log_message() {
 
   ts="$(date '+%Y-%m-%dT%H:%M:%S%z')"
   line="[$ts] [$level] [$SCRIPT_NAME] $text"
+  if [[ "$level" == "ERROR" ]]; then
+    UI_LAST_ERROR_TEXT="$text"
+  fi
 
   if [[ -n "${LOG_FILE:-}" ]]; then
     printf '%s\n' "$line" >>"$LOG_FILE"
@@ -389,6 +394,8 @@ ui_init() {
   UI_TASK_SEPARATOR_AFTER=()
   UI_FINAL_STATE=""
   UI_FINAL_MESSAGE=""
+  UI_LAST_ERROR_TEXT=""
+  UI_ACTIVE_TASK_ID=""
 
   if [[ "$QUIET" == "true" || ! -t 1 ]]; then
     UI_ENABLED=false
@@ -468,6 +475,11 @@ ui_update_task() {
   [[ -n "${UI_TASK_LABELS[$task_id]:-}" ]] || return 0
   UI_TASK_STATUS["$task_id"]="$status"
   [[ -n "$detail" ]] && UI_TASK_DETAIL["$task_id"]="$detail"
+  if [[ "$status" == "RUNNING" ]]; then
+    UI_ACTIVE_TASK_ID="$task_id"
+  elif [[ "$UI_ACTIVE_TASK_ID" == "$task_id" ]]; then
+    UI_ACTIVE_TASK_ID=""
+  fi
 }
 
 # Store warning/error lines visible at bottom of dashboard.
@@ -562,6 +574,185 @@ ui_metric_pair() {
   fi
 }
 
+# Repeat a character without relying on external formatting helpers.
+ui_repeat_char() {
+  local char="$1"
+  local count="$2"
+
+  printf '%*s' "$count" '' | tr ' ' "$char"
+}
+
+# Print a centered tilde-dashboard heading.
+ui_tilde_heading() {
+  local title="$1"
+  local width=60
+  local text=" $title "
+  local fill=$((width - ${#text}))
+  local left=$((fill / 2))
+  local right=$((fill - left))
+
+  ((fill < 0)) && {
+    printf '%s\n' "$title"
+    return 0
+  }
+
+  printf '%s%s%s\n' "$(ui_repeat_char '~' "$left")" "$text" "$(ui_repeat_char '~' "$right")"
+}
+
+# Convert internal task statuses to tilde-dashboard labels.
+ui_tilde_status_label() {
+  local status="$1"
+
+  case "$status" in
+  DONE) printf 'OK/DONE\n' ;;
+  ERROR) printf 'FAILED\n' ;;
+  RUNNING) printf 'RUNNING\n' ;;
+  SKIPPED) printf 'SKIPPED\n' ;;
+  *) printf 'PENDING\n' ;;
+  esac
+}
+
+# Keep running-row details compact without changing logs or command paths.
+ui_tilde_detail() {
+  local status="$1"
+  local detail="$2"
+  local suffix=""
+  local action=""
+  local target=""
+
+  if [[ "$status" != "RUNNING" ]]; then
+    printf '%s\n' "${detail^^}"
+    return 0
+  fi
+
+  if [[ "$detail" =~ (.*)(\ \([0-9]+s\))$ ]]; then
+    detail="${BASH_REMATCH[1]}"
+    suffix="${BASH_REMATCH[2]}"
+  fi
+
+  case "$detail" in
+  "copying from "*)
+    action="COPY"
+    target="${detail#copying from }"
+    ;;
+  "copying "*)
+    action="COPY"
+    target="${detail#copying }"
+    ;;
+  "reading header from "*)
+    action="READ"
+    target="${detail#reading header from }"
+    ;;
+  "scanning "*)
+    action="SCAN"
+    target="${detail#scanning }"
+    ;;
+  "writing "*)
+    action="WRITE"
+    target="${detail#writing }"
+    ;;
+  "compressing "*)
+    action="COMPRESS"
+    target="${detail#compressing }"
+    ;;
+  *)
+    printf '%s%s\n' "${detail^^}" "$suffix"
+    return 0
+    ;;
+  esac
+
+  if [[ -n "${HOME:-}" && "$target" == "$HOME"* ]]; then
+    target="${target#"$HOME"}"
+    [[ -n "$target" ]] || target="/"
+  elif [[ "$target" != /* ]]; then
+    target="${target^^}"
+  fi
+
+  printf '%s: %s%s\n' "$action" "$target" "$suffix"
+}
+
+# Render the tilde backup dashboard style.
+ui_render_tilde() {
+  local line task_id status_raw status_label detail_raw
+  local backup_label="${UI_BACKUP_LABEL:-SERVICE}"
+  local started_label="${UI_STARTED_LABEL:-Started}"
+  local done=0 running=0 skipped=0 failed=0 pending=0 total=0
+
+  for task_id in "${UI_TASK_ORDER[@]}"; do
+    case "${UI_TASK_STATUS[$task_id]}" in
+    DONE) ((done += 1)) ;;
+    RUNNING) ((running += 1)) ;;
+    SKIPPED) ((skipped += 1)) ;;
+    ERROR) ((failed += 1)) ;;
+    *) ((pending += 1)) ;;
+    esac
+  done
+  total="${#UI_TASK_ORDER[@]}"
+
+  printf '\033[H\033[2J'
+  ui_tilde_heading "Metric | Value"
+  printf '%s = %s | End = %s\n' "$started_label" "$UI_STARTED_AT" "$(date '+%H:%M:%S')"
+  printf 'Total = %-3s | Done = %-3s | Running = %s\n' "$total" "$done" "$running"
+  printf 'Skipped = %s | Errors = %s | Pending = %s\n' "$skipped" "$failed" "$pending"
+
+  printf '\n'
+  ui_tilde_heading "Selected Options"
+  printf '%-18s | %s\n' "Option" "Value"
+  printf '%s+%s\n' "$(ui_repeat_char '~' 19)" "$(ui_repeat_char '~' 40)"
+  for line in "${UI_META_LINES[@]}"; do
+    printf '%-18s | %s\n' "${line%%|*}" "${line#*|}"
+  done
+
+  printf '\n'
+  ui_tilde_heading "Task"
+  printf '%-3s | %-24s | %-8s | %s\n' "#" "Item" "Status" "Details"
+  printf '%s+%s+%s+%s\n' \
+    "$(ui_repeat_char '~' 4)" \
+    "$(ui_repeat_char '~' 26)" \
+    "$(ui_repeat_char '~' 10)" \
+    "$(ui_repeat_char '~' 17)"
+  local i=1
+  for task_id in "${UI_TASK_ORDER[@]}"; do
+    status_raw="${UI_TASK_STATUS[$task_id]}"
+    status_label="$(ui_tilde_status_label "$status_raw")"
+    detail_raw="$(ui_tilde_detail "$status_raw" "${UI_TASK_DETAIL[$task_id]}")"
+    detail_raw="${detail_raw:0:80}"
+    printf '%-3d | %-24s | %-8s | %s\n' \
+      "$i" \
+      "${UI_TASK_LABELS[$task_id]:0:24}" \
+      "$status_label" \
+      "$detail_raw"
+    if [[ -n "${UI_TASK_SEPARATOR_AFTER[$task_id]:-}" && "${UI_TASK_SEPARATOR_AFTER[$task_id]}" != "true" ]]; then
+      ui_tilde_heading "${UI_TASK_SEPARATOR_AFTER[$task_id]}"
+    fi
+    ((i += 1))
+  done
+  printf '%s\n' "$(ui_repeat_char '~' 60)"
+
+  printf '\n'
+  ui_tilde_heading "Recent Warnings/Errors"
+  if [[ -n "$UI_FINAL_STATE" ]]; then
+    if [[ "$UI_FINAL_STATE" == "SUCCESS" ]]; then
+      printf '[INFO] : SUCCESS... %s backup COMPLETED\n' "$backup_label"
+      printf '[ERROR]: No Error Occurred\n'
+    else
+      local short_error="${UI_LAST_ERROR_TEXT:-Unknown Error}"
+      short_error="${short_error%%$'\n'*}"
+      [[ "${#short_error}" -gt 54 ]] && short_error="${short_error:0:54}"
+      printf '[INFO] : SUCCESS... %s backup ERROR!!!\n' "$backup_label"
+      printf '[ERROR]: %s\n' "$short_error"
+    fi
+  elif [[ "${#UI_MESSAGES[@]}" -gt 0 ]]; then
+    for line in "${UI_MESSAGES[@]}"; do
+      printf '%s\n' "$line"
+    done
+  else
+    printf '[INFO] : %s backup running\n' "$backup_label"
+    printf '[ERROR]: No Error Occurred\n'
+  fi
+  printf '%s\n' "$(ui_repeat_char '~' 60)"
+}
+
 # Draw dashboard if enabled (rate-limited unless forced).
 ui_render() {
   local mode="${1:-}"
@@ -577,6 +768,11 @@ ui_render() {
     return 0
   fi
   UI_LAST_RENDER_TS="$now"
+
+  if [[ "${UI_RENDER_STYLE:-}" == "service" || "${UI_RENDER_STYLE:-}" == "main" ]]; then
+    ui_render_tilde
+    return 0
+  fi
 
   for task_id in "${UI_TASK_ORDER[@]}"; do
     case "${UI_TASK_STATUS[$task_id]}" in
@@ -664,6 +860,9 @@ ui_render() {
 ui_report_error() {
   local line_no="$1"
   local cmd="$2"
+  if [[ -n "${UI_ACTIVE_TASK_ID:-}" ]]; then
+    ui_update_task "$UI_ACTIVE_TASK_ID" "ERROR" "failed"
+  fi
   log_error "command failed at line $line_no: $cmd"
 }
 
@@ -737,6 +936,7 @@ ui_append_final_status() {
     printf 'ui_errors=%s\n' "$UI_COUNT_ERRORS"
     printf 'ui_pending=%s\n' "$UI_COUNT_PENDING"
     printf 'ui_recent_messages=%s\n' "$messages"
+    printf 'ui_last_error=%s\n' "${UI_LAST_ERROR_TEXT:-none}"
   } >>"$output_file"
 }
 

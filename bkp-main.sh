@@ -5,6 +5,9 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # Unified backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp.log"
+UI_RENDER_STYLE=main
+UI_BACKUP_LABEL=MAIN
+UI_STARTED_LABEL=Started
 MANIFEST_FILE=""
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
@@ -177,6 +180,10 @@ finalize_status() {
 
   if [[ -d "$BACKUP_DIR" ]]; then
     set_backup_status "$(backup_final_status "$exit_code")"
+    if [[ "$RUN_RESULT" != "complete" ]]; then
+      ui_finalize "FAILED" "${UI_LAST_ERROR_TEXT:-Main backup failed.}"
+      ui_append_final_status "$MANIFEST_FILE"
+    fi
   fi
 }
 
@@ -259,23 +266,25 @@ set_backup_status "in_progress"
 
 # Start terminal dashboard for visual progress and selected options.
 ui_init "MAIN Backup Progress"
-skip_display="$(printf '%s\n' "${!SKIP_HOME_ITEMS[@]}" | paste -sd ',' -)"
-skip_display="${skip_display:-none}"
-ui_add_meta "Destination" "$DEST_DEVICE"
-ui_add_meta "Backup Dir" "$BACKUP_DIR"
-ui_add_meta "Archive" "$CREATE_ARCHIVE"
-ui_add_meta "Skipped Folders" "$skip_display"
+skip_count="${#SKIP_HOME_ITEMS[@]}"
+ui_add_meta "Destination" "/MAIN/$RUN_ID"
+if [[ "$CREATE_ARCHIVE" == "true" ]]; then
+  ui_add_meta "Archive" "YES"
+else
+  ui_add_meta "Archive" "NO"
+fi
+ui_add_meta "Skipped Folders" "$skip_count"
 
 for item in "${HOME_ITEMS[@]}"; do
   ui_add_task "main-$item" "$item"
 done
 if [[ "${#SKIPPABLE_HOME_ITEMS[@]}" -gt 0 ]]; then
-  ui_add_task_separator_after "main-${SKIPPABLE_HOME_ITEMS[-1]}" "Hidden folders"
+  ui_add_task_separator_after "main-${SKIPPABLE_HOME_ITEMS[-1]}" "Hidden Folders"
 fi
-ui_add_task_separator_after "main-.vscode-oss" "Post backup"
+ui_add_task_separator_after "main-.vscode-oss" "Post Backup"
 ui_add_task "main-restore-script" "Copy restore-main.sh"
-ui_add_task "main-dots" "Backup DOTS"
 ui_add_task "main-dots-restore" "Copy restore-dots.sh"
+ui_add_task "main-dots" "Backup DOTS"
 ui_add_task "main-wallpapers" "Backup wallpapers"
 ui_add_task "main-firmware" "Backup firmware"
 ui_add_task "main-hidden-files" "Backup hidden files"
@@ -295,7 +304,7 @@ for item in "${HOME_ITEMS[@]}"; do
 
   if [[ -n "${SKIP_HOME_ITEMS[$item]:-}" ]]; then
     log "Skipping user-selected folder: $source_path"
-    ui_update_task "main-$item" "SKIPPED" "user excluded"
+    ui_update_task "main-$item" "SKIPPED" "SKIPPED"
     ui_render
     continue
   fi
@@ -312,7 +321,7 @@ for item in "${HOME_ITEMS[@]}"; do
     ui_update_task "main-$item" "RUNNING" "copying from $source_path"
     ui_render
     ui_run_command "main-$item" "copying from $source_path" run_rsync_main rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"
-    ui_update_task "main-$item" "DONE" "copied"
+    ui_update_task "main-$item" "DONE" "No Error"
     ui_render
   else
     log "Skipping missing path: $source_path"
@@ -328,7 +337,7 @@ install -m 0755 "$PROJECT_ROOT/restore-main.sh" "$BACKUP_DIR/restore-main.sh"
 mkdir -p "$BACKUP_DIR/lib"
 install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$BACKUP_DIR/lib/common.sh"
 log "Copied restore script: $BACKUP_DIR/restore-main.sh"
-ui_update_task "main-restore-script" "DONE" "copied"
+ui_update_task "main-restore-script" "DONE" "COPIED"
 ui_render
 
 # Copy the ML4W dotfiles .config tree into DOTS and include its restore helper.
@@ -338,7 +347,7 @@ if [[ -d "$DOTS_ROOT" && -d "$DOTS_SOURCE" ]]; then
   ui_render
   mkdir -p "$DOTS_DIR"
   ui_run_command "main-dots" "copying dotfiles config" run_rsync_main rsync_backup_copy --exclude='ml4w/wallpapers/' "$DOTS_SOURCE/" "$DOTS_DIR/"
-  ui_update_task "main-dots" "DONE" "copied"
+  ui_update_task "main-dots" "DONE" "COPIED"
   ui_update_task "main-dots-restore" "RUNNING" "copying restore-dots.sh"
   ui_render
   install -m 0755 "$PROJECT_ROOT/restore-dots.sh" "$DOTS_DIR/restore-dots.sh"
@@ -350,7 +359,7 @@ if [[ -d "$DOTS_ROOT" && -d "$DOTS_SOURCE" ]]; then
     log "Copied local restore settings hook: $DOTS_DIR/config/local/restore-dots-settings.sh"
   fi
   log "Copied restore script: $DOTS_DIR/restore-dots.sh"
-  ui_update_task "main-dots-restore" "DONE" "copied"
+  ui_update_task "main-dots-restore" "DONE" "COPIED"
   ui_render
 else
   if [[ ! -d "$DOTS_ROOT" ]]; then
@@ -370,7 +379,7 @@ if [[ -d "$WALLPAPERS_SOURCE" ]]; then
   ui_render
   mkdir -p "$BIG_WALLPAPERS_DIR"
   ui_run_command "main-wallpapers" "copying missing wallpapers" run_rsync_main rsync_backup_copy --ignore-existing "$WALLPAPERS_SOURCE/" "$BIG_WALLPAPERS_DIR/"
-  ui_update_task "main-wallpapers" "DONE" "copied missing files"
+  ui_update_task "main-wallpapers" "DONE" "UPDATED"
   ui_render
 else
   log "Skipping missing wallpapers folder: $WALLPAPERS_SOURCE"
@@ -385,7 +394,7 @@ if [[ -d "$FIRMWARE_SOURCE" ]]; then
   ui_render
   mkdir -p "$BIG_FIRMWARE_DIR"
   ui_run_command "main-firmware" "copying missing firmware" run_rsync_main rsync_backup_copy --ignore-existing "$FIRMWARE_SOURCE/" "$BIG_FIRMWARE_DIR/"
-  ui_update_task "main-firmware" "DONE" "copied missing files"
+  ui_update_task "main-firmware" "DONE" "UPDATED"
   ui_render
 else
   log "Skipping missing firmware folder: $FIRMWARE_SOURCE"
@@ -409,7 +418,7 @@ for hidden_file in "${HOME_HIDDEN_FILES[@]}"; do
   fi
 done
 if [[ "$hidden_files_copied" -gt 0 ]]; then
-  ui_update_task "main-hidden-files" "DONE" "copied $hidden_files_copied file(s)"
+  ui_update_task "main-hidden-files" "DONE" "COPIED $hidden_files_copied file(s)"
 else
   ui_update_task "main-hidden-files" "SKIPPED" "hidden files missing"
 fi
@@ -421,7 +430,7 @@ ui_render
 set_backup_status "complete"
 verify_backup_contents
 BACKUP_COMPLETE=true
-ui_update_task "main-manifest" "DONE" "written"
+ui_update_task "main-manifest" "DONE" "WRITTEN"
 ui_render
 
 # Compress the finished backup folder only if the user selected that at startup.
@@ -438,7 +447,7 @@ if [[ "$CREATE_ARCHIVE" == "true" ]]; then
     --exclude="$RUN_ID/Documents/030-Firmware/**" \
     -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
   log "Archive created: $ARCHIVE_NAME"
-  ui_update_task "main-archive" "DONE" "created"
+  ui_update_task "main-archive" "DONE" "CREATED"
   ui_render "force"
 else
   log "Archive skipped"
