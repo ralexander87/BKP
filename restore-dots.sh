@@ -26,11 +26,13 @@ load_restore_helpers() {
   log_message() {
     local level="${1^^}"
     shift
-    local line
+    local ts line cli_line
 
-    line="[$(date '+%Y-%m-%dT%H:%M:%S%z')] [$level] [$SCRIPT_NAME] $*"
+    ts="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+    line="[$ts] [$level] [$SCRIPT_NAME] $*"
+    cli_line="[$level] $*"
     [[ -n "${LOG_FILE:-}" ]] && printf '%s\n' "$line" >>"$LOG_FILE"
-    [[ "$QUIET" == "true" && "$level" == "INFO" ]] || printf '%s\n' "$line"
+    [[ "$QUIET" == "true" && "$level" == "INFO" ]] || printf '%s\n' "$cli_line"
   }
   log() { log_message "INFO" "$*"; }
   log_warn() { log_message "WARN" "$*"; }

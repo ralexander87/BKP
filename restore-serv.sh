@@ -26,11 +26,13 @@ load_restore_helpers() {
   log_message() {
     local level="${1^^}"
     shift
-    local line
+    local ts line cli_line
 
-    line="[$(date '+%Y-%m-%dT%H:%M:%S%z')] [$level] [$SCRIPT_NAME] $*"
+    ts="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+    line="[$ts] [$level] [$SCRIPT_NAME] $*"
+    cli_line="[$level] $*"
     [[ -n "${LOG_FILE:-}" ]] && printf '%s\n' "$line" >>"$LOG_FILE"
-    [[ "$QUIET" == "true" && "$level" == "INFO" ]] || printf '%s\n' "$line"
+    [[ "$QUIET" == "true" && "$level" == "INFO" ]] || printf '%s\n' "$cli_line"
   }
   log() { log_message "INFO" "$*"; }
   log_warn() { log_message "WARN" "$*"; }
@@ -237,12 +239,31 @@ EOF
 }
 
 # Ensure backup finished cleanly before allowing restore actions.
+read_manifest_status() {
+  local manifest_file="$1"
+  local status
+
+  status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
+  status="${status:-$(awk -F= '$1 == "run_result" { print $2; exit }' "$manifest_file")}"
+  status="${status:-$(awk -F' = ' '$1 == "Backup Status" { print $2; exit }' "$manifest_file")}"
+  status="${status:-$(awk -F' = ' '$1 == "Run Result" { print $2; exit }' "$manifest_file")}"
+  status="${status#[}"
+  status="${status%]}"
+  status="${status,,}"
+  status="${status// /_}"
+
+  case "$status" in
+  completed) printf 'complete\n' ;;
+  successful) printf 'success\n' ;;
+  *) printf '%s\n' "$status" ;;
+  esac
+}
+
 verify_backup_status() {
   local manifest_status=""
 
   if [[ -f "$MANIFEST_FILE" ]]; then
-    manifest_status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$MANIFEST_FILE")"
-    manifest_status="${manifest_status:-$(awk -F= '$1 == "run_result" { print $2; exit }' "$MANIFEST_FILE")}"
+    manifest_status="$(read_manifest_status "$MANIFEST_FILE")"
     if [[ -n "$manifest_status" ]]; then
       [[ "$manifest_status" == "complete" || "$manifest_status" == "success" ]] || die "backup status is not complete: $manifest_status"
       return 0

@@ -7,7 +7,6 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 LOG_FILE="$LOG_ROOT/bkp.log"
 UI_RENDER_STYLE=service
 UI_BACKUP_LABEL=SERVICE
-UI_STARTED_LABEL=Started
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
 LUKS_DEVICE_PATH=""
@@ -87,15 +86,15 @@ write_manifest() {
 
   {
     write_common_manifest_fields "serv"
-    printf 'luks_device=%s\n' "$LUKS_DEVICE_PATH"
-    printf 'luks_header_file=%s\n' "$LUKS_HEADER_FILE"
-    printf 'luks_header_created=%s\n' "$LUKS_HEADER_CREATED"
-    printf 'service_restore_config=%s\n' "$PROJECT_ROOT/config/serv.restore.conf"
-    printf 'local_service_restore_config=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'present' || printf 'missing')"
-    printf 'required_service_paths=%s\n' "${SERVICE_REQUIRED_PATHS[*]}"
-    printf 'optional_service_paths=%s\n' "${SERVICE_OPTIONAL_PATHS[*]}"
-    printf 'service_paths=%s\n' "${SERVICE_PATHS[*]}"
-    printf 'samba_creds_glob=%s\n' "/etc/samba/creds-*"
+    manifest_field "LUKS Device" "$LUKS_DEVICE_PATH"
+    manifest_field "LUKS Header File" "$LUKS_HEADER_FILE"
+    manifest_field "LUKS Header Created" "$(manifest_bool "$LUKS_HEADER_CREATED")"
+    manifest_field "Service Restore Config" "$PROJECT_ROOT/config/serv.restore.conf"
+    manifest_field "Local Service Restore Config" "$(manifest_presence "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'present' || printf 'missing')")"
+    manifest_field "Required Service Paths" "${SERVICE_REQUIRED_PATHS[*]}"
+    manifest_field "Optional Service Paths" "${SERVICE_OPTIONAL_PATHS[*]}"
+    manifest_field "Service Paths" "${SERVICE_PATHS[*]}"
+    manifest_field "Samba Creds Glob" "/etc/samba/creds-*"
   } >"$manifest"
 
   MANIFEST_FILE="$manifest"

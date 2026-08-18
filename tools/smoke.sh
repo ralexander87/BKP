@@ -221,6 +221,7 @@ awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tm
 cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
 SKIPPABLE_HOME_ITEMS=(Documents Downloads Pictures)
 declare -A SKIP_HOME_ITEMS=()
+UPDATE_SHARED_ONLY=false
 prompt_skip_home_items >/dev/null <<<''
 EOF
 (cd "$tmp" && bash bkp-main-partial.sh)
@@ -234,6 +235,7 @@ awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tm
 cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
 SKIPPABLE_HOME_ITEMS=(Alpha Beta Gamma)
 declare -A SKIP_HOME_ITEMS=()
+UPDATE_SHARED_ONLY=false
 prompt_skip_home_items >/dev/null <<<'2'
 [[ -n "${SKIP_HOME_ITEMS[Beta]:-}" ]]
 [[ -z "${SKIP_HOME_ITEMS[Alpha]:-}" ]]
@@ -242,9 +244,71 @@ EOF
 rm -rf "$tmp"
 printf 'dynamic skip selection OK: bkp-main.sh\n'
 
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/logs"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+SKIPPABLE_HOME_ITEMS=(Alpha Beta Gamma)
+declare -A SKIP_HOME_ITEMS=()
+UPDATE_SHARED_ONLY=false
+prompt_skip_home_items >/dev/null <<<'90'
+[[ "$UPDATE_SHARED_ONLY" == "true" ]]
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh)
+rm -rf "$tmp"
+printf 'BIG-only menu selection OK: bkp-main.sh\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/bin" "$tmp/lib" "$tmp/logs" "$tmp/home/Documents/030-Firmware" "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/wallpapers" "$tmp/netac"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+cat >"$tmp/bin/rsync" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '              0   0%    0.00kB/s    0:00:00 (xfr#0, to-chk=0/1)'
+EOF
+chmod +x "$tmp/bin/rsync"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+HOME="$PWD/home"
+DEST_DEVICE="$PWD/netac"
+DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
+WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
+BIG_WALLPAPERS_DIR="$DEST_DEVICE/BIG/wallpapers"
+FIRMWARE_SOURCE="$HOME/Documents/030-Firmware"
+BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/030-Firmware"
+PATH="$PWD/bin:$PATH"
+update_shared_firmware_and_wallpapers
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh >update-big.out)
+grep -Fq '[INFO] Running BIG-only firmware and wallpapers update' "$tmp/update-big.out"
+grep -Fq '[INFO] Updating shared wallpapers: /wallpapers -> /netac/BIG/wallpapers' "$tmp/update-big.out"
+grep -Fq '[INFO] Updating shared firmware: /Documents/030-Firmware -> /netac/BIG/030-Firmware' "$tmp/update-big.out"
+grep -Fq '[INFO] Done: BIG-only firmware and wallpapers update' "$tmp/update-big.out"
+grep -Fq -- '- Updated Firmware and Wallpapers in /netac/BIG' "$tmp/update-big.out"
+rm -rf "$tmp"
+printf 'BIG-only update output OK: bkp-main.sh\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/logs"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+SKIPPABLE_HOME_ITEMS=(Alpha Beta Gamma)
+declare -A SKIP_HOME_ITEMS=()
+UPDATE_SHARED_ONLY=false
+prompt_skip_home_items >/dev/null <<<'0'
+exit 1
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh)
+rm -rf "$tmp"
+printf 'exit menu selection OK: bkp-main.sh\n'
+
 grep -Fq 'config/local/restore-dots-settings.sh' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'DOTS/config/local/restore-dots-settings.sh' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'discover_home_items' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'big_update_info' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'update_shared_firmware_and_wallpapers' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq '90 - Update Firmware and Wallpapers' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'SKIPPABLE_HOME_ITEMS' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "[[ -d \"\$DOTS_ROOT\" && -d \"\$DOTS_SOURCE\" ]]" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "Skipping missing dotfiles root: \$DOTS_ROOT" "$PROJECT_ROOT/bkp-main.sh"
@@ -279,6 +343,83 @@ grep -Fq '".vscode-oss"' "$PROJECT_ROOT/bkp-main.sh"
 printf 'local config copy paths OK\n'
 
 tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/logs" "$tmp/BKP"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+DEST_DEVICE="/run/media/ralexander/netac"
+BACKUP_DIR="$PWD/BKP"
+ARCHIVE_NAME="$BACKUP_DIR.tar.gz"
+CREATE_ARCHIVE=false
+RUN_RESULT="complete"
+DOTS_ROOT="/home/ralexander/.mydotfiles"
+DOTS_SOURCE="$DOTS_ROOT/com.ml4w.dotfiles.stable/.config"
+WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
+BIG_WALLPAPERS_DIR="$DEST_DEVICE/BIG/wallpapers"
+FIRMWARE_SOURCE="/home/ralexander/Documents/030-Firmware"
+BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/030-Firmware"
+BIG_HOME_FILES_DIR="$DEST_DEVICE/BIG"
+HOME_HIDDEN_FILES=(.bash_history .zsh_history .zshrc .wget-hsts)
+HOME_ITEMS=(Code Desktop Documents .themes .icons .ssh .vscode-oss)
+write_manifest
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh >/dev/null)
+grep -Fq 'Backup Type = [MAIN]' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'Archive Requested = [FALSE]' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'Backup Status = [COMPLETED]' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'DOTS root = /home/ralexander/.mydotfiles' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'Home Hidden Files = .bash_history .zsh_history .zshrc .wget-hsts' "$tmp/BKP/backup-manifest.txt"
+rm -rf "$tmp"
+printf 'main manifest format OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/logs" "$tmp/BKP"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-serv.sh" >"$tmp/bkp-serv-partial.sh"
+cat >>"$tmp/bkp-serv-partial.sh" <<'EOF'
+DEST_DEVICE="/run/media/ralexander/netac"
+BACKUP_DIR="$PWD/BKP"
+ARCHIVE_NAME="$BACKUP_DIR.tar.gz"
+CREATE_ARCHIVE=true
+RUN_RESULT="complete"
+LUKS_DEVICE_PATH="/dev/nvme0n1p2"
+LUKS_HEADER_FILE="luks.bin"
+LUKS_HEADER_CREATED=true
+SERVICE_REQUIRED_PATHS=(/etc/samba/smb.conf /etc/ssh/sshd_config)
+SERVICE_OPTIONAL_PATHS=(/boot/grub/themes/lateralus)
+SERVICE_PATHS=("${SERVICE_REQUIRED_PATHS[@]}" "${SERVICE_OPTIONAL_PATHS[@]}")
+write_manifest
+EOF
+(cd "$tmp" && bash bkp-serv-partial.sh >/dev/null)
+grep -Fq 'Backup Type = [SERVICE]' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'Archive Requested = [TRUE]' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'LUKS Header Created = [TRUE]' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'Service Paths = /etc/samba/smb.conf /etc/ssh/sshd_config /boot/grub/themes/lateralus' "$tmp/BKP/backup-manifest.txt"
+rm -rf "$tmp"
+printf 'service manifest format OK\n'
+
+tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
+(cd "$tmp" && bash -c '
+  source common.sh
+  UI_ENABLED=false
+  LOG_FILE="$PWD/test.log"
+  log "plain info"
+  log_warn "plain warning"
+  log_error "plain error"
+' >log-cli.out)
+grep -Fq '[INFO] plain info' "$tmp/log-cli.out"
+grep -Fq '[WARN] plain warning' "$tmp/log-cli.out"
+grep -Fq '[ERROR] plain error' "$tmp/log-cli.out"
+if grep -Eq '\[[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$tmp/log-cli.out"; then
+  printf 'timestamp should not be shown in CLI log output\n' >&2
+  exit 1
+fi
+grep -Eq '\[[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$tmp/test.log"
+rm -rf "$tmp"
+printf 'clean CLI log output OK\n'
+
+tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
 (cd "$tmp" && NO_COLOR=1 bash -c '
   source common.sh
@@ -310,7 +451,6 @@ cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
   source common.sh
   UI_RENDER_STYLE=service
   UI_BACKUP_LABEL=SERVICE
-  UI_STARTED_LABEL=Started
   UI_ENABLED=true
   UI_USE_COLOR=false
   UI_STARTED_AT="19:40:18"
@@ -328,7 +468,10 @@ cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
   ui_finalize "SUCCESS" "All selected SERVICE backup tasks completed."
 ' >service-dashboard.out)
 grep -Fq 'Metric | Value' "$tmp/service-dashboard.out"
-grep -Fq 'Started = 19:40:18 | End =' "$tmp/service-dashboard.out"
+if grep -Eq '(Started|Start|End|Time) = ' "$tmp/service-dashboard.out"; then
+  printf 'time metrics should not be shown in service dashboard\n' >&2
+  exit 1
+fi
 grep -Fq 'Destination        | /SERV/BKP-229-17-08-18-15-34' "$tmp/service-dashboard.out"
 grep -Fq 'Archive            | NO' "$tmp/service-dashboard.out"
 grep -Fq 'LUKS Device        | YES [Auto-Detect]' "$tmp/service-dashboard.out"
@@ -346,7 +489,6 @@ cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
   source common.sh
   UI_RENDER_STYLE=main
   UI_BACKUP_LABEL=MAIN
-  UI_STARTED_LABEL=Started
   UI_ENABLED=true
   UI_USE_COLOR=false
   UI_STARTED_AT="19:40:18"
@@ -364,7 +506,10 @@ cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
   ui_add_task "manifest" "Write manifest" "DONE" "WRITTEN"
   ui_finalize "SUCCESS" "All selected MAIN backup tasks completed."
 ' >main-dashboard.out)
-grep -Fq 'Started = 19:40:18 | End =' "$tmp/main-dashboard.out"
+if grep -Eq '(Started|Start|End|Time) = ' "$tmp/main-dashboard.out"; then
+  printf 'time metrics should not be shown in main dashboard\n' >&2
+  exit 1
+fi
 grep -Fq 'Destination        | /MAIN/BKP-229-17-08-18-27-32' "$tmp/main-dashboard.out"
 grep -Fq 'Skipped Folders    | 1' "$tmp/main-dashboard.out"
 grep -Fq 'Code                     | OK/DONE  | NO ERROR' "$tmp/main-dashboard.out"

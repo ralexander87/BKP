@@ -7,7 +7,6 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 LOG_FILE="$LOG_ROOT/bkp.log"
 UI_RENDER_STYLE=main
 UI_BACKUP_LABEL=MAIN
-UI_STARTED_LABEL=Started
 MANIFEST_FILE=""
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
@@ -37,22 +36,68 @@ run_rsync_main() {
   return "$rc"
 }
 
+# Print the separator used by the pre-backup folder selection prompt.
+print_prompt_separator() {
+  printf '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
+}
+
+# Print clean terminal output for the BIG-only update path while still writing the log file.
+big_update_info() {
+  local text="$*"
+  local ts
+
+  printf '[INFO] %s\n' "$text"
+  if [[ -n "${LOG_FILE:-}" ]]; then
+    ts="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+    printf '[%s] [INFO] [%s] %s\n' "$ts" "$SCRIPT_NAME" "$text" >>"$LOG_FILE"
+  fi
+}
+
+# Shorten source paths for the BIG-only update prompt.
+display_big_update_source() {
+  local path="$1"
+
+  case "$path" in
+  "$WALLPAPERS_SOURCE") printf '/wallpapers\n' ;;
+  "$FIRMWARE_SOURCE") printf '/Documents/030-Firmware\n' ;;
+  "$HOME"*) printf '%s\n' "${path#"$HOME"}" ;;
+  *) printf '%s\n' "$path" ;;
+  esac
+}
+
+# Shorten destination paths for the BIG-only update prompt.
+display_big_update_destination() {
+  local path="$1"
+
+  if [[ "$path" == "$DEST_DEVICE"* ]]; then
+    printf '%s%s\n' "$(display_mount_target "$DEST_DEVICE")" "${path#"$DEST_DEVICE"}"
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
 # Let the user choose top-level folders to skip by entering menu numbers.
 prompt_skip_home_items() {
   local answer normalized token idx
   local -A selected=()
   local -a skip_items=()
 
-  printf 'Optional: choose folders to skip (space or comma separated).\n'
-  if [[ "${#SKIPPABLE_HOME_ITEMS[@]}" -eq 0 ]]; then
-    printf '  No non-hidden folders found in %s.\n' "\$HOME"
-    return 0
-  fi
+  print_prompt_separator
+  printf '\n'
+  printf -- '- Select folder to exclude.\n'
+  printf '  \n'
+  printf '  0 - EXIT\n'
+  printf '  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
 
   for idx in "${!SKIPPABLE_HOME_ITEMS[@]}"; do
     printf '  %s - %s\n' "$((idx + 1))" "${SKIPPABLE_HOME_ITEMS[$idx]}"
   done
-  read -r -p "Skip selection (Enter for none): " answer
+  printf '  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
+  printf '  90 - Update Firmware and Wallpapers\n'
+  printf '\n'
+  print_prompt_separator
+  printf -- '- [Enter for none. Space or comma separated]\n'
+  read -r -p "-  Skip selection : " answer
 
   # Empty input means no exclusions; keep full backup behavior.
   [[ -n "$answer" ]] || return 0
@@ -60,6 +105,16 @@ prompt_skip_home_items() {
   normalized="${answer//,/ }"
   for token in $normalized; do
     [[ "$token" =~ ^[0-9]+$ ]] || die "invalid skip selection value: $token"
+    if [[ "$token" == "0" ]]; then
+      log "Backup cancelled from exclude menu"
+      printf 'Backup cancelled.\n'
+      exit 0
+    fi
+    if [[ "$token" == "90" ]]; then
+      UPDATE_SHARED_ONLY=true
+      big_update_info "Selected BIG-only firmware and wallpapers update"
+      return 0
+    fi
     ((token >= 1 && token <= ${#SKIPPABLE_HOME_ITEMS[@]})) || die "skip selection out of range: $token"
     selected["$token"]=1
   done
@@ -76,6 +131,39 @@ prompt_skip_home_items() {
     done
     log "Skipping selected folders: ${skip_items[*]}"
   fi
+}
+
+# Update only the shared BIG firmware and wallpaper folders on the mounted device.
+update_shared_firmware_and_wallpapers() {
+  local source_display
+  local dest_display
+
+  big_update_info "Running BIG-only firmware and wallpapers update"
+
+  if [[ -d "$WALLPAPERS_SOURCE" ]]; then
+    source_display="$(display_big_update_source "$WALLPAPERS_SOURCE")"
+    dest_display="$(display_big_update_destination "$BIG_WALLPAPERS_DIR")"
+    big_update_info "Updating shared wallpapers: $source_display -> $dest_display"
+    mkdir -p "$BIG_WALLPAPERS_DIR"
+    run_rsync_main rsync_backup_copy --ignore-existing "$WALLPAPERS_SOURCE/" "$BIG_WALLPAPERS_DIR/"
+  else
+    source_display="$(display_big_update_source "$WALLPAPERS_SOURCE")"
+    big_update_info "Skipping missing wallpapers folder: $source_display"
+  fi
+
+  if [[ -d "$FIRMWARE_SOURCE" ]]; then
+    source_display="$(display_big_update_source "$FIRMWARE_SOURCE")"
+    dest_display="$(display_big_update_destination "$BIG_FIRMWARE_DIR")"
+    big_update_info "Updating shared firmware: $source_display -> $dest_display"
+    mkdir -p "$BIG_FIRMWARE_DIR"
+    run_rsync_main rsync_backup_copy --ignore-existing "$FIRMWARE_SOURCE/" "$BIG_FIRMWARE_DIR/"
+  else
+    source_display="$(display_big_update_source "$FIRMWARE_SOURCE")"
+    big_update_info "Skipping missing firmware folder: $source_display"
+  fi
+
+  big_update_info "Done: BIG-only firmware and wallpapers update"
+  printf -- '- Updated Firmware and Wallpapers in %s/BIG\n' "$(display_mount_target "$DEST_DEVICE")"
 }
 
 # Build the backup item list from every top-level non-hidden $HOME folder plus selected hidden folders.
@@ -122,16 +210,16 @@ write_manifest() {
 
   {
     write_common_manifest_fields "main"
-    printf 'dots_root=%s\n' "$DOTS_ROOT"
-    printf 'dots_source=%s\n' "$DOTS_SOURCE"
-    printf 'wallpapers_source=%s\n' "$WALLPAPERS_SOURCE"
-    printf 'big_wallpapers_dir=%s\n' "$BIG_WALLPAPERS_DIR"
-    printf 'firmware_source=%s\n' "$FIRMWARE_SOURCE"
-    printf 'big_firmware_dir=%s\n' "$BIG_FIRMWARE_DIR"
-    printf 'big_home_files_dir=%s\n' "$BIG_HOME_FILES_DIR"
-    printf 'home_hidden_files=%s\n' "${HOME_HIDDEN_FILES[*]}"
-    printf 'local_restore_dots_settings_hook=%s\n' "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')"
-    printf 'home_items=%s\n' "${HOME_ITEMS[*]}"
+    manifest_field "DOTS root" "$DOTS_ROOT"
+    manifest_field "DOTS Source" "$DOTS_SOURCE"
+    manifest_field "Wallpapers Source" "$WALLPAPERS_SOURCE"
+    manifest_field "Big Wallpapers Dir" "$BIG_WALLPAPERS_DIR"
+    manifest_field "Firmware Source" "$FIRMWARE_SOURCE"
+    manifest_field "Big Firmware Dir" "$BIG_FIRMWARE_DIR"
+    manifest_field "Big Home Files Dir" "$BIG_HOME_FILES_DIR"
+    manifest_field "Home Hidden Files" "${HOME_HIDDEN_FILES[*]}"
+    manifest_field "Local Restore Dots Settings Hook" "$(manifest_presence "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')")"
+    manifest_field "Home Items" "${HOME_ITEMS[*]}"
   } >"$manifest"
 
   MANIFEST_FILE="$manifest"
@@ -225,7 +313,7 @@ BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/030-Firmware"
 BIG_HOME_FILES_DIR="$DEST_DEVICE/BIG"
 
 # Ask for archive creation before copying starts so required tools fail early.
-if confirm_yes_no "Create compressed .tar.gz archive with pigz after backup?" "N"; then
+if confirm_yes_no "- Create .tar.gz archive after backup?" "N"; then
   require_cmd tar
   require_cmd pigz
   CREATE_ARCHIVE=true
@@ -249,12 +337,18 @@ HOME_HIDDEN_FILES=(
 
 # Optional skip map keyed by item names selected in prompt_skip_home_items.
 declare -A SKIP_HOME_ITEMS=()
+UPDATE_SHARED_ONLY=false
 
 # Discover current top-level $HOME folders before showing the skip menu.
 discover_home_items
 
 # Ask for optional folder exclusions before backup starts.
 prompt_skip_home_items
+
+if [[ "$UPDATE_SHARED_ONLY" == "true" ]]; then
+  update_shared_firmware_and_wallpapers
+  exit 0
+fi
 
 # Check destination free space before creating the backup folder.
 check_destination_space_for_size "$DEST_DEVICE" "$(estimate_backup_size_bytes)"

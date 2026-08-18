@@ -52,15 +52,16 @@ log_level_value() {
   esac
 }
 
-# Write a timestamped log entry to LOG_FILE and optionally to stdout.
+# Write a timestamped log entry to LOG_FILE and a clean entry to stdout.
 log_message() {
   local level="${1^^}"
   shift
   local text="$*"
-  local ts line
+  local ts line cli_line
 
   ts="$(date '+%Y-%m-%dT%H:%M:%S%z')"
   line="[$ts] [$level] [$SCRIPT_NAME] $text"
+  cli_line="[$level] $text"
   if [[ "$level" == "ERROR" ]]; then
     UI_LAST_ERROR_TEXT="$text"
   fi
@@ -78,7 +79,7 @@ log_message() {
   fi
 
   if [[ "$QUIET" != "true" || "$level" != "INFO" ]]; then
-    printf '%s\n' "$line"
+    printf '%s\n' "$cli_line"
   fi
 }
 
@@ -150,6 +151,40 @@ git_short_commit() {
   fi
 }
 
+# Format a boolean value for human-readable manifests.
+manifest_bool() {
+  case "${1,,}" in
+  true | yes | 1) printf '[TRUE]\n' ;;
+  *) printf '[FALSE]\n' ;;
+  esac
+}
+
+# Format a presence marker for human-readable manifests.
+manifest_presence() {
+  case "${1,,}" in
+  present | true | yes | 1) printf '[PRESENT]\n' ;;
+  *) printf '[MISSING]\n' ;;
+  esac
+}
+
+# Format a backup/run status for human-readable manifests.
+manifest_status() {
+  case "${1,,}" in
+  complete | completed | success | successful) printf '[COMPLETED]\n' ;;
+  in_progress | in-progress | running) printf '[IN PROGRESS]\n' ;;
+  failed | fail | error) printf '[FAILED]\n' ;;
+  *) printf '[%s]\n' "${1^^}" ;;
+  esac
+}
+
+# Write one human-readable manifest field.
+manifest_field() {
+  local key="$1"
+  local value="${2:-}"
+
+  printf '%s = %s\n' "$key" "$value"
+}
+
 # Estimate a readable path's size in bytes; missing paths count as zero.
 path_size_bytes() {
   local path="$1"
@@ -195,19 +230,26 @@ check_destination_space_for_size() {
 # Print manifest fields shared by main and service backups.
 write_common_manifest_fields() {
   local backup_type="$1"
+  local backup_type_label
 
-  printf 'backup_type=%s\n' "$backup_type"
-  printf 'created_at=%s\n' "$(date -Is)"
-  printf 'hostname=%s\n' "$(system_hostname)"
-  printf 'user=%s\n' "${USER:-unknown}"
-  printf 'project_root=%s\n' "$PROJECT_ROOT"
-  printf 'git_commit=%s\n' "$(git_short_commit)"
-  printf 'destination_device=%s\n' "$DEST_DEVICE"
-  printf 'backup_dir=%s\n' "$BACKUP_DIR"
-  printf 'archive_requested=%s\n' "$CREATE_ARCHIVE"
-  printf 'archive_path=%s\n' "$ARCHIVE_NAME"
-  printf 'backup_status=%s\n' "$RUN_RESULT"
-  printf 'run_result=%s\n' "$RUN_RESULT"
+  case "${backup_type,,}" in
+  main) backup_type_label="MAIN" ;;
+  serv | service) backup_type_label="SERVICE" ;;
+  *) backup_type_label="${backup_type^^}" ;;
+  esac
+
+  manifest_field "Backup Type" "[$backup_type_label]"
+  manifest_field "Created" "$(date -Is)"
+  manifest_field "Hostname" "$(system_hostname)"
+  manifest_field "Username" "${USER:-unknown}"
+  manifest_field "Project root" "$PROJECT_ROOT"
+  manifest_field "GIT Commit" "$(git_short_commit)"
+  manifest_field "Destination Device" "$DEST_DEVICE"
+  manifest_field "Backup Dir" "$BACKUP_DIR"
+  manifest_field "Archive Requested" "$(manifest_bool "$CREATE_ARCHIVE")"
+  manifest_field "Archive Path" "$ARCHIVE_NAME"
+  manifest_field "Backup Status" "$(manifest_status "$RUN_RESULT")"
+  manifest_field "Run Result" "$(manifest_status "$RUN_RESULT")"
 }
 
 # Update a backup run status and persist it through the script's manifest writer.
@@ -301,6 +343,24 @@ decode_findmnt_path() {
   printf '%b' "$1"
 }
 
+# Show a mounted device by mount label-style basename instead of the full mount path.
+display_mount_target() {
+  local target="$1"
+
+  printf '/%s\n' "$(basename -- "$target")"
+}
+
+# Format one mounted-device line for prompts.
+format_mount_option() {
+  local target="$1"
+  local source="$2"
+  local fstype="$3"
+  local label="$4"
+  local avail="$5"
+
+  printf '%s [%s, %s, label: %s, %s]\n' "$(display_mount_target "$target")" "$source" "$fstype" "$label" "$avail"
+}
+
 # Return likely external/removable mount details from real block devices.
 list_external_mounts() {
   require_cmd findmnt
@@ -341,7 +401,7 @@ select_external_mount() {
     ;;
   1)
     IFS='|' read -r target source fstype label avail <<<"${mounts[0]}"
-    printf 'Using mounted device: %s (%s, %s, label: %s, %s)\n' "$target" "$source" "$fstype" "$label" "$avail" >&2
+    printf -- '- Mounted device: %s\n' "$(format_mount_option "$target" "$source" "$fstype" "$label" "$avail")" >&2
     printf '%s\n' "$target"
     ;;
   *)
@@ -349,7 +409,7 @@ select_external_mount() {
     local i
     for i in "${!mounts[@]}"; do
       IFS='|' read -r target source fstype label avail <<<"${mounts[$i]}"
-      printf '  %d) %s (%s, %s, label: %s, %s)\n' "$((i + 1))" "$target" "$source" "$fstype" "$label" "$avail" >&2
+      printf '  %d - %s\n' "$((i + 1))" "$(format_mount_option "$target" "$source" "$fstype" "$label" "$avail")" >&2
     done
 
     local selection
@@ -357,7 +417,8 @@ select_external_mount() {
       read -r -p "Enter number and press Enter: " selection
       if [[ "$selection" =~ ^[0-9]+$ ]] &&
         ((selection >= 1 && selection <= ${#mounts[@]})); then
-        IFS='|' read -r target _ <<<"${mounts[$((selection - 1))]}"
+        IFS='|' read -r target source fstype label avail <<<"${mounts[$((selection - 1))]}"
+        printf -- '- Mounted device: %s\n' "$(format_mount_option "$target" "$source" "$fstype" "$label" "$avail")" >&2
         printf '%s\n' "$target"
         return 0
       fi
@@ -486,10 +547,8 @@ ui_update_task() {
 ui_add_message() {
   local level="$1"
   local text="$2"
-  local ts
 
-  ts="$(date '+%H:%M:%S')"
-  UI_MESSAGES+=("[$ts] [$level] $text")
+  UI_MESSAGES+=("[$level] $text")
   if [[ "${#UI_MESSAGES[@]}" -gt 4 ]]; then
     UI_MESSAGES=("${UI_MESSAGES[@]: -4}")
   fi
@@ -675,7 +734,6 @@ ui_tilde_detail() {
 ui_render_tilde() {
   local line task_id status_raw status_label detail_raw
   local backup_label="${UI_BACKUP_LABEL:-SERVICE}"
-  local started_label="${UI_STARTED_LABEL:-Started}"
   local done=0 running=0 skipped=0 failed=0 pending=0 total=0
 
   for task_id in "${UI_TASK_ORDER[@]}"; do
@@ -691,7 +749,6 @@ ui_render_tilde() {
 
   printf '\033[H\033[2J'
   ui_tilde_heading "Metric | Value"
-  printf '%s = %s | End = %s\n' "$started_label" "$UI_STARTED_AT" "$(date '+%H:%M:%S')"
   printf 'Total = %-3s | Done = %-3s | Running = %s\n' "$total" "$done" "$running"
   printf 'Skipped = %s | Errors = %s | Pending = %s\n' "$skipped" "$failed" "$pending"
 
@@ -787,9 +844,6 @@ ui_render() {
 
   printf '\033[H\033[2J'
   printf '%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== Metric | Value ===")"
-  printf 'Started = %s | Time = %s\n' \
-    "$(ui_metric_value "Started" "$UI_STARTED_AT")" \
-    "$(ui_metric_value "Time" "$(date '+%H:%M:%S')")"
   ui_metric_pair "Total" "$total" 11
   printf ' | '
   ui_metric_pair "Done" "$done" 10
@@ -925,18 +979,18 @@ ui_append_final_status() {
 
   {
     printf '\n'
-    printf 'ui_final_state=%s\n' "${UI_FINAL_STATE:-unknown}"
-    printf 'ui_final_message=%s\n' "${UI_FINAL_MESSAGE:-none}"
-    printf 'ui_started_at=%s\n' "${UI_STARTED_AT:-unknown}"
-    printf 'ui_finished_at=%s\n' "$finished_at"
-    printf 'ui_total_tasks=%s\n' "$UI_COUNT_TOTAL"
-    printf 'ui_done=%s\n' "$UI_COUNT_DONE"
-    printf 'ui_running=%s\n' "$UI_COUNT_RUNNING"
-    printf 'ui_skipped=%s\n' "$UI_COUNT_SKIPPED"
-    printf 'ui_errors=%s\n' "$UI_COUNT_ERRORS"
-    printf 'ui_pending=%s\n' "$UI_COUNT_PENDING"
-    printf 'ui_recent_messages=%s\n' "$messages"
-    printf 'ui_last_error=%s\n' "${UI_LAST_ERROR_TEXT:-none}"
+    manifest_field "UI Final State" "$(manifest_status "${UI_FINAL_STATE:-unknown}")"
+    manifest_field "UI Final Message" "${UI_FINAL_MESSAGE:-none}"
+    manifest_field "UI Started At" "${UI_STARTED_AT:-unknown}"
+    manifest_field "UI Finished At" "$finished_at"
+    manifest_field "UI Total Tasks" "$UI_COUNT_TOTAL"
+    manifest_field "UI Done" "$UI_COUNT_DONE"
+    manifest_field "UI Running" "$UI_COUNT_RUNNING"
+    manifest_field "UI Skipped" "$UI_COUNT_SKIPPED"
+    manifest_field "UI Errors" "$UI_COUNT_ERRORS"
+    manifest_field "UI Pending" "$UI_COUNT_PENDING"
+    manifest_field "UI Recent Messages" "$messages"
+    manifest_field "UI Last Error" "${UI_LAST_ERROR_TEXT:-none}"
   } >>"$output_file"
 }
 

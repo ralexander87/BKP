@@ -57,6 +57,27 @@ decode_findmnt_path() {
   printf '%b' "$1"
 }
 
+# Read backup status from both current human-readable and legacy key=value manifests.
+read_manifest_status() {
+  local manifest_file="$1"
+  local status
+
+  status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
+  status="${status:-$(awk -F= '$1 == "run_result" { print $2; exit }' "$manifest_file")}"
+  status="${status:-$(awk -F' = ' '$1 == "Backup Status" { print $2; exit }' "$manifest_file")}"
+  status="${status:-$(awk -F' = ' '$1 == "Run Result" { print $2; exit }' "$manifest_file")}"
+  status="${status#[}"
+  status="${status%]}"
+  status="${status,,}"
+  status="${status// /_}"
+
+  case "$status" in
+  completed) printf 'complete\n' ;;
+  successful) printf 'success\n' ;;
+  *) printf '%s\n' "$status" ;;
+  esac
+}
+
 # Validate the latest MAIN backup layout and status markers.
 check_main_backup() {
   local backup_dir="$1"
@@ -69,7 +90,7 @@ check_main_backup() {
   check_file_in_backup "$backup_dir/lib/common.sh"
   check_file_in_backup "$manifest_file"
   if [[ -f "$manifest_file" ]]; then
-    status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
+    status="$(read_manifest_status "$manifest_file")"
   fi
   if [[ "$status" == "complete" ]]; then
     ok "main backup status complete: $manifest_file"
@@ -110,7 +131,7 @@ check_serv_backup() {
   fi
   check_file_in_backup "$manifest_file"
   if [[ -f "$manifest_file" ]]; then
-    status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
+    status="$(read_manifest_status "$manifest_file")"
   fi
   if [[ "$status" == "complete" ]]; then
     ok "service backup status complete: $manifest_file"
