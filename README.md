@@ -85,9 +85,9 @@ date +%j-%d-%m-%H-%M-%S
 logs/bkp.log
 ```
 
-- Each backup includes `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied folder list, git commit when available, and final dashboard status counters.
-- Each main backup records `backup_status` in `backup-manifest.txt`
-	- New restores are blocked when this value is not `complete`; older backups with a separate `backup.status` file still restore.
+- Each backup includes a human-readable `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied items, Git commit when available, backup status, and final dashboard counters.
+- New restores require `Backup Status = [COMPLETED]` or `Run Result = [COMPLETED]` in `backup-manifest.txt`
+	- Legacy key/value manifests and separate `backup.status` files remain supported for older backups.
 - Terminal output is intentionally grouped. 
 	- The backup scripts show a lightweight dashboard with compact run metrics, selected options, named task sections, recent warnings/errors.
 	- And a final success/failure summary instead of printing every copied file.

@@ -5,7 +5,6 @@ set -Eeuo pipefail
 
 # Resolve project paths relative to this helper file.
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-BACKUP_ROOT="${BACKUP_ROOT:-$PROJECT_ROOT/backups}"
 LOG_ROOT="${LOG_ROOT:-$PROJECT_ROOT/logs}"
 QUIET="${QUIET:-false}"
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
@@ -14,16 +13,6 @@ UI_ENABLED=false
 UI_STARTED_AT=""
 UI_LAST_RENDER_TS=0
 UI_RENDER_MIN_INTERVAL=1
-UI_USE_COLOR=false
-UI_COLOR_RESET=""
-UI_COLOR_TITLE=""
-UI_COLOR_INFO=""
-UI_COLOR_WARN=""
-UI_COLOR_ERROR=""
-UI_COLOR_DONE=""
-UI_COLOR_RUNNING=""
-UI_COLOR_PENDING=""
-UI_COLOR_SKIPPED=""
 UI_FINAL_STATE=""
 UI_FINAL_MESSAGE=""
 UI_LAST_ERROR_TEXT=""
@@ -125,9 +114,9 @@ require_all_cmds() {
   done
 }
 
-# Create local runtime directories used by scripts.
+# Create the local log directory used by scripts.
 ensure_dirs() {
-  mkdir -p "$BACKUP_ROOT" "$LOG_ROOT"
+  mkdir -p "$LOG_ROOT"
 }
 
 # Generate the backup timestamp used in BKP folder names.
@@ -443,7 +432,6 @@ confirm_yes_no() {
 
 # Render a lightweight terminal dashboard for backup scripts.
 ui_init() {
-  : "${1:-}"
   UI_STARTED_AT="$(date '+%H:%M:%S')"
   UI_LAST_RENDER_TS=0
   UI_META_LINES=()
@@ -464,18 +452,6 @@ ui_init() {
   fi
 
   UI_ENABLED=true
-  if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
-    UI_USE_COLOR=true
-    UI_COLOR_RESET=$'\033[0m'
-    UI_COLOR_TITLE=$'\033[1;36m'
-    UI_COLOR_INFO=$'\033[0;37m'
-    UI_COLOR_WARN=$'\033[38;5;208m'
-    UI_COLOR_ERROR=$'\033[1;91m'
-    UI_COLOR_DONE=$'\033[1;92m'
-    UI_COLOR_RUNNING=$'\033[1;96m'
-    UI_COLOR_PENDING=$'\033[0;37m'
-    UI_COLOR_SKIPPED=$'\033[38;5;208m'
-  fi
   RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids)
   RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)
   tput civis 2>/dev/null || true
@@ -516,17 +492,6 @@ ui_add_task_separator_after() {
   UI_TASK_SEPARATOR_AFTER["$task_id"]="$label"
 }
 
-# Print the visual divider used between dashboard task groups.
-ui_print_task_separator() {
-  local label="${1:-true}"
-
-  if [[ "$label" != "true" ]]; then
-    printf '=== %s ===\n' "$label"
-  else
-    printf '%s\n' "##########################################################################################"
-  fi
-}
-
 # Update status and detail for an existing dashboard task.
 ui_update_task() {
   local task_id="$1"
@@ -551,85 +516,6 @@ ui_add_message() {
   UI_MESSAGES+=("[$level] $text")
   if [[ "${#UI_MESSAGES[@]}" -gt 4 ]]; then
     UI_MESSAGES=("${UI_MESSAGES[@]: -4}")
-  fi
-}
-
-# Apply a color code to text only when dashboard colors are enabled.
-ui_color() {
-  local color="$1"
-  local text="$2"
-  if [[ "$UI_USE_COLOR" == "true" ]]; then
-    printf '%s%s%s' "$color" "$text" "$UI_COLOR_RESET"
-  else
-    printf '%s' "$text"
-  fi
-}
-
-# Render padded status text so colors stay visible and stable in the status column.
-ui_status_cell() {
-  local status="$1"
-  local padded
-  padded="$(printf '%-8s' "$status")"
-  case "$status" in
-  DONE) ui_color "$UI_COLOR_DONE" "$padded" ;;
-  RUNNING) ui_color "$UI_COLOR_RUNNING" "$padded" ;;
-  SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$padded" ;;
-  ERROR) ui_color "$UI_COLOR_ERROR" "$padded" ;;
-  *) ui_color "$UI_COLOR_PENDING" "$padded" ;;
-  esac
-}
-
-# Colorize details text with the same semantic color as the task status.
-ui_colorize_detail() {
-  local status="$1"
-  local detail="$2"
-  case "$status" in
-  DONE) ui_color "$UI_COLOR_DONE" "$detail" ;;
-  RUNNING) ui_color "$UI_COLOR_RUNNING" "$detail" ;;
-  SKIPPED) ui_color "$UI_COLOR_SKIPPED" "$detail" ;;
-  ERROR) ui_color "$UI_COLOR_ERROR" "$detail" ;;
-  *) ui_color "$UI_COLOR_PENDING" "$detail" ;;
-  esac
-}
-
-# Colorize metric values in the top progress table.
-ui_metric_value() {
-  local key="$1"
-  local value="$2"
-
-  case "$key" in
-  Done)
-    ui_color "$UI_COLOR_DONE" "$value"
-    ;;
-  Running)
-    ui_color "$UI_COLOR_RUNNING" "$value"
-    ;;
-  Skipped)
-    ui_color "$UI_COLOR_SKIPPED" "$value"
-    ;;
-  Errors)
-    ui_color "$UI_COLOR_ERROR" "$value"
-    ;;
-  Pending)
-    ui_color "$UI_COLOR_PENDING" "$value"
-    ;;
-  *)
-    ui_color "$UI_COLOR_INFO" "$value"
-    ;;
-  esac
-}
-
-# Print one aligned inline metric pair while keeping ANSI color codes out of padding math.
-ui_metric_pair() {
-  local key="$1"
-  local value="$2"
-  local width="$3"
-  local raw="${key} = ${value}"
-  local pad=$((width - ${#raw}))
-
-  printf '%s = %s' "$key" "$(ui_metric_value "$key" "$value")"
-  if ((pad > 0)); then
-    printf '%*s' "$pad" ''
   fi
 }
 
@@ -814,9 +700,6 @@ ui_render_tilde() {
 ui_render() {
   local mode="${1:-}"
   local now
-  local line
-  local task_id
-  local done=0 running=0 skipped=0 failed=0 pending=0 total=0
 
   [[ "$UI_ENABLED" == "true" ]] || return 0
 
@@ -825,89 +708,7 @@ ui_render() {
     return 0
   fi
   UI_LAST_RENDER_TS="$now"
-
-  if [[ "${UI_RENDER_STYLE:-}" == "service" || "${UI_RENDER_STYLE:-}" == "main" ]]; then
-    ui_render_tilde
-    return 0
-  fi
-
-  for task_id in "${UI_TASK_ORDER[@]}"; do
-    case "${UI_TASK_STATUS[$task_id]}" in
-    DONE) ((done += 1)) ;;
-    RUNNING) ((running += 1)) ;;
-    SKIPPED) ((skipped += 1)) ;;
-    ERROR) ((failed += 1)) ;;
-    *) ((pending += 1)) ;;
-    esac
-  done
-  total="${#UI_TASK_ORDER[@]}"
-
-  printf '\033[H\033[2J'
-  printf '%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== Metric | Value ===")"
-  ui_metric_pair "Total" "$total" 11
-  printf ' | '
-  ui_metric_pair "Done" "$done" 10
-  printf ' | Running = %s\n' "$(ui_metric_value "Running" "$running")"
-  ui_metric_pair "Skipped" "$skipped" 11
-  printf ' | '
-  ui_metric_pair "Errors" "$failed" 10
-  printf ' | Pending = %s\n' "$(ui_metric_value "Pending" "$pending")"
-  printf '\n'
-  printf '%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== Selected Options ===")"
-  printf '%-18s | %s\n' "Option" "Value"
-  printf '%-18s-+-%s\n' "------------------" "----------------------------------------------"
-  for line in "${UI_META_LINES[@]}"; do
-    printf '%-18s | %s\n' "${line%%|*}" "${line#*|}"
-  done
-
-  printf '\n%s\n' "$(ui_color "$UI_COLOR_TITLE" "=== Tasks ===")"
-  printf '%-3s | %-24s | %-8s | %s\n' "#" "Item" "Status" "Details"
-  printf '%-3s-+-%-24s-+-%-8s-+-%s\n' "---" "------------------------" "--------" "----------------------------------------------"
-  local i=1
-  local status_raw detail_raw
-  for task_id in "${UI_TASK_ORDER[@]}"; do
-    status_raw="${UI_TASK_STATUS[$task_id]:0:8}"
-    detail_raw="${UI_TASK_DETAIL[$task_id]:0:80}"
-    printf '%-3d | %-24s | %s | %s\n' \
-      "$i" \
-      "${UI_TASK_LABELS[$task_id]:0:24}" \
-      "$(ui_status_cell "$status_raw")" \
-      "$(ui_colorize_detail "$status_raw" "$detail_raw")"
-    if [[ -n "${UI_TASK_SEPARATOR_AFTER[$task_id]:-}" ]]; then
-      ui_print_task_separator "${UI_TASK_SEPARATOR_AFTER[$task_id]}"
-    fi
-    ((i += 1))
-  done
-
-  if [[ "${#UI_MESSAGES[@]}" -gt 0 ]]; then
-    printf '\nRecent Warnings/Errors\n'
-    for line in "${UI_MESSAGES[@]}"; do
-      if [[ "$line" == *"[ERROR]"* ]]; then
-        printf '  %s\n' "$(ui_color "$UI_COLOR_ERROR" "$line")"
-      elif [[ "$line" == *"[WARN]"* ]]; then
-        printf '  %s\n' "$(ui_color "$UI_COLOR_WARN" "$line")"
-      else
-        printf '  %s\n' "$(ui_color "$UI_COLOR_INFO" "$line")"
-      fi
-    done
-  fi
-
-  if [[ -n "$UI_FINAL_STATE" ]]; then
-    printf '\n'
-    case "$UI_FINAL_STATE" in
-    SUCCESS)
-      printf '%s\n' "$(ui_color "$UI_COLOR_DONE" "Final Result: SUCCESS")"
-      ;;
-    FAILED)
-      printf '%s\n' "$(ui_color "$UI_COLOR_ERROR" "Final Result: FAILED")"
-      ;;
-    *)
-      printf 'Final Result: %s\n' "$UI_FINAL_STATE"
-      ;;
-    esac
-    [[ -n "$UI_FINAL_MESSAGE" ]] && printf '%s\n' "$UI_FINAL_MESSAGE"
-    ui_print_task_separator
-  fi
+  ui_render_tilde
 }
 
 # Record failed command context in the dashboard and logs.

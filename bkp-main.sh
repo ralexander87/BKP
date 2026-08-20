@@ -5,7 +5,6 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # Unified backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp.log"
-UI_RENDER_STYLE=main
 UI_BACKUP_LABEL=MAIN
 MANIFEST_FILE=""
 BACKUP_COMPLETE=false
@@ -359,7 +358,7 @@ trap 'finalize_status "$?"; cleanup_temp_paths; ui_cleanup' EXIT
 set_backup_status "in_progress"
 
 # Start terminal dashboard for visual progress and selected options.
-ui_init "MAIN Backup Progress"
+ui_init
 skip_count="${#SKIP_HOME_ITEMS[@]}"
 ui_add_meta "Destination" "/MAIN/$RUN_ID"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then

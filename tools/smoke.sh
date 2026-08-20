@@ -421,11 +421,9 @@ printf 'clean CLI log output OK\n'
 
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
-(cd "$tmp" && NO_COLOR=1 bash -c '
+(cd "$tmp" && bash -c '
   source common.sh
   UI_ENABLED=true
-  UI_USE_COLOR=false
-  UI_STARTED_AT="19:40:18"
   UI_LAST_RENDER_TS=0
   ui_add_meta "Destination" "/run/media/ralexander/netac"
   ui_add_task "downloads" "Downloads" "DONE" "copied"
@@ -436,24 +434,21 @@ cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
   ui_add_task "manifest" "Write manifest" "PENDING" "waiting"
   ui_render force
 ' >dashboard.out)
-grep -Fq '=== Metric | Value ===' "$tmp/dashboard.out"
+grep -Fq 'Metric | Value' "$tmp/dashboard.out"
 grep -Eq '^Total = 4[[:space:]]+\| Done = 1[[:space:]]+\| Running = 1$' "$tmp/dashboard.out"
-grep -Fq '=== Selected Options ===' "$tmp/dashboard.out"
-grep -Fq '=== Tasks ===' "$tmp/dashboard.out"
-grep -Fq '=== Hidden folders ===' "$tmp/dashboard.out"
-grep -Fq '=== Post backup ===' "$tmp/dashboard.out"
+grep -Fq 'Selected Options' "$tmp/dashboard.out"
+grep -Fq 'Task' "$tmp/dashboard.out"
+grep -Fq 'Hidden folders' "$tmp/dashboard.out"
+grep -Fq 'Post backup' "$tmp/dashboard.out"
 rm -rf "$tmp"
 printf 'dashboard task grouping OK\n'
 
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
-(cd "$tmp" && NO_COLOR=1 bash -c '
+(cd "$tmp" && bash -c '
   source common.sh
-  UI_RENDER_STYLE=service
   UI_BACKUP_LABEL=SERVICE
   UI_ENABLED=true
-  UI_USE_COLOR=false
-  UI_STARTED_AT="19:40:18"
   UI_LAST_RENDER_TS=0
   ui_add_meta "Destination" "/SERV/BKP-229-17-08-18-15-34"
   ui_add_meta "Archive" "NO"
@@ -485,13 +480,10 @@ printf 'service dashboard OK\n'
 
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
-(cd "$tmp" && NO_COLOR=1 bash -c '
+(cd "$tmp" && bash -c '
   source common.sh
-  UI_RENDER_STYLE=main
   UI_BACKUP_LABEL=MAIN
   UI_ENABLED=true
-  UI_USE_COLOR=false
-  UI_STARTED_AT="19:40:18"
   UI_LAST_RENDER_TS=0
   ui_add_meta "Destination" "/MAIN/BKP-229-17-08-18-27-32"
   ui_add_meta "Archive" "NO"

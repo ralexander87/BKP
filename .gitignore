@@ -1,14 +1,11 @@
 # Runtime output
 backups/*
-dist/*
 logs/*
 *.log
 *.lock
 restore-serv-rollback-*.sh
 
 # Keep project directories visible
-!backups/.gitkeep
-!dist/.gitkeep
 !logs/.gitkeep
 
 # Local settings and secrets

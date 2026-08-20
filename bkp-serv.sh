@@ -5,7 +5,6 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 # Unified backup log file. LOG_ROOT is defined by lib/common.sh.
 LOG_FILE="$LOG_ROOT/bkp.log"
-UI_RENDER_STYLE=service
 UI_BACKUP_LABEL=SERVICE
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
@@ -310,7 +309,7 @@ set_backup_status "in_progress"
 audit_log "started"
 
 # Start terminal dashboard for visual progress and selected options.
-ui_init "SERVICE Backup Progress"
+ui_init
 ui_add_meta "Destination" "/SERV/$RUN_ID"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   ui_add_meta "Archive" "YES"
