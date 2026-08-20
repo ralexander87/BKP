@@ -2,6 +2,7 @@
 backups/*
 logs/*
 *.log
+*.log.*
 *.lock
 restore-serv-rollback-*.sh
 

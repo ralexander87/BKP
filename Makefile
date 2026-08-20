@@ -1,15 +1,18 @@
 SHELL := bash
 
-SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh restore-dots.sh lib/common.sh lib/restore-bootstrap.sh doctor.sh tools/sync-restore-bootstrap.sh tools/smoke.sh
+SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh restore-dots.sh catalog.sh lib/common.sh lib/restore-bootstrap.sh doctor.sh tools/sync-restore-bootstrap.sh tools/smoke.sh
+CONFIGS := config/main.backup.conf config/serv.backup.conf config/dots-extra.conf config/serv.restore.conf
 
-.PHONY: check deps list syntax fmt-check ci-check bootstrap-check smoke doctor
+.PHONY: check deps list syntax fmt-check ci-check bootstrap-check smoke doctor catalog
 
 check:
 	@command -v shellcheck >/dev/null || { echo "missing: shellcheck"; exit 1; }
 	@shellcheck $(SCRIPTS)
+	@shellcheck -s bash $(CONFIGS)
 
 syntax:
 	@bash -n $(SCRIPTS)
+	@bash -n $(CONFIGS)
 
 fmt-check:
 	@command -v shfmt >/dev/null || { echo "missing: shfmt"; exit 1; }
@@ -23,6 +26,9 @@ smoke: bootstrap-check syntax
 
 doctor:
 	@./doctor.sh
+
+catalog:
+	@./catalog.sh
 
 ci-check: syntax check fmt-check bootstrap-check smoke
 

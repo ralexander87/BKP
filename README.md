@@ -7,6 +7,7 @@
 - `bkp-main.sh` / `restore-main.sh`: user folders, files, and dotfiles backup.
 - `bkp-serv.sh` / `restore-serv.sh`: service/system config backup and restore.
 - `restore-dots.sh`: dotfiles restore helper copied into backup `DOTS` folders.
+- `catalog.sh`: read-only catalog of completed and interrupted backups.
 
 ## Requirements
 
@@ -52,6 +53,7 @@ BKP-<timestamp>/
   DOTS/
   lib/
   backup-manifest.txt
+  backup-manifest.json
   restore-main.sh
 ```
 
@@ -63,6 +65,8 @@ date +%j-%d-%m-%H-%M-%S
 
 - Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup
 	- The default answer is `N`; when you answer `Y`, compression uses `pigz`
+- Backup content is first written to a hidden `.BKP-*.in-progress` folder
+	- The folder is renamed to `BKP-*` only after required content passes verification
 
 #### Main archives are written beside the backup folder:
 
@@ -86,8 +90,13 @@ logs/bkp.log
 ```
 
 - Each backup includes a human-readable `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied items, Git commit when available, backup status, and final dashboard counters.
+- Each backup also includes a versioned `backup-manifest.json` sidecar for tools and automation
+	- Both manifests currently use schema version `1`
 - New restores require `Backup Status = [COMPLETED]` or `Run Result = [COMPLETED]` in `backup-manifest.txt`
 	- Legacy key/value manifests and separate `backup.status` files remain supported for older backups.
+- Requested archives are written to a temporary `.in-progress` path
+	- `pigz` integrity and tar readability are validated before the archive is renamed to its final path
+- Interrupted backup runs are marked failed and temporary archives are removed by the exit cleanup flow
 - Terminal output is intentionally grouped. 
 	- The backup scripts show a lightweight dashboard with compact run metrics, selected options, named task sections, recent warnings/errors.
 	- And a final success/failure summary instead of printing every copied file.
@@ -150,7 +159,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 
 - Preflight checks for required commands and required source paths
 - Destination mount/writable verification before copy
-- `backup_status` marker (`in_progress`, `complete`, `failed`) in `backup-manifest.txt` for restore safety
+- Human-readable backup status marker (`[IN PROGRESS]`, `[COMPLETED]`, or `[FAILED]`) in `backup-manifest.txt` for restore safety
 - Completeness verification of expected backup content before marking complete
 - Backup audit entries in `logs/bkp.log`
 - Restore value config copied to `config/serv.restore.conf`
@@ -205,8 +214,8 @@ cd /path/to/device/SERV/BKP-<timestamp>
 
 #### Service restore fail-safes:
 
-- Restore is blocked unless 
-	- `backup_status` in `backup-manifest.txt` is `complete`
+- Restore is blocked unless
+	- `Backup Status` or `Run Result` in `backup-manifest.txt` is `[COMPLETED]`
 - SMB directories and GRUB target values are loaded from `config/serv.restore.conf` when presen
 	- With local fstab entries loaded from ignored `config/local/serv.restore.conf` when present
 - Per-action confirmation prompts
@@ -219,6 +228,17 @@ cd /path/to/device/SERV/BKP-<timestamp>
 - Restore audit entries in `restore.log`
 
 ## Configuration
+
+Public, version-controlled configuration is split by responsibility:
+
+- `config/main.backup.conf`: main source paths, shared `BIG` destinations, hidden files, and rsync exclusions
+- `config/serv.backup.conf`: required and optional service source paths plus the Samba credentials pattern
+- `config/dots-extra.conf`: Arch/AUR packages, Flatpaks, and repository VLC removal behavior
+- `config/serv.restore.conf`: SMB directory and GRUB restore values
+
+Machine-local values remain under ignored `config/local/`.
+
+New MAIN and DOTS backups include `config/main.backup.conf`, allowing restore scripts to use the firmware and wallpaper paths recorded with that backup. DOTS backups also include `config/dots-extra.conf`.
 
 The current `bkp-main.sh` backs up discovered `$HOME` folders:
 
@@ -305,6 +325,24 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 
 `config/local/` is intentionally ignored by Git. It is used for machine-local restore data such as fstab entries and optional dotfiles restore hooks. `doctor.sh` checks the latest mounted backups for these local files when they exist in the project.
 
+#### List available backups:
+
+```bash
+./catalog.sh
+```
+
+Pass one or more mounted-device paths to scan specific destinations:
+
+```bash
+./catalog.sh /run/media/$USER/netac
+```
+
+The catalog reports MAIN/SERV type, folder name, status, creation time, size, archive presence, and archive validation state. Hidden `.BKP-*.in-progress` folders are included so interrupted runs remain visible.
+
+#### Log rotation:
+
+The shared log rotates at 5 MiB and retains five numbered copies by default. Override these values for a run with `LOG_MAX_BYTES` and `LOG_ROTATE_COUNT`.
+
 ## Development
 
 #### Check dependencies:
@@ -320,6 +358,8 @@ make check
 ```
 
 `shellcheck` is required for `make check`. `shfmt` remains optional.
+
+The smoke suite also uses `pigz`, `tar`, `truncate`, and `python3` for archive and JSON validation tests.
 
 #### For CI-equivalent local checks:
 

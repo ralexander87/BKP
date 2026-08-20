@@ -20,6 +20,8 @@ load_restore_helpers() {
   set -Eeuo pipefail
   QUIET="${QUIET:-false}"
   SCRIPT_NAME="${SCRIPT_NAME:-$(basename -- "${BASH_SOURCE[0]}")}"
+  LOG_MAX_BYTES="${LOG_MAX_BYTES:-5242880}"
+  LOG_ROTATE_COUNT="${LOG_ROTATE_COUNT:-5}"
   RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids --info=progress2)
   TEMP_PATHS=()
 
@@ -47,6 +49,31 @@ load_restore_helpers() {
     for cmd in "$@"; do
       require_cmd "$cmd"
     done
+  }
+  rotate_log_file() {
+    local log_file="$1"
+    local max_bytes="${2:-$LOG_MAX_BYTES}"
+    local keep_count="${3:-$LOG_ROTATE_COUNT}"
+    local size index
+
+    [[ -f "$log_file" ]] || return 0
+    command -v stat >/dev/null 2>&1 || return 0
+    size="$(stat -c %s "$log_file" 2>/dev/null || printf '0')"
+    ((size >= max_bytes)) || return 0
+    if ((keep_count == 0)); then
+      : >"$log_file"
+      return 0
+    fi
+    rm -f -- "$log_file.$keep_count"
+    for ((index = keep_count - 1; index >= 1; index--)); do
+      [[ -e "$log_file.$index" ]] && mv -f -- "$log_file.$index" "$log_file.$((index + 1))"
+    done
+    mv -f -- "$log_file" "$log_file.1"
+  }
+  init_log_file() {
+    [[ -n "${LOG_FILE:-}" ]] || return 0
+    mkdir -p "$(dirname -- "$LOG_FILE")"
+    rotate_log_file "$LOG_FILE"
   }
   parse_common_args() {
     local arg
@@ -92,17 +119,15 @@ LOG_FILE="${LOG_FILE:-$RESTORE_LOG_ROOT/restore.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 ML4W_CONFIG_ROOT="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 RESTORE_SETTINGS_LOCAL_HOOK="$SCRIPT_DIR/config/local/restore-dots-settings.sh"
-EXTRA_PACKAGES=(
-  jefferson
-  yubico-authenticator-bin
-  hashid
-  python-ubi-reader-git
-  rambox-pro-bin
-)
-EXTRA_FLATPAKS=(
-  org.videolan.VLC
-  org.gnome.Calculator
-)
+DOTS_EXTRA_CONFIG="$SCRIPT_DIR/config/dots-extra.conf"
+MAIN_BACKUP_CONFIG="$SCRIPT_DIR/config/main.backup.conf"
+
+# Load package and Flatpak choices bundled with this DOTS backup.
+load_dots_extra_config() {
+  [[ -f "$DOTS_EXTRA_CONFIG" ]] || die "dotfiles extra config not found: $DOTS_EXTRA_CONFIG"
+  # shellcheck source=config/dots-extra.conf
+  source "$DOTS_EXTRA_CONFIG"
+}
 
 # Print command usage for help requests.
 usage() {
@@ -285,11 +310,21 @@ customize_quickshell_overview_config() {
 restore_wallpapers() {
   local device_root
   local source_dir
-  local target_dir="$ML4W_CONFIG_ROOT/ml4w/wallpapers"
+  local big_wallpapers_relative="BIG/wallpapers"
+  local wallpapers_dots_relative="ml4w/wallpapers"
+  local target_dir
+
+  if [[ -f "$MAIN_BACKUP_CONFIG" ]]; then
+    # shellcheck source=config/main.backup.conf
+    source "$MAIN_BACKUP_CONFIG"
+    big_wallpapers_relative="$BIG_WALLPAPERS_RELATIVE"
+    wallpapers_dots_relative="$WALLPAPERS_DOTS_RELATIVE"
+  fi
 
   require_cmd rsync
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  source_dir="$device_root/BIG/wallpapers"
+  source_dir="$device_root/$big_wallpapers_relative"
+  target_dir="$ML4W_CONFIG_ROOT/$wallpapers_dots_relative"
   [[ -d "$source_dir" ]] || die "wallpapers source folder not found: $source_dir"
 
   confirm_action "Restore Wallpapers" || return 0
@@ -322,10 +357,11 @@ install_extra() {
   local -a missing_flatpaks=()
   local -a missing_packages=()
 
+  load_dots_extra_config
   require_all_cmds pacman yay flatpak
 
   log "Checking Extra packages"
-  if pacman -Q vlc >/dev/null 2>&1; then
+  if [[ "$REMOVE_REPOSITORY_VLC" == "true" ]] && pacman -Q vlc >/dev/null 2>&1; then
     log "Repository VLC is installed and will be removed before Flatpak VLC install"
     remove_repo_vlc=true
   else
@@ -658,6 +694,7 @@ if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; the
   exit 0
 fi
 
+init_log_file
 preflight_checks
 setup_cleanup_trap
 

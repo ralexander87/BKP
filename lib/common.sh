@@ -6,6 +6,8 @@ set -Eeuo pipefail
 # Resolve project paths relative to this helper file.
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_ROOT="${LOG_ROOT:-$PROJECT_ROOT/logs}"
+LOG_MAX_BYTES="${LOG_MAX_BYTES:-5242880}"
+LOG_ROTATE_COUNT="${LOG_ROTATE_COUNT:-5}"
 QUIET="${QUIET:-false}"
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 SCRIPT_NAME="${SCRIPT_NAME:-$(basename -- "${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}")}"
@@ -29,6 +31,8 @@ declare -A UI_TASK_SEPARATOR_AFTER=()
 RSYNC_BACKUP_ARGS=(-aAXH --numeric-ids --info=progress2)
 RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids --info=progress2)
 TEMP_PATHS=()
+MANIFEST_VERSION=1
+MANIFEST_CREATED="${MANIFEST_CREATED:-}"
 
 # Convert log level names to comparable numeric severity.
 log_level_value() {
@@ -119,6 +123,38 @@ ensure_dirs() {
   mkdir -p "$LOG_ROOT"
 }
 
+# Keep logs bounded by rotating numbered copies before a new run writes output.
+rotate_log_file() {
+  local log_file="$1"
+  local max_bytes="${2:-$LOG_MAX_BYTES}"
+  local keep_count="${3:-$LOG_ROTATE_COUNT}"
+  local size index
+
+  [[ -f "$log_file" ]] || return 0
+  [[ "$max_bytes" =~ ^[0-9]+$ && "$keep_count" =~ ^[0-9]+$ ]] || die "invalid log rotation settings"
+  command -v stat >/dev/null 2>&1 || return 0
+  size="$(stat -c %s "$log_file" 2>/dev/null || printf '0')"
+  ((size >= max_bytes)) || return 0
+
+  if ((keep_count == 0)); then
+    : >"$log_file"
+    return 0
+  fi
+
+  rm -f -- "$log_file.$keep_count"
+  for ((index = keep_count - 1; index >= 1; index--)); do
+    [[ -e "$log_file.$index" ]] && mv -f -- "$log_file.$index" "$log_file.$((index + 1))"
+  done
+  mv -f -- "$log_file" "$log_file.1"
+}
+
+# Initialize the active log after command-line help has been handled.
+init_log_file() {
+  [[ -n "${LOG_FILE:-}" ]] || return 0
+  mkdir -p "$(dirname -- "$LOG_FILE")"
+  rotate_log_file "$LOG_FILE"
+}
+
 # Generate the backup timestamp used in BKP folder names.
 timestamp() {
   date '+%j-%d-%m-%H-%M-%S'
@@ -162,8 +198,19 @@ manifest_status() {
   complete | completed | success | successful) printf '[COMPLETED]\n' ;;
   in_progress | in-progress | running) printf '[IN PROGRESS]\n' ;;
   failed | fail | error) printf '[FAILED]\n' ;;
+  passed) printf '[PASSED]\n' ;;
+  pending) printf '[PENDING]\n' ;;
+  not_requested | not-requested) printf '[NOT REQUESTED]\n' ;;
   *) printf '[%s]\n' "${1^^}" ;;
   esac
+}
+
+# Return the unbracketed status used by JSON manifests and catalog output.
+manifest_status_value() {
+  local formatted
+  formatted="$(manifest_status "$1")"
+  formatted="${formatted#[}"
+  printf '%s\n' "${formatted%]}"
 }
 
 # Write one human-readable manifest field.
@@ -172,6 +219,71 @@ manifest_field() {
   local value="${2:-}"
 
   printf '%s = %s\n' "$key" "$value"
+}
+
+# Escape one string for safe JSON output without adding surrounding quotes.
+json_escape() {
+  local value="${1:-}"
+
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf '%s' "$value"
+}
+
+# Write a JSON string field with an optional trailing comma.
+json_string_field() {
+  local key="$1"
+  local value="${2:-}"
+  local comma="${3-,}"
+
+  printf '  "%s": "%s"%s\n' "$(json_escape "$key")" "$(json_escape "$value")" "$comma"
+}
+
+# Write a JSON number field with an optional trailing comma.
+json_number_field() {
+  local key="$1"
+  local value="$2"
+  local comma="${3-,}"
+
+  printf '  "%s": %s%s\n' "$(json_escape "$key")" "$value" "$comma"
+}
+
+# Write a JSON boolean field with an optional trailing comma.
+json_bool_field() {
+  local key="$1"
+  local value="$2"
+  local comma="${3-,}"
+  local json_value=false
+
+  case "${value,,}" in
+  true | yes | 1) json_value=true ;;
+  esac
+  printf '  "%s": %s%s\n' "$(json_escape "$key")" "$json_value" "$comma"
+}
+
+# Write a preformatted JSON value such as an array or object.
+json_raw_field() {
+  local key="$1"
+  local value="$2"
+  local comma="${3-,}"
+
+  printf '  "%s": %s%s\n' "$(json_escape "$key")" "$value" "$comma"
+}
+
+# Return a compact JSON array containing all supplied string arguments.
+json_string_array() {
+  local value
+  local separator=""
+
+  printf '['
+  for value in "$@"; do
+    printf '%s"%s"' "$separator" "$(json_escape "$value")"
+    separator=', '
+  done
+  printf ']'
 }
 
 # Estimate a readable path's size in bytes; missing paths count as zero.
@@ -227,18 +339,49 @@ write_common_manifest_fields() {
   *) backup_type_label="${backup_type^^}" ;;
   esac
 
+  [[ -n "$MANIFEST_CREATED" ]] || MANIFEST_CREATED="$(date -Is)"
+  manifest_field "Manifest Version" "$MANIFEST_VERSION"
   manifest_field "Backup Type" "[$backup_type_label]"
-  manifest_field "Created" "$(date -Is)"
+  manifest_field "Created" "$MANIFEST_CREATED"
   manifest_field "Hostname" "$(system_hostname)"
   manifest_field "Username" "${USER:-unknown}"
   manifest_field "Project root" "$PROJECT_ROOT"
   manifest_field "GIT Commit" "$(git_short_commit)"
   manifest_field "Destination Device" "$DEST_DEVICE"
-  manifest_field "Backup Dir" "$BACKUP_DIR"
+  manifest_field "Backup Dir" "${FINAL_BACKUP_DIR:-$BACKUP_DIR}"
   manifest_field "Archive Requested" "$(manifest_bool "$CREATE_ARCHIVE")"
   manifest_field "Archive Path" "$ARCHIVE_NAME"
+  manifest_field "Archive Validation" "$(manifest_status "${ARCHIVE_VALIDATION:-not_requested}")"
   manifest_field "Backup Status" "$(manifest_status "$RUN_RESULT")"
   manifest_field "Run Result" "$(manifest_status "$RUN_RESULT")"
+}
+
+# Print JSON fields shared by MAIN and SERVICE manifests.
+write_common_manifest_json_fields() {
+  local backup_type="$1"
+  local backup_type_label
+
+  case "${backup_type,,}" in
+  main) backup_type_label="MAIN" ;;
+  serv | service) backup_type_label="SERVICE" ;;
+  *) backup_type_label="${backup_type^^}" ;;
+  esac
+
+  [[ -n "$MANIFEST_CREATED" ]] || MANIFEST_CREATED="$(date -Is)"
+  json_number_field "manifest_version" "$MANIFEST_VERSION"
+  json_string_field "backup_type" "$backup_type_label"
+  json_string_field "created" "$MANIFEST_CREATED"
+  json_string_field "hostname" "$(system_hostname)"
+  json_string_field "username" "${USER:-unknown}"
+  json_string_field "project_root" "$PROJECT_ROOT"
+  json_string_field "git_commit" "$(git_short_commit)"
+  json_string_field "destination_device" "$DEST_DEVICE"
+  json_string_field "backup_dir" "${FINAL_BACKUP_DIR:-$BACKUP_DIR}"
+  json_bool_field "archive_requested" "$CREATE_ARCHIVE"
+  json_string_field "archive_path" "$ARCHIVE_NAME"
+  json_string_field "archive_validation" "$(manifest_status_value "${ARCHIVE_VALIDATION:-not_requested}")"
+  json_string_field "backup_status" "$(manifest_status_value "$RUN_RESULT")"
+  json_string_field "run_result" "$(manifest_status_value "$RUN_RESULT")"
 }
 
 # Update a backup run status and persist it through the script's manifest writer.
@@ -247,17 +390,6 @@ set_backup_status() {
 
   RUN_RESULT="$status"
   write_manifest
-}
-
-# Return the final manifest status for a backup script at process exit.
-backup_final_status() {
-  local exit_code="$1"
-
-  if [[ "$BACKUP_COMPLETE" == "true" && "$exit_code" -eq 0 ]]; then
-    printf 'complete\n'
-  else
-    printf 'failed\n'
-  fi
 }
 
 # Parse shared flags and leave script-specific args in SCRIPT_ARGS.
@@ -292,6 +424,30 @@ cleanup_temp_paths() {
 # Add a cleanup trap for temp paths and terminal UI teardown.
 setup_cleanup_trap() {
   trap 'cleanup_temp_paths; ui_cleanup' EXIT
+}
+
+# Exit cleanly on interruption so the EXIT trap can persist failed status and clean temp files.
+handle_termination_signal() {
+  local signal_name="$1"
+  local exit_code="$2"
+
+  trap - INT TERM
+  log_error "run interrupted by signal: $signal_name"
+  exit "$exit_code"
+}
+
+# Install explicit interrupt handlers for backup scripts.
+setup_signal_traps() {
+  trap 'handle_termination_signal INT 130' INT
+  trap 'handle_termination_signal TERM 143' TERM
+}
+
+# Validate both gzip integrity and tar readability before publishing an archive.
+validate_tar_gz_archive() {
+  local archive_file="$1"
+
+  pigz -t "$archive_file"
+  tar -tzf "$archive_file" >/dev/null
 }
 
 # Run rsync using the standard backup profile.

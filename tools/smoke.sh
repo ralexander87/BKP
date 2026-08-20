@@ -63,6 +63,20 @@ rm -rf "$tmp"
 printf 'cancel path OK: restore-main.sh\n'
 
 tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/restore-main.sh" "$tmp/restore-main.sh"
+chmod +x "$tmp/restore-main.sh"
+cat >"$tmp/backup-manifest.txt" <<'EOF'
+Manifest Version = 999
+Backup Status = [COMPLETED]
+EOF
+if printf 'N\n' | (cd "$tmp" && ./restore-main.sh >/dev/null 2>&1); then
+  printf 'unsupported manifest version should block restore-main.sh\n' >&2
+  exit 1
+fi
+rm -rf "$tmp"
+printf 'manifest version guard OK: restore-main.sh\n'
+
+tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/restore-dots.sh"
 chmod +x "$tmp/restore-dots.sh"
 printf '0\n' | (cd "$tmp" && ./restore-dots.sh >/dev/null)
@@ -75,11 +89,11 @@ grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '10 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '14 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '17 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'sudo pacman -R vlc' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "flatpak install \"\$app\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "yay -S --needed -- \"\${missing_packages[@]}\"" "$PROJECT_ROOT/restore-dots.sh"
@@ -312,26 +326,27 @@ grep -Fq '90 - Update Firmware and Wallpapers' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'SKIPPABLE_HOME_ITEMS' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "[[ -d \"\$DOTS_ROOT\" && -d \"\$DOTS_SOURCE\" ]]" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "Skipping missing dotfiles root: \$DOTS_ROOT" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq "BIG_WALLPAPERS_DIR=\"\$DEST_DEVICE/BIG/wallpapers\"" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq "FIRMWARE_SOURCE=\"\$HOME/Documents/030-Firmware\"" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq "BIG_FIRMWARE_DIR=\"\$DEST_DEVICE/BIG/030-Firmware\"" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq "BIG_HOME_FILES_DIR=\"\$DEST_DEVICE/BIG\"" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq '".bash_history"' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq '".zsh_history"' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq '".zshrc"' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq '".wget-hsts"' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'BIG_WALLPAPERS_RELATIVE="BIG/wallpapers"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'FIRMWARE_HOME_RELATIVE="Documents/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'BIG_FIRMWARE_RELATIVE="BIG/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'BIG_HOME_FILES_RELATIVE="BIG"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq '".bash_history"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq '".zsh_history"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq '".zshrc"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq '".wget-hsts"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq "run_rsync_main rsync_backup_copy \"\$source_path\" \"\$BIG_HOME_FILES_DIR/\"" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq -- "--ignore-existing" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq -- "--exclude='030-Firmware/'" "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'DOCUMENTS_EXCLUDES=("030-Firmware/")' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq -- "--exclude='ml4w/wallpapers/'" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq -- "--exclude='./BIG/wallpapers'" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq -- "--exclude='./BIG/wallpapers/**'" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq -- "--exclude='./BIG/030-Firmware'" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq -- "--exclude='./BIG/030-Firmware/**'" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq -- "--exclude=\"\$RUN_ID/Documents/030-Firmware\"" "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'validate_tar_gz_archive' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'validate_tar_gz_archive' "$PROJECT_ROOT/bkp-serv.sh"
+grep -Fq '.in-progress' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq '.in-progress' "$PROJECT_ROOT/bkp-serv.sh"
 grep -Fq 'restore_shared_firmware' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq 'discover_restore_items' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq 'RESTORE_EXCLUDED_ITEMS' "$PROJECT_ROOT/restore-main.sh"
+grep -Fq '"backup-manifest.json"' "$PROJECT_ROOT/restore-main.sh"
+grep -Fq '"config"' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq 'BIG/030-Firmware' "$PROJECT_ROOT/restore-main.sh"
 if grep -Fq '".bash_history"' "$PROJECT_ROOT/restore-main.sh"; then
   printf 'backup-only hidden files should not be restored by restore-main.sh\n' >&2
@@ -339,7 +354,8 @@ if grep -Fq '".bash_history"' "$PROJECT_ROOT/restore-main.sh"; then
 fi
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'config/local/serv.restore.conf' "$PROJECT_ROOT/bkp-serv.sh"
-grep -Fq '".vscode-oss"' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq '".vscode-oss"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq "install -m 0644 \"\$MAIN_BACKUP_CONFIG\" \"\$DOTS_DIR/config/main.backup.conf\"" "$PROJECT_ROOT/bkp-main.sh"
 printf 'local config copy paths OK\n'
 
 tmp="$(mktemp -d)"
@@ -351,6 +367,7 @@ DEST_DEVICE="/run/media/ralexander/netac"
 BACKUP_DIR="$PWD/BKP"
 ARCHIVE_NAME="$BACKUP_DIR.tar.gz"
 CREATE_ARCHIVE=false
+ARCHIVE_VALIDATION="not_requested"
 RUN_RESULT="complete"
 DOTS_ROOT="/home/ralexander/.mydotfiles"
 DOTS_SOURCE="$DOTS_ROOT/com.ml4w.dotfiles.stable/.config"
@@ -365,10 +382,13 @@ write_manifest
 EOF
 (cd "$tmp" && bash bkp-main-partial.sh >/dev/null)
 grep -Fq 'Backup Type = [MAIN]' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'Manifest Version = 1' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Archive Requested = [FALSE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Backup Status = [COMPLETED]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'DOTS root = /home/ralexander/.mydotfiles' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Home Hidden Files = .bash_history .zsh_history .zshrc .wget-hsts' "$tmp/BKP/backup-manifest.txt"
+python3 -m json.tool "$tmp/BKP/backup-manifest.json" >/dev/null
+grep -Fq '"manifest_version": 1' "$tmp/BKP/backup-manifest.json"
 rm -rf "$tmp"
 printf 'main manifest format OK\n'
 
@@ -381,6 +401,7 @@ DEST_DEVICE="/run/media/ralexander/netac"
 BACKUP_DIR="$PWD/BKP"
 ARCHIVE_NAME="$BACKUP_DIR.tar.gz"
 CREATE_ARCHIVE=true
+ARCHIVE_VALIDATION="passed"
 RUN_RESULT="complete"
 LUKS_DEVICE_PATH="/dev/nvme0n1p2"
 LUKS_HEADER_FILE="luks.bin"
@@ -388,6 +409,7 @@ LUKS_HEADER_CREATED=true
 SERVICE_REQUIRED_PATHS=(/etc/samba/smb.conf /etc/ssh/sshd_config)
 SERVICE_OPTIONAL_PATHS=(/boot/grub/themes/lateralus)
 SERVICE_PATHS=("${SERVICE_REQUIRED_PATHS[@]}" "${SERVICE_OPTIONAL_PATHS[@]}")
+SAMBA_CREDS_GLOB="/etc/samba/creds-*"
 write_manifest
 EOF
 (cd "$tmp" && bash bkp-serv-partial.sh >/dev/null)
@@ -395,6 +417,8 @@ grep -Fq 'Backup Type = [SERVICE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Archive Requested = [TRUE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'LUKS Header Created = [TRUE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Service Paths = /etc/samba/smb.conf /etc/ssh/sshd_config /boot/grub/themes/lateralus' "$tmp/BKP/backup-manifest.txt"
+python3 -m json.tool "$tmp/BKP/backup-manifest.json" >/dev/null
+grep -Fq '"archive_validation": "PASSED"' "$tmp/BKP/backup-manifest.json"
 rm -rf "$tmp"
 printf 'service manifest format OK\n'
 
@@ -418,6 +442,93 @@ fi
 grep -Eq '\[[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$tmp/test.log"
 rm -rf "$tmp"
 printf 'clean CLI log output OK\n'
+
+tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
+printf 'first-generation-log\n' >"$tmp/test.log"
+(cd "$tmp" && bash -c '
+  source common.sh
+  rotate_log_file "$PWD/test.log" 1 2
+  printf "second-generation-log\n" >test.log
+  rotate_log_file "$PWD/test.log" 1 2
+')
+grep -Fq 'second-generation-log' "$tmp/test.log.1"
+grep -Fq 'first-generation-log' "$tmp/test.log.2"
+rm -rf "$tmp"
+printf 'log rotation OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/source"
+printf 'archive-test\n' >"$tmp/source/file.txt"
+tar -C "$tmp" -cf - source | pigz >"$tmp/valid.tar.gz"
+bash -c 'source "$1"; validate_tar_gz_archive "$2"' _ "$PROJECT_ROOT/lib/common.sh" "$tmp/valid.tar.gz"
+cp "$tmp/valid.tar.gz" "$tmp/corrupt.tar.gz"
+truncate -s -5 "$tmp/corrupt.tar.gz"
+if bash -c 'source "$1"; validate_tar_gz_archive "$2"' _ "$PROJECT_ROOT/lib/common.sh" "$tmp/corrupt.tar.gz" >/dev/null 2>&1; then
+  printf 'corrupt archive should fail validation\n' >&2
+  exit 1
+fi
+rm -rf "$tmp"
+printf 'archive validation OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/logs" "$tmp/MAIN/.BKP-test.in-progress"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+touch "$tmp/MAIN/.BKP-test.in-progress/backup-manifest.txt"
+touch "$tmp/MAIN/.BKP-test.in-progress/backup-manifest.json"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+BACKUP_DIR="$PWD/MAIN/.BKP-test.in-progress"
+FINAL_BACKUP_DIR="$PWD/MAIN/BKP-test"
+DOTS_DIR="$BACKUP_DIR/DOTS"
+promote_staged_backup
+[[ "$BACKUP_DIR" == "$FINAL_BACKUP_DIR" ]]
+[[ -f "$BACKUP_DIR/backup-manifest.json" ]]
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh >/dev/null)
+[[ -d "$tmp/MAIN/BKP-test" ]]
+[[ ! -e "$tmp/MAIN/.BKP-test.in-progress" ]]
+rm -rf "$tmp"
+printf 'atomic backup publication OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-legacy"
+cat >"$tmp/MAIN/BKP-test/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Created = 2026-08-20T12:00:00+02:00
+Backup Status = [COMPLETED]
+Archive Validation = [PASSED]
+EOF
+touch "$tmp/MAIN/BKP-test.tar.gz"
+cat >"$tmp/SERV/BKP-legacy/backup-manifest.txt" <<'EOF'
+created_at=2025-01-02T03:04:05+00:00
+backup_status=complete
+EOF
+"$PROJECT_ROOT/catalog.sh" "$tmp" >"$tmp/catalog.out"
+grep -Fq 'MAIN' "$tmp/catalog.out"
+grep -Fq 'BKP-test' "$tmp/catalog.out"
+grep -Fq 'COMPLETED' "$tmp/catalog.out"
+grep -Fq 'PASSED' "$tmp/catalog.out"
+grep -Fq 'BKP-legacy' "$tmp/catalog.out"
+grep -Fq '2025-01-02T03:04:05+00:00' "$tmp/catalog.out"
+rm -rf "$tmp"
+printf 'backup catalog OK\n'
+
+tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
+set +e
+(cd "$tmp" && bash -c '
+  source common.sh
+  UI_ENABLED=false
+  LOG_FILE="$PWD/signal.log"
+  handle_termination_signal TERM 143
+' >/dev/null 2>&1)
+signal_rc=$?
+set -e
+[[ "$signal_rc" -eq 143 ]]
+grep -Fq 'run interrupted by signal: TERM' "$tmp/signal.log"
+rm -rf "$tmp"
+printf 'signal handling OK\n'
 
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"

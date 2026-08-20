@@ -9,6 +9,15 @@ UI_BACKUP_LABEL=MAIN
 MANIFEST_FILE=""
 BACKUP_COMPLETE=false
 RUN_RESULT="failed"
+ARCHIVE_VALIDATION="not_requested"
+MAIN_BACKUP_CONFIG="$PROJECT_ROOT/config/main.backup.conf"
+
+# Load user-editable source paths, shared destinations, and exclusions.
+load_main_backup_config() {
+  [[ -f "$MAIN_BACKUP_CONFIG" ]] || die "main backup config not found: $MAIN_BACKUP_CONFIG"
+  # shellcheck source=config/main.backup.conf
+  source "$MAIN_BACKUP_CONFIG"
+}
 
 # Print command usage for help requests.
 usage() {
@@ -21,7 +30,7 @@ EOF
 
 # Ensure required user-space dependencies exist before backup starts.
 preflight_checks() {
-  require_all_cmds rsync flock findmnt df du install sort
+  require_all_cmds rsync flock findmnt df du install sort mv
 }
 
 # Treat rsync "vanished source files" (exit 24) as warning, not hard failure.
@@ -206,6 +215,12 @@ estimate_backup_size_bytes() {
 # Write backup metadata that helps identify what this run copied.
 write_manifest() {
   local manifest="$BACKUP_DIR/backup-manifest.txt"
+  local json_manifest="$BACKUP_DIR/backup-manifest.json"
+  local manifest_tmp="$manifest.tmp"
+  local json_manifest_tmp="$json_manifest.tmp"
+
+  register_temp_path "$manifest_tmp"
+  register_temp_path "$json_manifest_tmp"
 
   {
     write_common_manifest_fields "main"
@@ -216,10 +231,31 @@ write_manifest() {
     manifest_field "Firmware Source" "$FIRMWARE_SOURCE"
     manifest_field "Big Firmware Dir" "$BIG_FIRMWARE_DIR"
     manifest_field "Big Home Files Dir" "$BIG_HOME_FILES_DIR"
+    manifest_field "Main Backup Config" "$MAIN_BACKUP_CONFIG"
     manifest_field "Home Hidden Files" "${HOME_HIDDEN_FILES[*]}"
     manifest_field "Local Restore Dots Settings Hook" "$(manifest_presence "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')")"
     manifest_field "Home Items" "${HOME_ITEMS[*]}"
-  } >"$manifest"
+  } >"$manifest_tmp"
+
+  {
+    printf '{\n'
+    write_common_manifest_json_fields "main"
+    json_string_field "dots_root" "$DOTS_ROOT"
+    json_string_field "dots_source" "$DOTS_SOURCE"
+    json_string_field "wallpapers_source" "$WALLPAPERS_SOURCE"
+    json_string_field "big_wallpapers_dir" "$BIG_WALLPAPERS_DIR"
+    json_string_field "firmware_source" "$FIRMWARE_SOURCE"
+    json_string_field "big_firmware_dir" "$BIG_FIRMWARE_DIR"
+    json_string_field "big_home_files_dir" "$BIG_HOME_FILES_DIR"
+    json_string_field "main_backup_config" "$MAIN_BACKUP_CONFIG"
+    json_raw_field "home_hidden_files" "$(json_string_array "${HOME_HIDDEN_FILES[@]}")"
+    json_bool_field "local_restore_dots_settings_hook" "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'true' || printf 'false')"
+    json_raw_field "home_items" "$(json_string_array "${HOME_ITEMS[@]}")" ""
+    printf '}\n'
+  } >"$json_manifest_tmp"
+
+  mv -- "$manifest_tmp" "$manifest"
+  mv -- "$json_manifest_tmp" "$json_manifest"
 
   MANIFEST_FILE="$manifest"
   log "Wrote manifest: $manifest"
@@ -231,7 +267,9 @@ verify_backup_contents() {
   local -a required_items=(
     "restore-main.sh"
     "lib/common.sh"
+    "config/main.backup.conf"
     "backup-manifest.txt"
+    "backup-manifest.json"
   )
 
   for required_item in "${required_items[@]}"; do
@@ -241,6 +279,8 @@ verify_backup_contents() {
   if [[ -d "$DOTS_DIR" ]]; then
     [[ -f "$DOTS_DIR/restore-dots.sh" ]] || die "missing expected backup item: DOTS/restore-dots.sh"
     [[ -f "$DOTS_DIR/lib/common.sh" ]] || die "missing expected backup item: DOTS/lib/common.sh"
+    [[ -f "$DOTS_DIR/config/dots-extra.conf" ]] || die "missing expected backup item: DOTS/config/dots-extra.conf"
+    [[ -f "$DOTS_DIR/config/main.backup.conf" ]] || die "missing expected backup item: DOTS/config/main.backup.conf"
     if [[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]]; then
       [[ -f "$DOTS_DIR/config/local/restore-dots-settings.sh" ]] || die "missing expected backup item: DOTS/config/local/restore-dots-settings.sh"
     fi
@@ -266,12 +306,45 @@ finalize_status() {
   local exit_code="$1"
 
   if [[ -d "$BACKUP_DIR" ]]; then
-    set_backup_status "$(backup_final_status "$exit_code")"
-    if [[ "$RUN_RESULT" != "complete" ]]; then
+    if [[ "$BACKUP_COMPLETE" != "true" || "$exit_code" -ne 0 ]]; then
+      set_backup_status "failed"
       ui_finalize "FAILED" "${UI_LAST_ERROR_TEXT:-Main backup failed.}"
       ui_append_final_status "$MANIFEST_FILE"
     fi
   fi
+}
+
+# Publish a verified staging directory under its final BKP-* name.
+promote_staged_backup() {
+  [[ -d "$BACKUP_DIR" ]] || die "staging backup directory not found: $BACKUP_DIR"
+  [[ ! -e "$FINAL_BACKUP_DIR" ]] || die "final backup directory already exists: $FINAL_BACKUP_DIR"
+
+  mv -- "$BACKUP_DIR" "$FINAL_BACKUP_DIR"
+  BACKUP_DIR="$FINAL_BACKUP_DIR"
+  DOTS_DIR="$BACKUP_DIR/DOTS"
+  MANIFEST_FILE="$BACKUP_DIR/backup-manifest.txt"
+  log "Published verified backup: $BACKUP_DIR"
+}
+
+# Create, validate, and atomically publish the optional main archive.
+create_validated_archive() {
+  local archive_tmp="$MAIN_DIR/.${RUN_ID}.tar.gz.in-progress"
+
+  register_temp_path "$archive_tmp"
+  ARCHIVE_VALIDATION="pending"
+  set_backup_status "in_progress"
+  if ! tar -C "$MAIN_DIR" -cf - "$RUN_ID" | pigz >"$archive_tmp"; then
+    ARCHIVE_VALIDATION="failed"
+    set_backup_status "failed"
+    die "archive creation failed: $ARCHIVE_NAME"
+  fi
+  if ! validate_tar_gz_archive "$archive_tmp"; then
+    ARCHIVE_VALIDATION="failed"
+    set_backup_status "failed"
+    die "archive validation failed: $ARCHIVE_NAME"
+  fi
+  mv -- "$archive_tmp" "$ARCHIVE_NAME"
+  ARCHIVE_VALIDATION="passed"
 }
 
 parse_common_args "$@"
@@ -282,6 +355,8 @@ fi
 
 # Prepare local runtime folders and verify required tools exist.
 ensure_dirs
+init_log_file
+load_main_backup_config
 preflight_checks
 setup_cleanup_trap
 trap 'ui_report_error "$LINENO" "$BASH_COMMAND"' ERR
@@ -297,19 +372,20 @@ DEST_DEVICE="$(select_external_mount "Select backup destination device:")"
 # Build the backup folder names and archive path for this run.
 MAIN_DIR="$DEST_DEVICE/MAIN"
 RUN_ID="BKP-$(timestamp)"
-BACKUP_DIR="$MAIN_DIR/$RUN_ID"
+FINAL_BACKUP_DIR="$MAIN_DIR/$RUN_ID"
+BACKUP_DIR="$MAIN_DIR/.${RUN_ID}.in-progress"
 ARCHIVE_NAME="$MAIN_DIR/$RUN_ID.tar.gz"
 CREATE_ARCHIVE=false
 
 # Dotfiles source is copied into DOTS, which is the renamed backup copy of .config.
-DOTS_ROOT="$HOME/.mydotfiles"
-DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
+DOTS_ROOT="$HOME/$DOTS_ROOT_RELATIVE"
+DOTS_SOURCE="$HOME/$DOTS_CONFIG_RELATIVE"
 DOTS_DIR="$BACKUP_DIR/DOTS"
-WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
-BIG_WALLPAPERS_DIR="$DEST_DEVICE/BIG/wallpapers"
-FIRMWARE_SOURCE="$HOME/Documents/030-Firmware"
-BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/030-Firmware"
-BIG_HOME_FILES_DIR="$DEST_DEVICE/BIG"
+WALLPAPERS_SOURCE="$DOTS_SOURCE/$WALLPAPERS_DOTS_RELATIVE"
+BIG_WALLPAPERS_DIR="$DEST_DEVICE/$BIG_WALLPAPERS_RELATIVE"
+FIRMWARE_SOURCE="$HOME/$FIRMWARE_HOME_RELATIVE"
+BIG_FIRMWARE_DIR="$DEST_DEVICE/$BIG_FIRMWARE_RELATIVE"
+BIG_HOME_FILES_DIR="$DEST_DEVICE/$BIG_HOME_FILES_RELATIVE"
 
 # Ask for archive creation before copying starts so required tools fail early.
 if confirm_yes_no "- Create .tar.gz archive after backup?" "N"; then
@@ -317,22 +393,6 @@ if confirm_yes_no "- Create .tar.gz archive after backup?" "N"; then
   require_cmd pigz
   CREATE_ARCHIVE=true
 fi
-
-# Hidden $HOME folders copied directly into the backup folder when present.
-HIDDEN_HOME_ITEMS=(
-  ".themes"
-  ".icons"
-  ".ssh"
-  ".vscode-oss"
-)
-
-# Backup-only $HOME files copied into BIG and intentionally not restored.
-HOME_HIDDEN_FILES=(
-  ".bash_history"
-  ".zsh_history"
-  ".zshrc"
-  ".wget-hsts"
-)
 
 # Optional skip map keyed by item names selected in prompt_skip_home_items.
 declare -A SKIP_HOME_ITEMS=()
@@ -352,9 +412,13 @@ fi
 # Check destination free space before creating the backup folder.
 check_destination_space_for_size "$DEST_DEVICE" "$(estimate_backup_size_bytes)"
 
-mkdir -p "$BACKUP_DIR"
-log "Backup destination: $BACKUP_DIR"
+mkdir -p "$MAIN_DIR"
+[[ ! -e "$BACKUP_DIR" ]] || die "staging backup already exists: $BACKUP_DIR"
+[[ ! -e "$FINAL_BACKUP_DIR" ]] || die "backup already exists: $FINAL_BACKUP_DIR"
+mkdir "$BACKUP_DIR"
+log "Backup staging destination: $BACKUP_DIR"
 trap 'finalize_status "$?"; cleanup_temp_paths; ui_cleanup' EXIT
+setup_signal_traps
 set_backup_status "in_progress"
 
 # Start terminal dashboard for visual progress and selected options.
@@ -404,9 +468,15 @@ for item in "${HOME_ITEMS[@]}"; do
 
   # Skip ISO files from Downloads and the nested .ssh/agent folder.
   case "$item" in
-  "Documents") item_args+=(--exclude='030-Firmware/') ;;
-  "Downloads") item_args+=(--exclude='*.iso') ;;
-  ".ssh") item_args+=(--exclude='agent/') ;;
+  "Documents")
+    for exclude_pattern in "${DOCUMENTS_EXCLUDES[@]}"; do item_args+=(--exclude="$exclude_pattern"); done
+    ;;
+  "Downloads")
+    for exclude_pattern in "${DOWNLOADS_EXCLUDES[@]}"; do item_args+=(--exclude="$exclude_pattern"); done
+    ;;
+  ".ssh")
+    for exclude_pattern in "${SSH_EXCLUDES[@]}"; do item_args+=(--exclude="$exclude_pattern"); done
+    ;;
   esac
 
   if [[ -e "$source_path" ]]; then
@@ -429,6 +499,8 @@ ui_render
 install -m 0755 "$PROJECT_ROOT/restore-main.sh" "$BACKUP_DIR/restore-main.sh"
 mkdir -p "$BACKUP_DIR/lib"
 install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$BACKUP_DIR/lib/common.sh"
+mkdir -p "$BACKUP_DIR/config"
+install -m 0644 "$MAIN_BACKUP_CONFIG" "$BACKUP_DIR/config/main.backup.conf"
 log "Copied restore script: $BACKUP_DIR/restore-main.sh"
 ui_update_task "main-restore-script" "DONE" "COPIED"
 ui_render
@@ -446,6 +518,9 @@ if [[ -d "$DOTS_ROOT" && -d "$DOTS_SOURCE" ]]; then
   install -m 0755 "$PROJECT_ROOT/restore-dots.sh" "$DOTS_DIR/restore-dots.sh"
   mkdir -p "$DOTS_DIR/lib"
   install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$DOTS_DIR/lib/common.sh"
+  mkdir -p "$DOTS_DIR/config"
+  install -m 0644 "$PROJECT_ROOT/config/dots-extra.conf" "$DOTS_DIR/config/dots-extra.conf"
+  install -m 0644 "$MAIN_BACKUP_CONFIG" "$DOTS_DIR/config/main.backup.conf"
   if [[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]]; then
     mkdir -p "$DOTS_DIR/config/local"
     install -m 0600 "$PROJECT_ROOT/config/local/restore-dots-settings.sh" "$DOTS_DIR/config/local/restore-dots-settings.sh"
@@ -517,34 +592,31 @@ else
 fi
 ui_render
 
-# Add a manifest to the backup before optional compression.
+# Verify and publish the staged backup before optional compression.
 ui_update_task "main-manifest" "RUNNING" "writing manifest"
 ui_render
-set_backup_status "complete"
+set_backup_status "in_progress"
 verify_backup_contents
-BACKUP_COMPLETE=true
-ui_update_task "main-manifest" "DONE" "WRITTEN"
-ui_render
+promote_staged_backup
 
 # Compress the finished backup folder only if the user selected that at startup.
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   log "Creating archive: $ARCHIVE_NAME"
   ui_update_task "main-archive" "RUNNING" "compressing backup"
   ui_render
-  tar -C "$MAIN_DIR" \
-    --exclude='./BIG/wallpapers' \
-    --exclude='./BIG/wallpapers/**' \
-    --exclude='./BIG/030-Firmware' \
-    --exclude='./BIG/030-Firmware/**' \
-    --exclude="$RUN_ID/Documents/030-Firmware" \
-    --exclude="$RUN_ID/Documents/030-Firmware/**" \
-    -cf - "$RUN_ID" | pigz >"$ARCHIVE_NAME"
-  log "Archive created: $ARCHIVE_NAME"
-  ui_update_task "main-archive" "DONE" "CREATED"
+  create_validated_archive
+  log "Archive created and validated: $ARCHIVE_NAME"
+  ui_update_task "main-archive" "DONE" "VALIDATED"
   ui_render "force"
 else
   log "Archive skipped"
 fi
+
+set_backup_status "complete"
+verify_backup_contents
+BACKUP_COMPLETE=true
+ui_update_task "main-manifest" "DONE" "WRITTEN"
+ui_render
 
 log "Done: bkp-main"
 ui_add_message "INFO" "Backup finished successfully"

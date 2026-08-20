@@ -13,6 +13,8 @@ load_restore_helpers() {
   set -Eeuo pipefail
   QUIET="${QUIET:-false}"
   SCRIPT_NAME="${SCRIPT_NAME:-$(basename -- "${BASH_SOURCE[0]}")}"
+  LOG_MAX_BYTES="${LOG_MAX_BYTES:-5242880}"
+  LOG_ROTATE_COUNT="${LOG_ROTATE_COUNT:-5}"
   RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids --info=progress2)
   TEMP_PATHS=()
 
@@ -40,6 +42,31 @@ load_restore_helpers() {
     for cmd in "$@"; do
       require_cmd "$cmd"
     done
+  }
+  rotate_log_file() {
+    local log_file="$1"
+    local max_bytes="${2:-$LOG_MAX_BYTES}"
+    local keep_count="${3:-$LOG_ROTATE_COUNT}"
+    local size index
+
+    [[ -f "$log_file" ]] || return 0
+    command -v stat >/dev/null 2>&1 || return 0
+    size="$(stat -c %s "$log_file" 2>/dev/null || printf '0')"
+    ((size >= max_bytes)) || return 0
+    if ((keep_count == 0)); then
+      : >"$log_file"
+      return 0
+    fi
+    rm -f -- "$log_file.$keep_count"
+    for ((index = keep_count - 1; index >= 1; index--)); do
+      [[ -e "$log_file.$index" ]] && mv -f -- "$log_file.$index" "$log_file.$((index + 1))"
+    done
+    mv -f -- "$log_file" "$log_file.1"
+  }
+  init_log_file() {
+    [[ -n "${LOG_FILE:-}" ]] || return 0
+    mkdir -p "$(dirname -- "$LOG_FILE")"
+    rotate_log_file "$LOG_FILE"
   }
   parse_common_args() {
     local arg
