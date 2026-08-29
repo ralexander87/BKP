@@ -470,13 +470,7 @@ restore_hypr() {
   restore_config_file "HYPR" "hypr/scripts/uptime.sh" "hypr/scripts/uptime.sh"
   restore_config_file "HYPR" "waybar/modules.json" "waybar/modules.json"
   restore_config_file "HYPR" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"
-  restore_config_folder "HYPR" "quickshell/CalendarApp" "quickshell/CalendarApp"
-  restore_config_folder "HYPR" "quickshell/CustomTheme" "quickshell/CustomTheme"
-  restore_config_folder "HYPR" "quickshell/PowerApp" "quickshell/PowerApp"
-  restore_config_folder "HYPR" "quickshell/SidebarApp" "quickshell/SidebarApp"
-  restore_config_folder "HYPR" "quickshell/WallpaperApp" "quickshell/WallpaperApp"
-  restore_config_folder "HYPR" "quickshell/WelcomeApp" "quickshell/WelcomeApp"
-  restore_config_file "HYPR" "quickshell/overview/config.json" "quickshell/overview/config.json"
+  restore_config_folder "HYPR" "quickshell" "quickshell"
   customize_quickshell_overview_config
   log "Done: Restore HYPR"
 }

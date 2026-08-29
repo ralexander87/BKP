@@ -106,6 +106,7 @@ grep -Fq 'current_login_shell()' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ZSH is not default shell, run script?' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'BIG/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'restore_config_folder "HYPR" "quickshell" "quickshell"' "$PROJECT_ROOT/restore-dots.sh"
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_dots
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 install_hyprmod

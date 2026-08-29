@@ -307,7 +307,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- Copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`
 	- Copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`
 	- Copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`
-	- Restores quickshell app folders, and applies local font adjustments to `quickshell/overview/config.json`
+	- Moves the existing `quickshell` folder to a safety snapshot, restores the complete backed-up folder, and applies local font adjustments to `quickshell/overview/config.json`
 - `15 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder
 - `16 - Restore WAYBAR`: moves the existing Waybar themes folder to a timestamped pre-restore snapshot, 
 	- Then copies `waybar/themes` from the current `DOTS` folder
