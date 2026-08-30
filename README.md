@@ -312,6 +312,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 - `16 - Restore WAYBAR`: moves the existing Waybar themes and scripts folders to timestamped pre-restore snapshots
 	- Then copies `waybar/themes` and `waybar/scripts` from the current `DOTS` folder
 - `17 - Restore MATUGEN`: copies `matugen/config.toml` from the current `DOTS` folder to the matching ML4W config path
+- `18 - Restore CAVA`: moves the existing `cava` folder to a safety snapshot, then copies `cava` from the current `DOTS` folder
+	- Creates `~/.config/cava` as a symbolic link to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/cava`, preserving a conflicting local path as a safety snapshot
 - `98 - Collect pre-restore`: moves `*-pre-restore-*` files and folders found under `$HOME` into `$HOME/PreRestored`
 - `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path
 	- Copies `BIG/dracula.qbtheme` from the backup device to `$HOME/.config/qBittorrent/dracula.qbtheme`

@@ -173,6 +173,7 @@ Select action:
   15 - Restore ROFI
   16 - Restore WAYBAR
   17 - Restore MATUGEN
+  18 - Restore CAVA
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -184,8 +185,8 @@ snapshot_existing_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
 
-  [[ -e "$target" ]] || return 0
-  [[ ! -e "$snapshot" ]] || die "snapshot already exists: $snapshot"
+  [[ -e "$target" || -L "$target" ]] || return 0
+  [[ ! -e "$snapshot" && ! -L "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Moving existing target to safety snapshot: $snapshot"
   mv -- "$target" "$snapshot"
@@ -438,6 +439,33 @@ restore_kitty() {
 # Replace the ROFI config folder from the current DOTS backup.
 restore_rofi() {
   restore_config_path "ROFI" "rofi" "rofi"
+}
+
+# Replace the CAVA config folder from the current DOTS backup.
+restore_cava() {
+  local source_dir="$SCRIPT_DIR/cava"
+  local target_dir="$ML4W_CONFIG_ROOT/cava"
+  local link_path="$HOME/.config/cava"
+
+  require_cmd rsync
+  [[ -d "$source_dir" ]] || die "CAVA source folder not found: $source_dir"
+
+  confirm_action "Restore CAVA" || return 0
+  snapshot_existing_target "$target_dir"
+
+  log "Restoring CAVA from: $source_dir"
+  mkdir -p "$(dirname -- "$target_dir")"
+  rsync_restore_copy "$source_dir/" "$target_dir/"
+
+  mkdir -p "$(dirname -- "$link_path")"
+  if [[ -L "$link_path" && "$(readlink -- "$link_path")" == "$target_dir" ]]; then
+    log "CAVA config link already set: $link_path -> $target_dir"
+  else
+    snapshot_existing_target "$link_path"
+    ln -s -- "$target_dir" "$link_path"
+    log "Created CAVA config link: $link_path -> $target_dir"
+  fi
+  log "Done: Restore CAVA"
 }
 
 # Snapshot and restore the backed-up WAYBAR themes and scripts folders.
@@ -732,6 +760,9 @@ while true; do
     ;;
   17)
     restore_matugen
+    ;;
+  18)
+    restore_cava
     ;;
   98)
     collect_pre_restore
