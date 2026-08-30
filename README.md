@@ -309,8 +309,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- Copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`
 	- Moves the existing `quickshell` folder to a safety snapshot, restores the complete backed-up folder, and applies local font adjustments to `quickshell/overview/config.json`
 - `15 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder
-- `16 - Restore WAYBAR`: moves the existing Waybar themes folder to a timestamped pre-restore snapshot, 
-	- Then copies `waybar/themes` from the current `DOTS` folder
+- `16 - Restore WAYBAR`: moves the existing Waybar themes and scripts folders to timestamped pre-restore snapshots
+	- Then copies `waybar/themes` and `waybar/scripts` from the current `DOTS` folder
 - `17 - Restore MATUGEN`: copies `matugen/config.toml` from the current `DOTS` folder to the matching ML4W config path
 - `98 - Collect pre-restore`: moves `*-pre-restore-*` files and folders found under `$HOME` into `$HOME/PreRestored`
 - `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path

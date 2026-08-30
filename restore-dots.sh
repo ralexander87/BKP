@@ -440,20 +440,14 @@ restore_rofi() {
   restore_config_path "ROFI" "rofi" "rofi"
 }
 
-# Snapshot the current WAYBAR themes, then restore backed-up themes.
+# Snapshot and restore the backed-up WAYBAR themes and scripts folders.
 restore_waybar() {
-  local source_dir="$SCRIPT_DIR/waybar/themes"
-  local target_dir="$ML4W_CONFIG_ROOT/waybar/themes"
-
-  require_cmd rsync
-  [[ -d "$source_dir" ]] || die "waybar themes source folder not found: $source_dir"
+  [[ -d "$SCRIPT_DIR/waybar/themes" ]] || die "waybar themes source folder not found: $SCRIPT_DIR/waybar/themes"
+  [[ -d "$SCRIPT_DIR/waybar/scripts" ]] || die "waybar scripts source folder not found: $SCRIPT_DIR/waybar/scripts"
 
   confirm_action "Restore WAYBAR" || return 0
-  snapshot_existing_target "$target_dir"
-
-  log "Restoring WAYBAR themes from: $source_dir"
-  mkdir -p "$(dirname -- "$target_dir")"
-  rsync_restore_copy "$source_dir/" "$target_dir/"
+  restore_config_folder "WAYBAR" "waybar/themes" "waybar/themes"
+  restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"
   log "Done: Restore WAYBAR"
 }
 
