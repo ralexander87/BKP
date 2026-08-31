@@ -175,6 +175,7 @@ Select action:
   17 - Restore MATUGEN
   18 - Restore CAVA
   19 - Restore SWAYNC
+  20 - Restore WLOGOUT
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -447,6 +448,11 @@ restore_swaync() {
   restore_config_path "SWAYNC" "swaync" "swaync"
 }
 
+# Replace the Wlogout config folder from the current DOTS backup.
+restore_wlogout() {
+  restore_config_path "WLOGOUT" "wlogout" "wlogout"
+}
+
 # Replace the CAVA config folder from the current DOTS backup.
 restore_cava() {
   local source_dir="$SCRIPT_DIR/cava"
@@ -595,19 +601,6 @@ run_restore_settings_local_hook() {
   source "$RESTORE_SETTINGS_LOCAL_HOOK"
 }
 
-# Apply local visual preferences after restoring the backed-up wlogout glass theme.
-customize_wlogout_glass_style() {
-  local target_file="$ML4W_CONFIG_ROOT/wlogout/themes/glass/style.css"
-
-  [[ -f "$target_file" ]] || die "wlogout glass style target file not found: $target_file"
-
-  log "Customizing wlogout glass style: $target_file"
-  sed -i -E \
-    's|^([[:space:]]*)font-family:[[:space:]]*.+$|\1font-family: "Monofur Nerd Font", FontAwesome, Roboto, Helvetica, Arial, sans-serif;|' \
-    "$target_file"
-  sed -i 's|border-radius: 20px;|border-radius: 5px;|g' "$target_file"
-}
-
 # Point Thunar custom actions at kitty after restoring backed-up settings.
 customize_thunar_custom_actions() {
   local target_file="$HOME/.config/Thunar/uca.xml"
@@ -659,9 +652,6 @@ restore_settings() {
   restore_config_file "Settings" "ml4w/settings/waybar_quicklinks.sh" "ml4w/settings/waybar_quicklinks.sh"
   restore_config_file "Settings" "ml4w/settings/waybar_workspaces.sh" "ml4w/settings/waybar_workspaces.sh"
 
-  # Wlogout theme plus local post-restore style edits.
-  restore_config_file "Settings" "wlogout/themes/glass/style.css" "wlogout/themes/glass/style.css"
-  customize_wlogout_glass_style
   customize_thunar_custom_actions
   restore_qbittorrent_theme
 
@@ -772,6 +762,9 @@ while true; do
     ;;
   19)
     restore_swaync
+    ;;
+  20)
+    restore_wlogout
     ;;
   98)
     collect_pre_restore

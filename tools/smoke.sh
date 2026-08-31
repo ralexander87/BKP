@@ -91,6 +91,7 @@ grep -Fq '14 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '17 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '18 - Restore CAVA' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '19 - Restore SWAYNC' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '20 - Restore WLOGOUT' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -113,6 +114,11 @@ grep -Fq 'restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"' "$PR
 grep -Fq "local link_path=\"\$HOME/.config/cava\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "ln -s -- \"\$target_dir\" \"\$link_path\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_path "SWAYNC" "swaync" "swaync"' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'restore_config_path "WLOGOUT" "wlogout" "wlogout"' "$PROJECT_ROOT/restore-dots.sh"
+if grep -Fq 'customize_wlogout_glass_style' "$PROJECT_ROOT/restore-dots.sh"; then
+  printf 'retired wlogout style customization should not remain\n' >&2
+  exit 1
+fi
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_dots
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 install_hyprmod
@@ -127,6 +133,7 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 16 restore_waybar
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 17 restore_matugen
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 18 restore_cava
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 19 restore_swaync
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 20 restore_wlogout
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'

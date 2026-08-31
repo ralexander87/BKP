@@ -315,10 +315,11 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 - `18 - Restore CAVA`: moves the existing `cava` folder to a safety snapshot, then copies `cava` from the current `DOTS` folder
 	- Creates `~/.config/cava` as a symbolic link to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/cava`, preserving a conflicting local path as a safety snapshot
 - `19 - Restore SWAYNC`: moves the existing `swaync` folder to a safety snapshot, then copies `swaync` from the current `DOTS` folder
+- `20 - Restore WLOGOUT`: moves the existing `wlogout` folder to a safety snapshot, then restores the complete `wlogout` folder from the current `DOTS` folder
 - `98 - Collect pre-restore`: moves `*-pre-restore-*` files and folders found under `$HOME` into `$HOME/PreRestored`
-- `99 - Restore Settings`: copies selected GTK, Qt, `ml4w/settings/`, and `wlogout/themes/glass/style.css` files from the current `DOTS` folder to the matching ML4W config path
+- `99 - Restore Settings`: copies selected GTK, Qt, and `ml4w/settings/` files from the current `DOTS` folder to the matching ML4W config path
 	- Copies `BIG/dracula.qbtheme` from the backup device to `$HOME/.config/qBittorrent/dracula.qbtheme`
-	- Applies local wlogout style adjustments and changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists
+	- Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists
 
 - Each restore option asks for confirmation before changing local configuration.
 	- If you answer `N`, the action is cancelled and the script returns to the menu
