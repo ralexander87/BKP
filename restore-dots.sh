@@ -145,17 +145,6 @@ preflight_checks() {
   require_all_cmds rsync cp mv mkdir mktemp sed find tee cat
 }
 
-# Return the configured login shell for the current user.
-current_login_shell() {
-  local shell_path=""
-
-  if command -v getent >/dev/null 2>&1; then
-    shell_path="$(getent passwd "${USER:-}" 2>/dev/null | awk -F: '{ print $7; exit }')"
-  fi
-
-  printf '%s\n' "${shell_path:-${SHELL:-}}"
-}
-
 # Resolve the non-root desktop user for local system configuration.
 local_non_root_user() {
   local local_user="${SUDO_USER:-${USER:-}}"
@@ -177,6 +166,7 @@ Select action:
   3 - Install HyprMod
   4 - Install Extra
   5 - Set AutoLogin
+  6 - Change SHELL
 ============================
   10 - Restore Wallpapers
   11 - Restore ZSHRC
@@ -681,6 +671,7 @@ restore_waybar() {
 
 # Restore selected Hypr files from DOTS into the ML4W hypr config tree.
 restore_hypr() {
+  require_cmd qs
   confirm_action "Restore HYPR" || return 0
   restore_config_file "HYPR" "hypr/conf/keybindings/default.lua" "hypr/conf/keybindings/default.lua"
   restore_config_file "HYPR" "hypr/conf/monitor.lua" "hypr/conf/monitor.lua"
@@ -694,32 +685,26 @@ restore_hypr() {
   restore_config_file "HYPR" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"
   restore_config_folder "HYPR" "quickshell" "quickshell"
   customize_quickshell_overview_config
+  log "Restarting Quickshell"
+  qs kill
+  qs -d
   log "Done: Restore HYPR"
 }
 
-# Offer to run ML4W's shell changer when zsh is not the login shell.
-offer_zsh_shell_change() {
-  local shell_path
+# Run ML4W's interactive login-shell changer.
+change_shell() {
   local changer="$ML4W_CONFIG_ROOT/ml4w/scripts/ml4w-change-shell"
-
-  shell_path="$(current_login_shell)"
-  log "Current login shell: ${shell_path:-unknown}"
-  [[ "$(basename -- "$shell_path")" == "zsh" ]] && return 0
-
-  confirm_yes_no "ZSH is not default shell, run script?" "N" || {
-    log "ZSH shell change skipped"
-    return 0
-  }
 
   require_cmd bash
   [[ -f "$changer" ]] || die "ML4W shell change script not found: $changer"
+  confirm_action "Change SHELL" || return 0
   log "Running ML4W shell change script: $changer"
   bash "$changer"
+  log "Done: Change SHELL"
 }
 
 # Replace the backed-up zshrc config folder in the ML4W config tree.
 restore_zshrc() {
-  offer_zsh_shell_change
   restore_config_path "ZSHRC" "zshrc" "zshrc"
 }
 
@@ -923,6 +908,9 @@ while true; do
     ;;
   5)
     set_autologin
+    ;;
+  6)
+    change_shell
     ;;
   10)
     restore_wallpapers

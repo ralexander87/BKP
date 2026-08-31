@@ -111,6 +111,8 @@ load_restore_helpers() {
 load_restore_helpers
 # END RESTORE BOOTSTRAP
 
+# Keep main restore output compact; the script reports one summary per item.
+RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)
 LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore.log}"
 RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
@@ -267,6 +269,7 @@ restore_shared_firmware() {
   snapshot_existing_target "$target_dir"
   mkdir -p "$target_dir"
   rsync_restore_copy "$source_dir/" "$target_dir/"
+  log "Restored shared firmware: $target_dir"
 }
 
 # Block restore from incomplete backups while allowing older backup status formats.
@@ -349,6 +352,7 @@ for item in "${HOME_ITEMS[@]}"; do
     log "Restoring: $item"
     snapshot_existing_target "$HOME/$item"
     rsync_restore_copy "$source_path" "$HOME/"
+    log "Restored: $item"
   else
     log "Skipping missing backup item: $item"
   fi

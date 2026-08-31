@@ -86,8 +86,13 @@ Backup Status = [COMPLETED]
 EOF
 printf 'new\n' >"$tmp/backup/Documents/new.txt"
 printf 'old\n' >"$tmp/home/Documents/old.txt"
-printf 'Y\n' | (cd "$tmp/backup" && HOME="$tmp/home" ./restore-main.sh >/dev/null)
+printf 'Y\n' | (cd "$tmp/backup" && HOME="$tmp/home" ./restore-main.sh >"$tmp/restore-main.out")
 [[ -f "$tmp/home/Documents/new.txt" ]]
+grep -Fq '[INFO] Restored: Documents' "$tmp/restore-main.out"
+if grep -Eq '[[:digit:]]+%' "$tmp/restore-main.out"; then
+  printf 'restore-main.sh should not print rsync progress percentages\n' >&2
+  exit 1
+fi
 find "$tmp/home/PreRestored" -mindepth 1 -maxdepth 1 -type d -name 'Documents-pre-restore-*' \
   -exec test -f '{}/old.txt' \; -print -quit | grep -q .
 rm -rf "$tmp"
@@ -142,6 +147,7 @@ grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '5 - Set AutoLogin' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '6 - Change SHELL' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '10 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '14 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '17 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
@@ -165,11 +171,23 @@ grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "confirm_yes_no \"Start \$label?\" \"Y\"" "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'current_login_shell()' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'ZSH is not default shell, run script?' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'BIG/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_folder "HYPR" "quickshell" "quickshell"' "$PROJECT_ROOT/restore-dots.sh"
+awk '
+  /^restore_hypr\(\)/ { in_func = 1 }
+  in_func && /^[[:space:]]+qs kill$/ { kill_seen = 1 }
+  in_func && /^[[:space:]]+qs -d$/ {
+    daemon_seen = 1
+    if (!kill_seen) {
+      exit 1
+    }
+  }
+  in_func && /^}/ { exit(kill_seen && daemon_seen ? 0 : 1) }
+' "$PROJECT_ROOT/restore-dots.sh" || {
+  printf 'Restore HYPR must run qs kill before qs -d\n' >&2
+  exit 1
+}
 grep -Fq 'restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "local link_path=\"\$HOME/.config/cava\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "ln -s -- \"\$target_dir\" \"\$link_path\"" "$PROJECT_ROOT/restore-dots.sh"
@@ -184,6 +202,7 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 install_hyprmod
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_extra
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 5 set_autologin
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 6 change_shell
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 10 restore_wallpapers
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 11 restore_zshrc
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 12 restore_kitty

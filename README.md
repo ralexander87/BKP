@@ -119,6 +119,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 	- `restore-dots.sh` writes to the parent backup folder's `restore.log` when it is run from `DOTS`
 - Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing
 - Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes
+- `restore-main.sh` hides per-file rsync progress and prints compact start/completion summaries for each restored top-level item
 - Before restoring a folder into `$HOME`, `restore-main.sh` moves an existing target folder to `<name>-pre-restore-<timestamp>`.
 - After a successful restore, `restore-main.sh` moves all pre-restore snapshots into `$HOME/PreRestored` using collision-safe names
 - After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`
@@ -297,11 +298,10 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- Writes `install-extra.log` beside the running `restore-dots.sh`, with missing items and failed actions summarized before the full process log
 - `5 - Set AutoLogin`: saves a safety snapshot of `/usr/lib/sddm/sddm.conf.d/default.conf`
 	- Then sets its `User=` line to the local non-root username using `sudo`
+- `6 - Change SHELL`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-change-shell`
 - `10 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot
 	- Then copies wallpapers from the backup device's shared `BIG/wallpapers/` folder
-- `11 - Restore ZSHRC`: checks whether the login shell is zsh
-	- Optionally `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-change-shell` when zsh is not default
-	- Moves an existing `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/zshrc` folder to a safety snapshot and copies `zshrc` from the current `DOTS` folder
+- `11 - Restore ZSHRC`: moves an existing `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/zshrc` folder to a safety snapshot and copies `zshrc` from the current `DOTS` folder
 - `12 - Restore KITTY`: moves the existing KITTY folder to a safety snapshot
 	- Copies `kitty` from the current `DOTS` folder
 - `13 - Restore FASTFETCH`: moves the existing FastFetch folder to a safety snapshot
@@ -313,6 +313,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- Copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`
 	- Copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`
 	- Moves the existing `quickshell` folder to a safety snapshot, restores the complete backed-up folder, and applies local font adjustments to `quickshell/overview/config.json`
+	- Restarts Quickshell by running `qs kill` followed by `qs -d`
 - `15 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder
 - `16 - Restore WAYBAR`: moves the existing Waybar themes and scripts folders to timestamped pre-restore snapshots
 	- Then copies `waybar/themes` and `waybar/scripts` from the current `DOTS` folder
