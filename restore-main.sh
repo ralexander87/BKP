@@ -185,11 +185,53 @@ snapshot_existing_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
 
-  [[ -e "$target" ]] || return 0
-  [[ ! -e "$snapshot" ]] || die "snapshot already exists: $snapshot"
+  [[ -e "$target" || -L "$target" ]] || return 0
+  [[ ! -e "$snapshot" && ! -L "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Moving existing target to safety snapshot: $snapshot"
   mv -- "$target" "$snapshot"
+}
+
+# Return a non-conflicting target path inside the PreRestored collection folder.
+unique_collect_target() {
+  local collect_dir="$1"
+  local source_path="$2"
+  local name="${source_path##*/}"
+  local candidate="$collect_dir/$name"
+  local counter=1
+
+  while [[ -e "$candidate" || -L "$candidate" ]]; do
+    counter=$((counter + 1))
+    candidate="$collect_dir/$name-$counter"
+  done
+
+  printf '%s\n' "$candidate"
+}
+
+# Move all home pre-restore snapshots into one folder after a successful restore.
+collect_pre_restore() {
+  local collect_dir="$HOME/PreRestored"
+  local source_path
+  local target_path
+  local count=0
+  local -a source_paths=()
+
+  mkdir -p "$collect_dir"
+  mapfile -d '' -t source_paths < <(
+    find "$HOME" \
+      -path "$collect_dir" -prune -o \
+      -name '*-pre-restore-*' -print0 -type d -prune
+  )
+
+  for source_path in "${source_paths[@]}"; do
+    [[ -e "$source_path" || -L "$source_path" ]] || continue
+    target_path="$(unique_collect_target "$collect_dir" "$source_path")"
+    log "Collecting pre-restore snapshot: $source_path -> $target_path"
+    mv -- "$source_path" "$target_path"
+    count=$((count + 1))
+  done
+
+  log "Collected $count pre-restore snapshot(s) in: $collect_dir"
 }
 
 # Resolve the backup device root from a script running inside MAIN/BKP-*.
@@ -317,4 +359,5 @@ restore_shared_firmware
 
 # Normalize SSH file modes after rsync completes.
 fix_ssh_permissions
+collect_pre_restore
 log "Done: restore-main"

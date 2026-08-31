@@ -121,6 +121,8 @@ ML4W_CONFIG_ROOT="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 RESTORE_SETTINGS_LOCAL_HOOK="$SCRIPT_DIR/config/local/restore-dots-settings.sh"
 DOTS_EXTRA_CONFIG="$SCRIPT_DIR/config/dots-extra.conf"
 MAIN_BACKUP_CONFIG="$SCRIPT_DIR/config/main.backup.conf"
+SDDM_CONFIG="${SDDM_CONFIG:-/usr/lib/sddm/sddm.conf.d/default.conf}"
+INSTALL_EXTRA_LOG="$SCRIPT_DIR/install-extra.log"
 
 # Load package and Flatpak choices bundled with this DOTS backup.
 load_dots_extra_config() {
@@ -140,7 +142,7 @@ EOF
 
 # Ensure base dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync cp mv mkdir mktemp sed find
+  require_all_cmds rsync cp mv mkdir mktemp sed find tee cat
 }
 
 # Return the configured login shell for the current user.
@@ -154,6 +156,16 @@ current_login_shell() {
   printf '%s\n' "${shell_path:-${SHELL:-}}"
 }
 
+# Resolve the non-root desktop user for local system configuration.
+local_non_root_user() {
+  local local_user="${SUDO_USER:-${USER:-}}"
+
+  [[ -n "$local_user" ]] || local_user="$(id -un)"
+  [[ "$local_user" != "root" ]] || die "could not determine a non-root user"
+  id -u "$local_user" >/dev/null 2>&1 || die "local user does not exist: $local_user"
+  printf '%s\n' "$local_user"
+}
+
 # Show the currently available dotfiles restore actions.
 show_menu() {
   cat <<'EOF'
@@ -164,6 +176,7 @@ Select action:
   2 - Install FONTS
   3 - Install HyprMod
   4 - Install Extra
+  5 - Set AutoLogin
 ============================
   10 - Restore Wallpapers
   11 - Restore ZSHRC
@@ -352,6 +365,146 @@ install_hyprmod() {
   log "Done: Install HyprMod"
 }
 
+# Start a fresh detailed log for one Install Extra run.
+init_install_extra_log() {
+  INSTALL_EXTRA_STARTED="$(date --iso-8601=seconds)"
+  INSTALL_EXTRA_BODY="$(mktemp "$SCRIPT_DIR/.install-extra-body.XXXXXX")"
+  register_temp_path "$INSTALL_EXTRA_BODY"
+  EXTRA_MISSING_ITEMS=()
+  EXTRA_FAILED_ACTIONS=()
+}
+
+# Write an Install Extra message to both the normal UI/log and its detailed log.
+extra_log_message() {
+  local level="${1^^}"
+  shift
+
+  if [[ "$level" == "ERROR" ]]; then
+    log_error "$*"
+  else
+    log "$*"
+  fi
+  printf '[%s] [%s] %s\n' "$(date --iso-8601=seconds)" "$level" "$*" >>"$INSTALL_EXTRA_BODY"
+}
+
+# Run one install command, retaining its full output and recording failures.
+run_extra_command() {
+  local label="$1"
+  local status
+  shift
+
+  extra_log_message "INFO" "$label"
+  if "$@" 2>&1 | tee -a "$INSTALL_EXTRA_BODY"; then
+    return 0
+  else
+    status="${PIPESTATUS[0]}"
+    EXTRA_FAILED_ACTIONS+=("$label (exit $status)")
+    extra_log_message "ERROR" "$label failed with exit status $status"
+    return "$status"
+  fi
+}
+
+# Run one install command from a required working directory.
+run_extra_command_in_dir() {
+  local label="$1"
+  local working_dir="$2"
+  local status
+  shift 2
+
+  extra_log_message "INFO" "$label"
+  if (cd "$working_dir" && "$@") 2>&1 | tee -a "$INSTALL_EXTRA_BODY"; then
+    return 0
+  else
+    status="${PIPESTATUS[0]}"
+    EXTRA_FAILED_ACTIONS+=("$label (exit $status)")
+    extra_log_message "ERROR" "$label failed with exit status $status"
+    return "$status"
+  fi
+}
+
+# Record missing command prerequisites instead of losing them on immediate exit.
+require_extra_commands() {
+  local cmd
+
+  for cmd in "$@"; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      EXTRA_FAILED_ACTIONS+=("Required command not found: $cmd")
+      extra_log_message "ERROR" "Required command not found: $cmd"
+      return 1
+    fi
+  done
+}
+
+# Put the summary first and the complete process output below it.
+finalize_install_extra_log() {
+  local result="${1^^}"
+  local final_temp
+
+  final_temp="$(mktemp "$SCRIPT_DIR/.install-extra-log.XXXXXX")"
+  register_temp_path "$final_temp"
+  {
+    printf 'Install Extra = [%s]\n' "$result"
+    printf 'Started = %s\n' "$INSTALL_EXTRA_STARTED"
+    printf 'Finished = %s\n' "$(date --iso-8601=seconds)"
+    printf 'Missing / Not Installed:\n'
+    if [[ "${#EXTRA_MISSING_ITEMS[@]}" -eq 0 ]]; then
+      printf '  NONE\n'
+    else
+      printf '  - %s\n' "${EXTRA_MISSING_ITEMS[@]}"
+    fi
+    printf 'Failed Actions:\n'
+    if [[ "${#EXTRA_FAILED_ACTIONS[@]}" -eq 0 ]]; then
+      printf '  NONE\n'
+    else
+      printf '  - %s\n' "${EXTRA_FAILED_ACTIONS[@]}"
+    fi
+    printf '\nProcess Log:\n'
+    cat "$INSTALL_EXTRA_BODY"
+  } >"$final_temp"
+  mv -- "$final_temp" "$INSTALL_EXTRA_LOG"
+  log "Install Extra log: $INSTALL_EXTRA_LOG"
+}
+
+# Install yay from its official AUR package when it is not already available.
+ensure_yay_installed() {
+  local build_root
+  local yay_source
+
+  if command -v yay >/dev/null 2>&1; then
+    extra_log_message "INFO" "Yay is already installed"
+    return 0
+  fi
+
+  EXTRA_MISSING_ITEMS+=("yay")
+  extra_log_message "INFO" "Yay is not installed"
+  if ((EUID == 0)); then
+    EXTRA_FAILED_ACTIONS+=("Build yay as local user")
+    extra_log_message "ERROR" "Run restore-dots.sh as a local user; yay cannot be built as root"
+    return 1
+  fi
+  require_extra_commands sudo pacman mktemp || return 1
+
+  run_extra_command "Install yay build requirements" \
+    sudo pacman -S --needed --noconfirm base-devel git || return 1
+  require_extra_commands git makepkg || return 1
+
+  build_root="$(mktemp -d)"
+  register_temp_path "$build_root"
+  yay_source="$build_root/yay"
+
+  run_extra_command "Clone the official yay AUR package" \
+    git clone --depth 1 -- https://aur.archlinux.org/yay.git "$yay_source" || return 1
+  run_extra_command_in_dir "Build and install yay" "$yay_source" \
+    makepkg -si --needed --noconfirm || return 1
+
+  if ! command -v yay >/dev/null 2>&1; then
+    EXTRA_FAILED_ACTIONS+=("Verify yay installation")
+    extra_log_message "ERROR" "Yay installation completed but the command was not found"
+    return 1
+  fi
+  extra_log_message "INFO" "Done: Install yay"
+}
+
 # Install extra Arch/AUR packages and Flatpaks after showing what is missing.
 install_extra() {
   local app
@@ -360,72 +513,107 @@ install_extra() {
   local -a missing_flatpaks=()
   local -a missing_packages=()
 
+  init_install_extra_log
+  if [[ ! -f "$DOTS_EXTRA_CONFIG" ]]; then
+    EXTRA_FAILED_ACTIONS+=("Load Extra configuration")
+    extra_log_message "ERROR" "Dotfiles Extra config not found: $DOTS_EXTRA_CONFIG"
+    finalize_install_extra_log "FAILED"
+    return 1
+  fi
   load_dots_extra_config
-  require_all_cmds pacman yay flatpak
 
-  log "Checking Extra packages"
+  if ! ensure_yay_installed; then
+    finalize_install_extra_log "FAILED"
+    return 1
+  fi
+  if ! require_extra_commands pacman yay flatpak sudo; then
+    finalize_install_extra_log "FAILED"
+    return 1
+  fi
+
+  extra_log_message "INFO" "Checking Extra packages"
   if [[ "$REMOVE_REPOSITORY_VLC" == "true" ]] && pacman -Q vlc >/dev/null 2>&1; then
-    log "Repository VLC is installed and will be removed before Flatpak VLC install"
+    extra_log_message "INFO" "Repository VLC is installed and will be removed before Flatpak VLC install"
     remove_repo_vlc=true
   else
-    log "Repository VLC is not installed"
+    extra_log_message "INFO" "Repository VLC is not installed"
   fi
 
   for pkg in "${EXTRA_PACKAGES[@]}"; do
     if pacman -Q "$pkg" >/dev/null 2>&1; then
-      log "Extra package already installed: $pkg"
+      extra_log_message "INFO" "Extra package already installed: $pkg"
     else
-      log "Extra package missing: $pkg"
+      extra_log_message "INFO" "Extra package missing: $pkg"
+      EXTRA_MISSING_ITEMS+=("Package: $pkg")
       missing_packages+=("$pkg")
     fi
   done
 
   for app in "${EXTRA_FLATPAKS[@]}"; do
     if flatpak info "$app" >/dev/null 2>&1; then
-      log "Extra Flatpak already installed: $app"
+      extra_log_message "INFO" "Extra Flatpak already installed: $app"
     else
-      log "Extra Flatpak missing: $app"
+      extra_log_message "INFO" "Extra Flatpak missing: $app"
+      EXTRA_MISSING_ITEMS+=("Flatpak: $app")
       missing_flatpaks+=("$app")
     fi
   done
 
   if [[ "$remove_repo_vlc" != "true" && "${#missing_packages[@]}" -eq 0 && "${#missing_flatpaks[@]}" -eq 0 ]]; then
-    log "Done: Install Extra (all items already installed)"
+    extra_log_message "INFO" "Done: Install Extra (all items already installed)"
+    finalize_install_extra_log "COMPLETED"
     return 0
   fi
 
   if [[ "$remove_repo_vlc" == "true" ]]; then
-    printf 'Repository packages to remove first:\n'
-    printf '  vlc\n'
-  fi
-  if [[ "${#missing_flatpaks[@]}" -gt 0 ]]; then
-    printf 'Missing Extra Flatpaks:\n'
-    printf '  %s\n' "${missing_flatpaks[@]}"
-  fi
-  if [[ "${#missing_packages[@]}" -gt 0 ]]; then
-    printf 'Missing Extra packages:\n'
-    printf '  %s\n' "${missing_packages[@]}"
-  fi
-  confirm_action "Install Extra" || return 0
-
-  if [[ "$remove_repo_vlc" == "true" ]]; then
-    require_cmd sudo
-    log "Removing repository VLC package"
-    sudo pacman -R vlc
+    run_extra_command "Remove repository VLC package" \
+      sudo pacman -R --noconfirm vlc || {
+      finalize_install_extra_log "FAILED"
+      return 1
+    }
   fi
 
-  if [[ "${#missing_flatpaks[@]}" -gt 0 ]]; then
-    for app in "${missing_flatpaks[@]}"; do
-      log "Installing Extra Flatpak: $app"
-      flatpak install "$app"
-    done
-  fi
+  for app in "${missing_flatpaks[@]}"; do
+    run_extra_command "Install Extra Flatpak: $app" \
+      flatpak install --noninteractive -y "$app" || {
+      finalize_install_extra_log "FAILED"
+      return 1
+    }
+  done
 
   if [[ "${#missing_packages[@]}" -gt 0 ]]; then
-    log "Installing Extra packages with yay: ${missing_packages[*]}"
-    yay -S --needed -- "${missing_packages[@]}"
+    run_extra_command "Install Extra packages: ${missing_packages[*]}" \
+      yay -S --needed --noconfirm -- "${missing_packages[@]}" || {
+      finalize_install_extra_log "FAILED"
+      return 1
+    }
   fi
-  log "Done: Install Extra"
+
+  extra_log_message "INFO" "Done: Install Extra"
+  finalize_install_extra_log "COMPLETED"
+}
+
+# Set SDDM autologin to the local non-root desktop user.
+set_autologin() {
+  local local_user
+  local snapshot="$SDDM_CONFIG-pre-restore-$RESTORE_ID"
+
+  require_all_cmds sudo grep cp sed id
+  [[ -f "$SDDM_CONFIG" ]] || die "SDDM config file not found: $SDDM_CONFIG"
+  sudo grep -q '^User=' "$SDDM_CONFIG" || die "User= line not found in SDDM config: $SDDM_CONFIG"
+
+  local_user="$(local_non_root_user)"
+  [[ "$local_user" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]] || die "invalid local username: $local_user"
+  confirm_action "Set AutoLogin for $local_user" || return 0
+
+  sudo test ! -e "$snapshot" || die "snapshot already exists: $snapshot"
+  log "Saving SDDM config safety snapshot: $snapshot"
+  sudo cp -a -- "$SDDM_CONFIG" "$snapshot"
+
+  log "Setting SDDM AutoLogin user: $local_user"
+  sudo sed -i -E "s/^User=.*/User=$local_user/" "$SDDM_CONFIG"
+  sudo grep -Fqx "User=$local_user" "$SDDM_CONFIG" || die "failed to verify SDDM AutoLogin user"
+  log "Done: Set AutoLogin"
 }
 
 # Replace the FastFetch config folder from the current DOTS backup.
@@ -732,6 +920,9 @@ while true; do
     ;;
   4)
     install_extra
+    ;;
+  5)
+    set_autologin
     ;;
   10)
     restore_wallpapers

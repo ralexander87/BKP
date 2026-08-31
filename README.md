@@ -120,6 +120,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 - Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing
 - Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes
 - Before restoring a folder into `$HOME`, `restore-main.sh` moves an existing target folder to `<name>-pre-restore-<timestamp>`.
+- After a successful restore, `restore-main.sh` moves all pre-restore snapshots into `$HOME/PreRestored` using collision-safe names
 - After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`
 
 #### Service backup:
@@ -288,10 +289,14 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- Copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
 		- Refreshes that font cache when `fc-cache` is available
 - `3 - Install HyprMod`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-install-hyprmod`.
-- `4 - Install Extra`: removes repository `vlc` with `sudo pacman -R vlc` when installed
+- `4 - Install Extra`: removes repository `vlc` with Pacman when installed
+	- Checks whether `yay` is installed first; when missing, installs build requirements and builds `yay` from its official AUR package
 	- Checks for `org.videolan.VLC` and `org.gnome.Calculator` Flatpaks
 	- Checks for `jefferson`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, and `rambox-pro-bin`
-		- Prompts before installing missing Flatpaks with `flatpak install` and missing packages with `yay -S --needed`
+		- Installs all missing packages and Flatpaks noninteractively after option 4 is selected
+	- Writes `install-extra.log` beside the running `restore-dots.sh`, with missing items and failed actions summarized before the full process log
+- `5 - Set AutoLogin`: saves a safety snapshot of `/usr/lib/sddm/sddm.conf.d/default.conf`
+	- Then sets its `User=` line to the local non-root username using `sudo`
 - `10 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot
 	- Then copies wallpapers from the backup device's shared `BIG/wallpapers/` folder
 - `11 - Restore ZSHRC`: checks whether the login shell is zsh

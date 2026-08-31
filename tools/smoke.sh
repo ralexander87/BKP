@@ -77,15 +77,71 @@ rm -rf "$tmp"
 printf 'manifest version guard OK: restore-main.sh\n'
 
 tmp="$(mktemp -d)"
+mkdir -p "$tmp/backup/Documents" "$tmp/home/Documents"
+cp "$PROJECT_ROOT/restore-main.sh" "$tmp/backup/restore-main.sh"
+chmod +x "$tmp/backup/restore-main.sh"
+cat >"$tmp/backup/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Status = [COMPLETED]
+EOF
+printf 'new\n' >"$tmp/backup/Documents/new.txt"
+printf 'old\n' >"$tmp/home/Documents/old.txt"
+printf 'Y\n' | (cd "$tmp/backup" && HOME="$tmp/home" ./restore-main.sh >/dev/null)
+[[ -f "$tmp/home/Documents/new.txt" ]]
+find "$tmp/home/PreRestored" -mindepth 1 -maxdepth 1 -type d -name 'Documents-pre-restore-*' \
+  -exec test -f '{}/old.txt' \; -print -quit | grep -q .
+rm -rf "$tmp"
+printf 'automatic pre-restore collection OK: restore-main.sh\n'
+
+tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/restore-dots.sh"
 chmod +x "$tmp/restore-dots.sh"
 printf '0\n' | (cd "$tmp" && ./restore-dots.sh >/dev/null)
 rm -rf "$tmp"
 printf 'exit path OK: restore-dots.sh\n'
 
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/bin"
+cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/restore-dots.sh"
+chmod +x "$tmp/restore-dots.sh"
+cat >"$tmp/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+exec "$@"
+EOF
+chmod +x "$tmp/bin/sudo"
+printf '[Autologin]\nUser=old-user\n' >"$tmp/default.conf"
+test_user="$(id -un)"
+printf '5\nY\n0\n' | (
+  cd "$tmp" && PATH="$tmp/bin:$PATH" USER="$test_user" SDDM_CONFIG="$tmp/default.conf" ./restore-dots.sh >/dev/null
+)
+grep -Fqx "User=$test_user" "$tmp/default.conf"
+find "$tmp" -maxdepth 1 -type f -name 'default.conf-pre-restore-*' -print -quit | grep -q .
+rm -rf "$tmp"
+printf 'SDDM AutoLogin update OK: restore-dots.sh\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$tmp/restore-dots-partial.sh"
+cat >>"$tmp/restore-dots-partial.sh" <<'EOF'
+init_install_extra_log
+EXTRA_MISSING_ITEMS=("Package: missing-test")
+EXTRA_FAILED_ACTIONS=("Install test (exit 1)")
+extra_log_message "ERROR" "Test install failure"
+finalize_install_extra_log "FAILED"
+EOF
+(cd "$tmp" && bash restore-dots-partial.sh >/dev/null 2>&1)
+[[ "$(sed -n '1p' "$tmp/install-extra.log")" == 'Install Extra = [FAILED]' ]]
+grep -Fq '  - Package: missing-test' "$tmp/install-extra.log"
+grep -Fq '  - Install test (exit 1)' "$tmp/install-extra.log"
+grep -Fq 'Process Log:' "$tmp/install-extra.log"
+rm -rf "$tmp"
+printf 'Install Extra log format OK: restore-dots.sh\n'
+
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '5 - Set AutoLogin' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '10 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '14 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '17 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
@@ -97,9 +153,13 @@ grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/config/dots-extra.conf"
-grep -Fq 'sudo pacman -R vlc' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq "flatpak install \"\$app\"" "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq "yay -S --needed -- \"\${missing_packages[@]}\"" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'sudo pacman -R --noconfirm vlc' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'ensure_yay_installed' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'sudo pacman -S --needed --noconfirm base-devel git' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'https://aur.archlinux.org/yay.git' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "makepkg -si --needed --noconfirm" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "flatpak install --noninteractive -y \"\$app\"" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "yay -S --needed --noconfirm -- \"\${missing_packages[@]}\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
@@ -123,6 +183,7 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_dots
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 install_hyprmod
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_extra
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 5 set_autologin
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 10 restore_wallpapers
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 11 restore_zshrc
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 12 restore_kitty
