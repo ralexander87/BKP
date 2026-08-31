@@ -1,4 +1,4 @@
-# BKPv1
+# BKPv3
 
 > Bash scripts for backing up and restoring Linux user folders, service-related files, and dotfiles.
 
@@ -14,6 +14,9 @@
 - `bash`
 - `rsync`
 - `pigz` for optional archive compression
+- `curl` for the ML4W installer
+- `sudo`, `pacman`, `makepkg`, `git`, and `flatpak` for Arch package setup
+- `qs` for restarting Quickshell after HYPR restore
 - `shellcheck` for script checks
 - `shfmt` for formatting, optional
 
@@ -48,7 +51,7 @@ BKP-<timestamp>/
   Downloads/
   Pictures/
   Documents/
-  CustomFolder/
+  <DiscoveredFolder>/
   .ssh/
   DOTS/
   lib/
@@ -218,7 +221,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 
 - Restore is blocked unless
 	- `Backup Status` or `Run Result` in `backup-manifest.txt` is `[COMPLETED]`
-- SMB directories and GRUB target values are loaded from `config/serv.restore.conf` when presen
+- SMB directories and GRUB target values are loaded from `config/serv.restore.conf` when present
 	- With local fstab entries loaded from ignored `config/local/serv.restore.conf` when present
 - Per-action confirmation prompts
 - Automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
@@ -285,8 +288,9 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 
 - `0 - Exit`
 - `1 - Install DOTS`: moves `$HOME/.config/hypr` to a safety snapshot
-	- Then runs `bash <(curl -s https://ml4w.com/os/stable)`
-- `2 - Install fonts`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup)
+	- Downloads the ML4W Stable installer over HTTPS into a temporary file and displays its first 20 lines
+	- Runs the downloaded installer with Bash only after a second confirmation
+- `2 - Install FONTS`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup)
 	- Copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
 		- Refreshes that font cache when `fc-cache` is available
 - `3 - Install HyprMod`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-install-hyprmod`.
@@ -327,8 +331,9 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- Copies `BIG/dracula.qbtheme` from the backup device to `$HOME/.config/qBittorrent/dracula.qbtheme`
 	- Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists
 
-- Each restore option asks for confirmation before changing local configuration.
+- Restore and system-changing actions ask for confirmation before changing local configuration
 	- If you answer `N`, the action is cancelled and the script returns to the menu
+	- `4 - Install Extra` is intentionally unattended after selection and does not ask package-manager yes/no questions
 	- The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script
 
 `config/serv.restore.conf` controls public service restore values for SMB directories and GRUB defaults. Local fstab entries can be stored in ignored `config/local/serv.restore.conf`; when present, this local file is copied into each `SERV` backup so restore behavior is tied to the backup that created it without publishing private mount details.
@@ -406,3 +411,8 @@ Current version is tracked in the `VERSION` file.
 - Improved restore menu behavior to return to menu after cancelled actions
 - Switched critical config writes to atomic temp-file updates in service restore
 - Added GitHub Actions shell CI (`bash -n`, `shellcheck`, `shfmt -d`)
+- Added atomic backup publication, validated archives, versioned manifests, and backup cataloging
+- Added dynamic `$HOME` folder selection plus shared wallpaper and firmware storage
+- Added compact backup dashboards and compact per-item main restore output
+- Added automatic main pre-restore snapshot collection into `$HOME/PreRestored`
+- Expanded dotfiles restore actions for packages, AutoLogin, shell changes, HYPR, Waybar, CAVA, SWAYNC, and Wlogout
