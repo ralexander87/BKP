@@ -174,6 +174,7 @@ Select action:
   16 - Restore WAYBAR
   17 - Restore MATUGEN
   18 - Restore CAVA
+  19 - Restore SWAYNC
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -439,6 +440,11 @@ restore_kitty() {
 # Replace the ROFI config folder from the current DOTS backup.
 restore_rofi() {
   restore_config_path "ROFI" "rofi" "rofi"
+}
+
+# Replace the SWAYNC config folder from the current DOTS backup.
+restore_swaync() {
+  restore_config_path "SWAYNC" "swaync" "swaync"
 }
 
 # Replace the CAVA config folder from the current DOTS backup.
@@ -763,6 +769,9 @@ while true; do
     ;;
   18)
     restore_cava
+    ;;
+  19)
+    restore_swaync
     ;;
   98)
     collect_pre_restore
