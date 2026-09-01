@@ -111,6 +111,8 @@ load_restore_helpers() {
 load_restore_helpers
 # END RESTORE BOOTSTRAP
 
+# Keep dotfiles restore output compact; actions provide their own summaries.
+RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)
 RESTORE_LOG_ROOT="$SCRIPT_DIR"
 if [[ -f "$SCRIPT_DIR/../backup-manifest.txt" ]]; then
   RESTORE_LOG_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -142,7 +144,7 @@ EOF
 
 # Ensure base dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync cp mv mkdir mktemp sed find tee cat
+  require_all_cmds rsync cp mv mkdir mktemp sed find cat
 }
 
 # Resolve the non-root desktop user for local system configuration.
@@ -377,24 +379,24 @@ extra_log_message() {
   printf '[%s] [%s] %s\n' "$(date --iso-8601=seconds)" "$level" "$*" >>"$INSTALL_EXTRA_BODY"
 }
 
-# Run one install command, retaining its full output and recording failures.
+# Run one install command, logging its full output without flooding the terminal.
 run_extra_command() {
   local label="$1"
   local status
   shift
 
   extra_log_message "INFO" "$label"
-  if "$@" 2>&1 | tee -a "$INSTALL_EXTRA_BODY"; then
+  if "$@" >>"$INSTALL_EXTRA_BODY" 2>&1; then
     return 0
   else
-    status="${PIPESTATUS[0]}"
+    status="$?"
     EXTRA_FAILED_ACTIONS+=("$label (exit $status)")
     extra_log_message "ERROR" "$label failed with exit status $status"
     return "$status"
   fi
 }
 
-# Run one install command from a required working directory.
+# Run one install command from a required directory without flooding the terminal.
 run_extra_command_in_dir() {
   local label="$1"
   local working_dir="$2"
@@ -402,10 +404,10 @@ run_extra_command_in_dir() {
   shift 2
 
   extra_log_message "INFO" "$label"
-  if (cd "$working_dir" && "$@") 2>&1 | tee -a "$INSTALL_EXTRA_BODY"; then
+  if (cd "$working_dir" && "$@") >>"$INSTALL_EXTRA_BODY" 2>&1; then
     return 0
   else
-    status="${PIPESTATUS[0]}"
+    status="$?"
     EXTRA_FAILED_ACTIONS+=("$label (exit $status)")
     extra_log_message "ERROR" "$label failed with exit status $status"
     return "$status"

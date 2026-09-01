@@ -123,6 +123,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 - Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing
 - Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes
 - `restore-main.sh` hides per-file rsync progress and prints compact start/completion summaries for each restored top-level item
+- `restore-dots.sh` also hides per-file rsync progress and prints compact action summaries
 - Before restoring a folder into `$HOME`, `restore-main.sh` moves an existing target folder to `<name>-pre-restore-<timestamp>`.
 - After a successful restore, `restore-main.sh` moves all pre-restore snapshots into `$HOME/PreRestored` using collision-safe names
 - After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`
@@ -299,7 +300,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- Checks for `org.videolan.VLC` and `org.gnome.Calculator` Flatpaks
 	- Checks for `jefferson`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, and `rambox-pro-bin`
 		- Installs all missing packages and Flatpaks noninteractively after option 4 is selected
-	- Writes `install-extra.log` beside the running `restore-dots.sh`, with missing items and failed actions summarized before the full process log
+	- Keeps package-manager details out of the terminal and writes them to `install-extra.log` beside the running script, with missing items and failed actions summarized first
 - `5 - Set AutoLogin`: saves a safety snapshot of `/usr/lib/sddm/sddm.conf.d/default.conf`
 	- Then sets its `User=` line to the local non-root username using `sudo`
 - `6 - Change SHELL`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-change-shell`

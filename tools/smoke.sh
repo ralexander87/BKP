@@ -131,18 +131,27 @@ awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >
 cat >>"$tmp/restore-dots-partial.sh" <<'EOF'
 init_install_extra_log
 EXTRA_MISSING_ITEMS=("Package: missing-test")
-EXTRA_FAILED_ACTIONS=("Install test (exit 1)")
-extra_log_message "ERROR" "Test install failure"
+run_extra_command "Install test" bash -c 'printf "noisy package output\n"; exit 7' || true
 finalize_install_extra_log "FAILED"
 EOF
-(cd "$tmp" && bash restore-dots-partial.sh >/dev/null 2>&1)
+(cd "$tmp" && bash restore-dots-partial.sh >restore-dots.out 2>&1)
 [[ "$(sed -n '1p' "$tmp/install-extra.log")" == 'Install Extra = [FAILED]' ]]
 grep -Fq '  - Package: missing-test' "$tmp/install-extra.log"
-grep -Fq '  - Install test (exit 1)' "$tmp/install-extra.log"
+grep -Fq '  - Install test (exit 7)' "$tmp/install-extra.log"
 grep -Fq 'Process Log:' "$tmp/install-extra.log"
+grep -Fq 'noisy package output' "$tmp/install-extra.log"
+if grep -Fq 'noisy package output' "$tmp/restore-dots.out"; then
+  printf 'Install Extra command output should stay in its detailed log\n' >&2
+  exit 1
+fi
 rm -rf "$tmp"
 printf 'Install Extra log format OK: restore-dots.sh\n'
 
+grep -Fq 'RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)' "$PROJECT_ROOT/restore-dots.sh"
+if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; then
+  printf 'Install Extra command output should stay in its log instead of flooding the terminal\n' >&2
+  exit 1
+fi
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
