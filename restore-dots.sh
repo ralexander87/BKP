@@ -710,10 +710,11 @@ restore_zshrc() {
   restore_config_path "ZSHRC" "zshrc" "zshrc"
 }
 
-# Restore the matugen theme generator config from DOTS.
+# Restore the matugen theme generator config and templates from DOTS.
 restore_matugen() {
   confirm_action "Restore MATUGEN" || return 0
   restore_config_file "MATUGEN" "matugen/config.toml" "matugen/config.toml"
+  restore_config_folder "MATUGEN" "matugen/templates" "matugen/templates"
   log "Done: Restore MATUGEN"
 }
 

@@ -322,7 +322,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 - `15 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder
 - `16 - Restore WAYBAR`: moves the existing Waybar themes and scripts folders to timestamped pre-restore snapshots
 	- Then copies `waybar/themes` and `waybar/scripts` from the current `DOTS` folder
-- `17 - Restore MATUGEN`: copies `matugen/config.toml` from the current `DOTS` folder to the matching ML4W config path
+- `17 - Restore MATUGEN`: copies `matugen/config.toml` and restores the complete `matugen/templates` folder from the current `DOTS` folder to the matching ML4W config paths
 - `18 - Restore CAVA`: moves the existing `cava` folder to a safety snapshot, then copies `cava` from the current `DOTS` folder
 	- Creates `~/.config/cava` as a symbolic link to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/cava`, preserving a conflicting local path as a safety snapshot
 - `19 - Restore SWAYNC`: moves the existing `swaync` folder to a safety snapshot, then copies `swaync` from the current `DOTS` folder
