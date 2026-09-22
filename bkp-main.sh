@@ -485,7 +485,16 @@ for item in "${HOME_ITEMS[@]}"; do
     log "Backing up: $source_path"
     ui_update_task "main-$item" "RUNNING" "copying from $source_path"
     ui_render
-    ui_run_command "main-$item" "copying from $source_path" run_rsync_main rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"
+    if ui_run_command "main-$item" "copying from $source_path" run_rsync_main rsync "${item_args[@]}" "$source_path" "$BACKUP_DIR/"; then
+      :
+    else
+      exit_code="$?"
+      unreadable_path="$(find "$source_path" -xdev \( ! -readable -o -type d ! -executable \) -print -quit 2>/dev/null || true)"
+      if [[ -n "$unreadable_path" ]]; then
+        log_error "Cannot back up $item because this source path is unreadable: $unreadable_path. Correct its ownership/permissions or skip $item."
+      fi
+      exit "$exit_code"
+    fi
     ui_update_task "main-$item" "DONE" "No Error"
     ui_render
   else

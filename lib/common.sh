@@ -19,6 +19,7 @@ UI_FINAL_STATE=""
 UI_FINAL_MESSAGE=""
 UI_LAST_ERROR_TEXT=""
 UI_ACTIVE_TASK_ID=""
+UI_ERROR_ALREADY_REPORTED=false
 declare -a UI_META_LINES=()
 declare -a UI_TASK_ORDER=()
 declare -a UI_MESSAGES=()
@@ -438,8 +439,11 @@ register_temp_path() {
 cleanup_temp_paths() {
   local p
   for p in "${TEMP_PATHS[@]}"; do
-    [[ -e "$p" ]] && rm -rf -- "$p"
+    if [[ -e "$p" || -L "$p" ]]; then
+      rm -rf -- "$p"
+    fi
   done
+  return 0
 }
 
 # Add a cleanup trap for temp paths and terminal UI teardown.
@@ -622,6 +626,7 @@ ui_init() {
   UI_FINAL_MESSAGE=""
   UI_LAST_ERROR_TEXT=""
   UI_ACTIVE_TASK_ID=""
+  UI_ERROR_ALREADY_REPORTED=false
 
   if [[ "$QUIET" == "true" || ! -t 1 ]]; then
     UI_ENABLED=false
@@ -892,6 +897,13 @@ ui_render() {
 ui_report_error() {
   local line_no="$1"
   local cmd="$2"
+
+  # ui_run_command already records a clearer task-specific failure. With
+  # errtrace enabled, Bash may invoke ERR again as that status propagates.
+  if [[ "$UI_ERROR_ALREADY_REPORTED" == "true" ]]; then
+    return 0
+  fi
+
   if [[ -n "${UI_ACTIVE_TASK_ID:-}" ]]; then
     ui_update_task "$UI_ACTIVE_TASK_ID" "ERROR" "failed"
   fi
@@ -985,30 +997,41 @@ ui_run_command() {
   shift 2
   local pid start now elapsed exit_code
 
+  UI_ERROR_ALREADY_REPORTED=false
+
   if [[ "$UI_ENABLED" != "true" ]]; then
-    "$@"
-    return 0
+    if "$@"; then
+      return 0
+    else
+      exit_code="$?"
+    fi
+  else
+    start="$(date +%s)"
+    (
+      trap - ERR
+      "$@"
+    ) &
+    pid=$!
+
+    while kill -0 "$pid" 2>/dev/null; do
+      now="$(date +%s)"
+      elapsed=$((now - start))
+      ui_update_task "$task_id" "RUNNING" "$detail (${elapsed}s)"
+      ui_render "force"
+      sleep 1
+    done
+
+    if wait "$pid"; then
+      exit_code=0
+    else
+      exit_code="$?"
+    fi
   fi
 
-  start="$(date +%s)"
-  "$@" &
-  pid=$!
+  [[ "$exit_code" -eq 0 ]] && return 0
 
-  while kill -0 "$pid" 2>/dev/null; do
-    now="$(date +%s)"
-    elapsed=$((now - start))
-    ui_update_task "$task_id" "RUNNING" "$detail (${elapsed}s)"
-    ui_render "force"
-    sleep 1
-  done
-
-  if wait "$pid"; then
-    return 0
-  fi
-
-  exit_code="$?"
   ui_update_task "$task_id" "ERROR" "failed (exit $exit_code)"
-  ui_add_message "ERROR" "Task ${UI_TASK_LABELS[$task_id]:-$task_id} failed (exit $exit_code)"
-  ui_render "force"
+  log_error "Task ${UI_TASK_LABELS[$task_id]:-$task_id} failed (exit $exit_code)"
+  UI_ERROR_ALREADY_REPORTED=true
   return "$exit_code"
 }

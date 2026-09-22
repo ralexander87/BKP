@@ -363,6 +363,7 @@ printf 'restore-dots settings menu OK\n'
 
 grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '90 - Restore CONFIG' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/restore-serv.sh"
 if grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/config/serv.restore.conf"; then
@@ -377,7 +378,33 @@ assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 3 restore_ssh
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 4 restore_fstab
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 5 restore_grub_theme
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 6 restore_grub_defaults
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 90 restore_config
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 98 collect_pre_restore
+awk '
+  /^restore_config\(\)/ { in_func = 1 }
+  in_func && /restore_file_to_dir "samba" "smb.conf"/ { smb_seen = 1 }
+  in_func && /restore_file_to_dir "SSH" "sshd_config"/ { ssh_seen = 1 }
+  in_func && /restore_file_to_dir "samba credentials"/ { creds_seen = 1 }
+  in_func && /sudo systemctl enable "\$\{services\[@\]\}"/ {
+    enable_seen = 1
+    if (!smb_seen || !ssh_seen || !creds_seen) {
+      exit 1
+    }
+  }
+  in_func && /sudo systemctl start "\$\{services\[@\]\}"/ {
+    start_seen = 1
+    if (!enable_seen) {
+      exit 1
+    }
+  }
+  in_func && /^}/ { exit(enable_seen && start_seen ? 0 : 1) }
+' "$PROJECT_ROOT/restore-serv.sh" || {
+  printf 'Restore CONFIG must enable services before starting them\n' >&2
+  exit 1
+}
+for required_config in smb.conf sshd_config creds-euclid creds-pneuma creds-scp; do
+  grep -Fq "\"$required_config\"" "$PROJECT_ROOT/restore-serv.sh"
+done
 awk '
   /^restore_fstab\(\) / { in_func = 1 }
   in_func && /sudo modprobe cifs/ { modprobe_seen = 1 }
@@ -816,6 +843,58 @@ set -e
 grep -Fq 'run interrupted by signal: TERM' "$tmp/signal.log"
 rm -rf "$tmp"
 printf 'signal handling OK\n'
+
+tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
+(cd "$tmp" && bash -c '
+  source common.sh
+  UI_ENABLED=true
+  UI_LAST_RENDER_TS=0
+  LOG_FILE="$PWD/task.log"
+  ui_add_task "failure" "Expected failure"
+  if ui_run_command "failure" "testing failure" bash -c "exit 7" >/dev/null; then
+    exit 1
+  else
+    rc=$?
+  fi
+  [[ "$rc" -eq 7 ]]
+  [[ "${UI_TASK_STATUS[failure]}" == "ERROR" ]]
+  grep -Fq "Task Expected failure failed (exit 7)" "$LOG_FILE"
+  [[ "$(grep -Fc "[ERROR]" "$LOG_FILE")" -eq 1 ]]
+
+  UI_ENABLED=false
+  if ui_run_command "failure" "testing hidden failure" bash -c "exit 9"; then
+    exit 1
+  else
+    rc=$?
+  fi
+  [[ "$rc" -eq 9 ]]
+')
+
+set +e
+(cd "$tmp" && bash -c '
+  source common.sh
+  UI_ENABLED=false
+  LOG_FILE="$PWD/trapped-task.log"
+  trap '\''ui_report_error "$LINENO" "$BASH_COMMAND"'\'' ERR
+  ui_add_task "failure" "Trapped failure"
+  ui_run_command "failure" "testing trapped failure" bash -c "exit 11"
+') >/dev/null 2>&1
+rc=$?
+set -e
+[[ "$rc" -eq 11 ]]
+grep -Fq "Task Trapped failure failed (exit 11)" "$tmp/trapped-task.log"
+if grep -Fq "command failed at line" "$tmp/trapped-task.log"; then
+  exit 1
+fi
+
+(cd "$tmp" && bash -c '
+  source common.sh
+  register_temp_path "$PWD/already-missing"
+  cleanup_temp_paths
+')
+rm -rf "$tmp"
+printf 'dashboard command failure propagation OK\n'
 
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"

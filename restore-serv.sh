@@ -279,6 +279,8 @@ Select action:
   5 - Restore grub theme
   6 - Restore GRUB
 ============================
+  90 - Restore CONFIG
+============================
   98 - Collect pre-restore
 EOF
 }
@@ -522,6 +524,84 @@ restore_ssh() {
   sudo systemctl start sshd.service
   audit_log "action_completed"
   log "Done: Restore SSH"
+}
+
+# Restore the complete Samba/SSH configuration set, then enable and start its services.
+restore_config() {
+  local creds_name
+  local service
+  local -a creds_names=(
+    "creds-euclid"
+    "creds-pneuma"
+    "creds-scp"
+  )
+  local -a services=(
+    "avahi-daemon.service"
+    "wsdd.service"
+    "sshd.service"
+    "sshd.service"
+    "nmb.service"
+    "pcscd.service"
+  )
+  local -A snapshotted_services=()
+
+  require_all_cmds sudo cp mkdir rsync chown chmod systemctl
+  [[ -f "$SCRIPT_DIR/smb.conf" ]] || die "samba source file not found: $SCRIPT_DIR/smb.conf"
+  [[ -f "$SCRIPT_DIR/sshd_config" ]] || die "SSH source file not found: $SCRIPT_DIR/sshd_config"
+  for creds_name in "${creds_names[@]}"; do
+    [[ -f "$SCRIPT_DIR/$creds_name" ]] || die "samba credentials source file not found: $SCRIPT_DIR/$creds_name"
+  done
+
+  if command -v testparm >/dev/null 2>&1; then
+    sudo testparm -s "$SCRIPT_DIR/smb.conf" >/dev/null || die "backed-up samba config validation failed"
+  fi
+  if command -v sshd >/dev/null 2>&1; then
+    sudo sshd -t -f "$SCRIPT_DIR/sshd_config" || die "backed-up sshd config validation failed"
+  fi
+
+  confirm_action "Restore CONFIG" || return 0
+
+  # Capture every file and service state before making the first change.
+  snapshot_target "/etc/samba/smb.conf"
+  snapshot_target "/etc/ssh/sshd_config"
+  for creds_name in "${creds_names[@]}"; do
+    snapshot_target "/etc/samba/$creds_name"
+  done
+  for service in "${services[@]}"; do
+    if [[ -z "${snapshotted_services[$service]:-}" ]]; then
+      snapshot_service_state "$service"
+      snapshotted_services["$service"]=1
+    fi
+  done
+
+  restore_file_to_dir "samba" "smb.conf" "/etc/samba"
+  restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
+  for creds_name in "${creds_names[@]}"; do
+    restore_file_to_dir "samba credentials" "$creds_name" "/etc/samba"
+  done
+
+  sudo chown root:root /etc/samba/smb.conf /etc/ssh/sshd_config
+  sudo chmod 644 /etc/samba/smb.conf
+  sudo chmod 600 /etc/ssh/sshd_config
+  for creds_name in "${creds_names[@]}"; do
+    sudo chown root:root "/etc/samba/$creds_name"
+    sudo chmod 600 "/etc/samba/$creds_name"
+  done
+
+  if command -v testparm >/dev/null 2>&1; then
+    sudo testparm -s >/dev/null || die "restored samba config validation failed"
+  fi
+  if command -v sshd >/dev/null 2>&1; then
+    sudo sshd -t || die "restored sshd config validation failed"
+  fi
+
+  log "Enabling CONFIG services: ${services[*]}"
+  sudo systemctl enable "${services[@]}"
+  log "Starting CONFIG services: ${services[*]}"
+  sudo systemctl start "${services[@]}"
+
+  audit_log "action_completed"
+  log "Done: Restore CONFIG"
 }
 
 # Create SMB folders and set ownership/perms for the local non-root user.
@@ -855,6 +935,9 @@ while true; do
     ;;
   6)
     restore_grub_defaults
+    ;;
+  90)
+    restore_config
     ;;
   98)
     collect_pre_restore
