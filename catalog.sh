@@ -103,8 +103,8 @@ catalog_mount() {
     [[ -d "$backup_root" ]] || continue
     backup_dirs=()
     while IFS= read -r -d '' backup_dir; do
-      backup_dirs+=("$backup_dir")
-    done < <(find "$backup_root" -mindepth 1 -maxdepth 1 -type d \( -name 'BKP-*' -o -name '.BKP-*.in-progress' \) -print0 | sort -z)
+      backup_dirs+=("${backup_dir#* }")
+    done < <(find "$backup_root" -mindepth 1 -maxdepth 1 -type d \( -name 'BKP-*' -o -name '.BKP-*.in-progress' \) -printf '%T@ %p\0' | sort -z -n)
     for backup_dir in "${backup_dirs[@]}"; do
       found=true
       catalog_backup_dir "$backup_type" "$backup_dir"

@@ -30,7 +30,7 @@ EOF
 
 # Ensure required user-space dependencies exist before backup starts.
 preflight_checks() {
-  require_all_cmds rsync flock findmnt df du install sort mv
+  require_all_cmds rsync flock findmnt df du install sort mv chmod
 }
 
 # Treat rsync "vanished source files" (exit 24) as warning, not hard failure.
@@ -331,6 +331,7 @@ create_validated_archive() {
   local archive_tmp="$MAIN_DIR/.${RUN_ID}.tar.gz.in-progress"
 
   register_temp_path "$archive_tmp"
+  install -m 0600 /dev/null "$archive_tmp"
   ARCHIVE_VALIDATION="pending"
   set_backup_status "in_progress"
   if ! tar -C "$MAIN_DIR" -cf - "$RUN_ID" | pigz >"$archive_tmp"; then
@@ -344,6 +345,7 @@ create_validated_archive() {
     die "archive validation failed: $ARCHIVE_NAME"
   fi
   mv -- "$archive_tmp" "$ARCHIVE_NAME"
+  chmod 0600 "$ARCHIVE_NAME"
   ARCHIVE_VALIDATION="passed"
 }
 

@@ -63,7 +63,7 @@ BKP-<timestamp>/
 ##### The timestamp format is:
 
 ```bash
-date +%j-%d-%m-%H-%M-%S
+date +%Y-%j-%d-%m-%H-%M-%S
 ```
 
 - Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup
@@ -99,6 +99,7 @@ logs/bkp.log
 	- Legacy key/value manifests and separate `backup.status` files remain supported for older backups.
 - Requested archives are written to a temporary `.in-progress` path
 	- `pigz` integrity and tar readability are validated before the archive is renamed to its final path
+	- Published archives are restricted to mode `600` on filesystems that support Unix permissions
 - Interrupted backup runs are marked failed and temporary archives are removed by the exit cleanup flow
 - Terminal output is intentionally grouped. 
 	- The backup scripts show a lightweight dashboard with compact run metrics, selected options, named task sections, recent warnings/errors.
@@ -120,6 +121,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 	- It restores shared `BIG/030-Firmware/` back to `$HOME/Documents/030-Firmware/` when that shared folder exists
 - Restore runs write their output and results to `restore.log` in the backup folder
 	- `restore-dots.sh` writes to the parent backup folder's `restore.log` when it is run from `DOTS`
+	- When backup media is read-only, logs and generated rollback files are written under `${XDG_STATE_HOME:-$HOME/.local/state}/bkp/`
 - Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing
 - Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes
 - `restore-main.sh` hides per-file rsync progress and prints compact start/completion summaries for each restored top-level item
@@ -227,6 +229,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 - Per-action confirmation prompts
 - Automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
 - Generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
+	- Rollback covers replaced and newly created service targets, SMB directory metadata, service state, and a CIFS module loaded by the restore
 - Idempotent `fstab` updates by configured mountpoint (stale entries for those mountpoints are replaced)
 - Atomic file update flow for `/etc/fstab` and `/etc/default/grub` (temp file + install)
 - Post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
@@ -285,6 +288,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 
 `restore-dots.sh` also supports `--quiet`.
 
+DOTS actions require the parent MAIN backup manifest or legacy status marker to report a completed backup.
+
 ##### Current options:
 
 - `0 - Exit`
@@ -300,7 +305,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- Checks for `org.videolan.VLC` and `org.gnome.Calculator` Flatpaks
 	- Checks for `jefferson`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, and `rambox-pro-bin`
 		- Installs all missing packages and Flatpaks noninteractively after option 4 is selected
-	- Keeps package-manager details out of the terminal and writes them to `install-extra.log` beside the running script, with missing items and failed actions summarized first
+	- Keeps package-manager details out of the terminal and writes them to `install-extra.log` beside the running script, or to the user state fallback on read-only media, with missing items and failed actions summarized first
 - `5 - Set AutoLogin`: saves a safety snapshot of `/usr/lib/sddm/sddm.conf.d/default.conf`
 	- Then sets its `User=` line to the local non-root username using `sudo`
 - `6 - Change SHELL`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-change-shell`
@@ -336,6 +341,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 	- If you answer `N`, the action is cancelled and the script returns to the menu
 	- `4 - Install Extra` is intentionally unattended after selection and does not ask package-manager yes/no questions
 	- The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script
+	- Existing files changed by HYPR, Matugen, Settings, Thunar, and qBittorrent actions are moved to timestamped safety snapshots first
 
 `config/serv.restore.conf` controls public service restore values for SMB directories and GRUB defaults. Local fstab entries can be stored in ignored `config/local/serv.restore.conf`; when present, this local file is copied into each `SERV` backup so restore behavior is tied to the backup that created it without publishing private mount details.
 

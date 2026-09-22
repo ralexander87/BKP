@@ -58,9 +58,18 @@ done
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/restore-main.sh" "$tmp/restore-main.sh"
 chmod +x "$tmp/restore-main.sh"
+if printf 'N\n' | (cd "$tmp" && ./restore-main.sh >/dev/null 2>&1); then
+  printf 'restore-main.sh should reject an unmarked source folder\n' >&2
+  exit 1
+fi
+cat >"$tmp/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
 printf 'N\n' | (cd "$tmp" && ./restore-main.sh >/dev/null)
 rm -rf "$tmp"
-printf 'cancel path OK: restore-main.sh\n'
+printf 'source guard and cancel path OK: restore-main.sh\n'
 
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/restore-main.sh" "$tmp/restore-main.sh"
@@ -99,16 +108,124 @@ rm -rf "$tmp"
 printf 'automatic pre-restore collection OK: restore-main.sh\n'
 
 tmp="$(mktemp -d)"
-cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/restore-dots.sh"
-chmod +x "$tmp/restore-dots.sh"
-printf '0\n' | (cd "$tmp" && ./restore-dots.sh >/dev/null)
+mkdir -p "$tmp/backup" "$tmp/home" "$tmp/state"
+cp "$PROJECT_ROOT/restore-main.sh" "$tmp/backup/restore-main.sh"
+chmod +x "$tmp/backup/restore-main.sh"
+cat >"$tmp/backup/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
+chmod 555 "$tmp/backup"
+printf 'N\n' | HOME="$tmp/home" XDG_STATE_HOME="$tmp/state" "$tmp/backup/restore-main.sh" >/dev/null
+find "$tmp/state/bkp" -maxdepth 1 -type f -name 'restore-main-*.log' -print -quit | grep -q .
+chmod 755 "$tmp/backup"
 rm -rf "$tmp"
-printf 'exit path OK: restore-dots.sh\n'
+printf 'read-only restore runtime fallback OK\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/bin"
-cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/restore-dots.sh"
-chmod +x "$tmp/restore-dots.sh"
+mkdir -p "$tmp/bin" "$tmp/backup" "$tmp/home" "$tmp/state"
+cp "$PROJECT_ROOT/restore-serv.sh" "$tmp/backup/restore-serv.sh"
+chmod +x "$tmp/backup/restore-serv.sh"
+cat >"$tmp/backup/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [SERVICE]
+Backup Status = [COMPLETED]
+EOF
+cat >"$tmp/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "-v" ]]; then
+  exit 0
+fi
+exec "$@"
+EOF
+chmod +x "$tmp/bin/sudo"
+chmod 555 "$tmp/backup"
+printf '0\n' | HOME="$tmp/home" XDG_STATE_HOME="$tmp/state" PATH="$tmp/bin:$PATH" "$tmp/backup/restore-serv.sh" >/dev/null
+find "$tmp/state/bkp" -maxdepth 1 -type f -name 'restore-serv-*.log' -print -quit | grep -q .
+find "$tmp/state/bkp" -maxdepth 1 -type f -name 'restore-serv-rollback-*.sh' -print -quit | grep -q .
+chmod 755 "$tmp/backup"
+rm -rf "$tmp"
+printf 'read-only service runtime fallback OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/BKP/DOTS" "$tmp/home" "$tmp/state"
+cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/BKP/DOTS/restore-dots.sh"
+chmod +x "$tmp/BKP/DOTS/restore-dots.sh"
+cat >"$tmp/BKP/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
+chmod 555 "$tmp/BKP" "$tmp/BKP/DOTS"
+printf '0\n' | HOME="$tmp/home" XDG_STATE_HOME="$tmp/state" "$tmp/BKP/DOTS/restore-dots.sh" >/dev/null
+find "$tmp/state/bkp" -maxdepth 1 -type f -name 'restore-dots-*.log' -print -quit | grep -q .
+chmod 755 "$tmp/BKP" "$tmp/BKP/DOTS"
+rm -rf "$tmp"
+printf 'read-only DOTS runtime fallback OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/BKP/DOTS"
+cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/BKP/DOTS/restore-dots.sh"
+chmod +x "$tmp/BKP/DOTS/restore-dots.sh"
+cat >"$tmp/BKP/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [FAILED]
+EOF
+if printf '0\n' | (cd "$tmp/BKP/DOTS" && ./restore-dots.sh >/dev/null 2>&1); then
+  printf 'restore-dots.sh should reject a failed parent backup\n' >&2
+  exit 1
+fi
+sed -i 's/\[FAILED\]/[COMPLETED]/' "$tmp/BKP/backup-manifest.txt"
+printf '0\n' | (cd "$tmp/BKP/DOTS" && ./restore-dots.sh >/dev/null)
+rm -rf "$tmp"
+printf 'parent status guard and exit path OK: restore-dots.sh\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/bin" "$tmp/BKP/DOTS" "$tmp/home/.config/hypr"
+cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/BKP/DOTS/restore-dots.sh"
+chmod +x "$tmp/BKP/DOTS/restore-dots.sh"
+printf 'keep\n' >"$tmp/home/.config/hypr/current.conf"
+cat >"$tmp/BKP/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
+cat >"$tmp/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+output=""
+while [[ "$#" -gt 0 ]]; do
+  if [[ "$1" == "--output" ]]; then
+    output="$2"
+    shift 2
+  else
+    shift
+  fi
+done
+printf '#!/usr/bin/env bash\n' >"$output"
+EOF
+chmod +x "$tmp/bin/curl"
+printf '1\nY\nN\n0\n' | (
+  cd "$tmp/BKP/DOTS" && HOME="$tmp/home" PATH="$tmp/bin:$PATH" ./restore-dots.sh >/dev/null
+)
+[[ -f "$tmp/home/.config/hypr/current.conf" ]]
+if find "$tmp/home/.config" -maxdepth 1 -name 'hypr-pre-restore-*' -print -quit | grep -q .; then
+  printf 'declining downloaded installer execution should not move the Hypr config\n' >&2
+  exit 1
+fi
+rm -rf "$tmp"
+printf 'Install DOTS second-confirmation safety OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/bin" "$tmp/BKP/DOTS"
+cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/BKP/DOTS/restore-dots.sh"
+chmod +x "$tmp/BKP/DOTS/restore-dots.sh"
+cat >"$tmp/BKP/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
 cat >"$tmp/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
 exec "$@"
@@ -117,12 +234,28 @@ chmod +x "$tmp/bin/sudo"
 printf '[Autologin]\nUser=old-user\n' >"$tmp/default.conf"
 test_user="$(id -un)"
 printf '5\nY\n0\n' | (
-  cd "$tmp" && PATH="$tmp/bin:$PATH" USER="$test_user" SDDM_CONFIG="$tmp/default.conf" ./restore-dots.sh >/dev/null
+  cd "$tmp/BKP/DOTS" && PATH="$tmp/bin:$PATH" USER="$test_user" SDDM_CONFIG="$tmp/default.conf" ./restore-dots.sh >/dev/null
 )
 grep -Fqx "User=$test_user" "$tmp/default.conf"
 find "$tmp" -maxdepth 1 -type f -name 'default.conf-pre-restore-*' -print -quit | grep -q .
 rm -rf "$tmp"
 printf 'SDDM AutoLogin update OK: restore-dots.sh\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/matugen" "$tmp/matugen"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+printf 'new\n' >"$tmp/matugen/config.toml"
+printf 'old\n' >"$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/matugen/config.toml"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$tmp/restore-dots-partial.sh"
+cat >>"$tmp/restore-dots-partial.sh" <<'EOF'
+restore_config_file "MATUGEN" "matugen/config.toml" "matugen/config.toml"
+EOF
+(cd "$tmp" && HOME="$tmp/home" bash restore-dots-partial.sh >/dev/null)
+grep -Fqx 'new' "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/matugen/config.toml"
+find "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/matugen" -maxdepth 1 \
+  -name 'config.toml-pre-restore-*' -exec grep -Fqx 'old' '{}' \; -print -quit | grep -q .
+rm -rf "$tmp"
+printf 'DOTS file snapshot OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib"
@@ -269,6 +402,8 @@ cat >>"$tmp/restore-serv-partial.sh" <<'EOF'
 FSTAB_LINES=(
   '//new/share   /SMB/test   cifs   _netdev,credentials=/etc/samba/creds-test,uid=1000,gid=1000   0 0'
 )
+ROLLBACK_FILE="$PWD/restore-serv-rollback-test.sh"
+snapshot_target "$PWD/new-service-target"
 replace_managed_fstab_entries "$1"
 update_rollback_snapshot_path "/etc/fstab-pre-restore-test" "$HOME/PreRestored/fstab-pre-restore-test"
 EOF
@@ -295,6 +430,7 @@ fi
 grep -Fq '//keep/share /SMB/keep' "$tmp/fstab"
 [[ "$(awk '$2 == "/SMB/test" { count++ } END { print count + 0 }' "$tmp/fstab")" -eq 1 ]]
 grep -Fq "$tmp/home/PreRestored/fstab-pre-restore-test" "$tmp/restore-serv-rollback-test.sh"
+grep -Fq "sudo rm -rf -- $tmp/new-service-target" "$tmp/restore-serv-rollback-test.sh"
 rm -rf "$tmp"
 printf 'restore-serv managed fstab and rollback path OK\n'
 
@@ -576,6 +712,51 @@ if bash -c 'source "$1"; validate_tar_gz_archive "$2"' _ "$PROJECT_ROOT/lib/comm
 fi
 rm -rf "$tmp"
 printf 'archive validation OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/logs" "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-test"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+printf 'private\n' >"$tmp/MAIN/BKP-test/private.txt"
+printf 'private\n' >"$tmp/SERV/BKP-test/private.txt"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+MAIN_DIR="$PWD/MAIN"
+RUN_ID="BKP-test"
+ARCHIVE_NAME="$MAIN_DIR/$RUN_ID.tar.gz"
+BACKUP_DIR="$MAIN_DIR/$RUN_ID"
+set_backup_status() { :; }
+create_validated_archive
+[[ "$(stat -c %a "$ARCHIVE_NAME")" == "600" ]]
+EOF
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-serv.sh" >"$tmp/bkp-serv-partial.sh"
+cat >>"$tmp/bkp-serv-partial.sh" <<'EOF'
+SERV_DIR="$PWD/SERV"
+RUN_ID="BKP-test"
+ARCHIVE_NAME="$SERV_DIR/$RUN_ID.tar.gz"
+BACKUP_DIR="$SERV_DIR/$RUN_ID"
+sudo() { "$@"; }
+set_backup_status() { :; }
+create_validated_archive
+[[ "$(stat -c %a "$ARCHIVE_NAME")" == "600" ]]
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh >/dev/null && bash bkp-serv-partial.sh >/dev/null)
+rm -rf "$tmp"
+printf 'private archive permissions OK\n'
+
+bash -c 'source "$1"; [[ "$(timestamp)" =~ ^[0-9]{4}-[0-9]{3}- ]]' _ "$PROJECT_ROOT/lib/common.sh"
+printf 'year-safe timestamp OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/backups/BKP-365-old" "$tmp/backups/BKP-001-new"
+touch -d '2025-12-31' "$tmp/backups/BKP-365-old"
+touch -d '2026-01-01' "$tmp/backups/BKP-001-new"
+awk '/^printf '\''BKP doctor/ { exit } { print }' "$PROJECT_ROOT/doctor.sh" >"$tmp/doctor-partial.sh"
+cat >>"$tmp/doctor-partial.sh" <<'EOF'
+[[ "$(latest_backup_dir "$1")" == "$1/BKP-001-new" ]]
+EOF
+bash "$tmp/doctor-partial.sh" "$tmp/backups"
+rm -rf "$tmp"
+printf 'cross-year latest backup selection OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/logs" "$tmp/MAIN/.BKP-test.in-progress"

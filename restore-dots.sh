@@ -96,6 +96,23 @@ load_restore_helpers() {
   setup_cleanup_trap() { trap 'cleanup_temp_paths; ui_cleanup' EXIT; }
   rsync_restore_copy() { rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"; }
   sudo_rsync_restore_copy() { sudo rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"; }
+  resolve_writable_output_path() {
+    local preferred_file="$1"
+    local fallback_file="$2"
+    local preferred_dir
+    local fallback_dir
+
+    preferred_dir="$(dirname -- "$preferred_file")"
+    fallback_dir="$(dirname -- "$fallback_file")"
+    if { [[ -e "$preferred_file" ]] && [[ -w "$preferred_file" ]]; } ||
+      { [[ ! -e "$preferred_file" ]] && [[ -w "$preferred_dir" ]]; }; then
+      printf '%s\n' "$preferred_file"
+      return 0
+    fi
+    mkdir -p "$fallback_dir"
+    [[ -w "$fallback_dir" ]] || die "runtime output directory is not writable: $fallback_dir"
+    printf '%s\n' "$fallback_file"
+  }
   confirm_yes_no() {
     local prompt="$1"
     local default="${2:-N}"
@@ -113,18 +130,21 @@ load_restore_helpers
 
 # Keep dotfiles restore output compact; actions provide their own summaries.
 RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)
+RESTORE_ID="$(date '+%Y-%j-%d-%m-%H-%M-%S')"
 RESTORE_LOG_ROOT="$SCRIPT_DIR"
 if [[ -f "$SCRIPT_DIR/../backup-manifest.txt" ]]; then
   RESTORE_LOG_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 fi
-LOG_FILE="${LOG_FILE:-$RESTORE_LOG_ROOT/restore.log}"
-RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
+RESTORE_STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/bkp"
+LOG_FILE="${LOG_FILE:-$(resolve_writable_output_path "$RESTORE_LOG_ROOT/restore.log" "$RESTORE_STATE_ROOT/restore-dots-$RESTORE_ID.log")}"
+STATUS_FILE="$SCRIPT_DIR/../backup.status"
+MANIFEST_FILE="$SCRIPT_DIR/../backup-manifest.txt"
 ML4W_CONFIG_ROOT="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 RESTORE_SETTINGS_LOCAL_HOOK="$SCRIPT_DIR/config/local/restore-dots-settings.sh"
 DOTS_EXTRA_CONFIG="$SCRIPT_DIR/config/dots-extra.conf"
 MAIN_BACKUP_CONFIG="$SCRIPT_DIR/config/main.backup.conf"
 SDDM_CONFIG="${SDDM_CONFIG:-/usr/lib/sddm/sddm.conf.d/default.conf}"
-INSTALL_EXTRA_LOG="$SCRIPT_DIR/install-extra.log"
+INSTALL_EXTRA_LOG="$(resolve_writable_output_path "$SCRIPT_DIR/install-extra.log" "$RESTORE_STATE_ROOT/install-extra-$RESTORE_ID.log")"
 
 # Load package and Flatpak choices bundled with this DOTS backup.
 load_dots_extra_config() {
@@ -144,7 +164,68 @@ EOF
 
 # Ensure base dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds rsync cp mv mkdir mktemp sed find cat
+  require_all_cmds rsync cp mv mkdir mktemp sed find cat awk
+}
+
+# Read completion state from current and legacy MAIN manifests.
+read_manifest_status() {
+  local manifest_file="$1"
+  local status
+
+  status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
+  status="${status:-$(awk -F= '$1 == "run_result" { print $2; exit }' "$manifest_file")}"
+  status="${status:-$(awk -F' = ' '$1 == "Backup Status" { print $2; exit }' "$manifest_file")}"
+  status="${status:-$(awk -F' = ' '$1 == "Run Result" { print $2; exit }' "$manifest_file")}"
+  status="${status#[}"
+  status="${status%]}"
+  status="${status,,}"
+  status="${status// /_}"
+
+  case "$status" in
+  completed) printf 'complete\n' ;;
+  successful) printf 'success\n' ;;
+  *) printf '%s\n' "$status" ;;
+  esac
+}
+
+read_manifest_version() {
+  awk -F' = ' '$1 == "Manifest Version" { print $2; exit }' "$1"
+}
+
+read_manifest_type() {
+  local backup_type
+
+  backup_type="$(awk -F= '$1 == "backup_type" { print $2; exit }' "$1")"
+  backup_type="${backup_type:-$(awk -F' = ' '$1 == "Backup Type" { print $2; exit }' "$1")}"
+  backup_type="${backup_type#[}"
+  backup_type="${backup_type%]}"
+  printf '%s\n' "${backup_type,,}"
+}
+
+# Refuse DOTS actions when the parent MAIN backup is incomplete or unrecognized.
+verify_backup_status() {
+  local manifest_status=""
+  local manifest_version=""
+  local manifest_type=""
+
+  if [[ -f "$MANIFEST_FILE" ]]; then
+    manifest_version="$(read_manifest_version "$MANIFEST_FILE")"
+    [[ -z "$manifest_version" || "$manifest_version" == "1" ]] || die "unsupported manifest version: $manifest_version"
+    manifest_type="$(read_manifest_type "$MANIFEST_FILE")"
+    [[ -z "$manifest_type" || "$manifest_type" == "main" ]] || die "backup type is not MAIN: $manifest_type"
+    manifest_status="$(read_manifest_status "$MANIFEST_FILE")"
+    if [[ -n "$manifest_status" ]]; then
+      [[ "$manifest_status" == "complete" || "$manifest_status" == "success" ]] || die "backup status is not complete: $manifest_status"
+      return 0
+    fi
+  fi
+
+  if [[ -f "$STATUS_FILE" ]]; then
+    [[ "$(cat "$STATUS_FILE")" == "complete" ]] || die "backup status is not complete: $(cat "$STATUS_FILE")"
+    return 0
+  fi
+
+  die "parent MAIN backup completion status not found; refusing DOTS actions"
 }
 
 # Resolve the non-root desktop user for local system configuration.
@@ -221,7 +302,6 @@ install_dots() {
 
   confirm_action "Install DOTS" || return 0
   log "DOTS source folder: $SCRIPT_DIR"
-  snapshot_existing_target "$HOME/.config/hypr"
 
   installer_file="$(mktemp)"
   register_temp_path "$installer_file"
@@ -238,6 +318,7 @@ install_dots() {
     return 0
   }
 
+  snapshot_existing_target "$HOME/.config/hypr"
   log "Running ML4W stable installer"
   bash "$installer_file"
   log "Done: Install DOTS"
@@ -274,6 +355,7 @@ restore_config_file() {
   [[ -f "$source_file" ]] || die "$label source file not found: $source_file"
 
   log "Restoring $label file: $source_rel"
+  snapshot_existing_target "$target_file"
   mkdir -p "$(dirname -- "$target_file")"
   cp -a -- "$source_file" "$target_file"
 }
@@ -359,8 +441,11 @@ install_hyprmod() {
 
 # Start a fresh detailed log for one Install Extra run.
 init_install_extra_log() {
+  local install_extra_dir
+
   INSTALL_EXTRA_STARTED="$(date --iso-8601=seconds)"
-  INSTALL_EXTRA_BODY="$(mktemp "$SCRIPT_DIR/.install-extra-body.XXXXXX")"
+  install_extra_dir="$(dirname -- "$INSTALL_EXTRA_LOG")"
+  INSTALL_EXTRA_BODY="$(mktemp "$install_extra_dir/.install-extra-body.XXXXXX")"
   register_temp_path "$INSTALL_EXTRA_BODY"
   EXTRA_MISSING_ITEMS=()
   EXTRA_FAILED_ACTIONS=()
@@ -431,8 +516,10 @@ require_extra_commands() {
 finalize_install_extra_log() {
   local result="${1^^}"
   local final_temp
+  local install_extra_dir
 
-  final_temp="$(mktemp "$SCRIPT_DIR/.install-extra-log.XXXXXX")"
+  install_extra_dir="$(dirname -- "$INSTALL_EXTRA_LOG")"
+  final_temp="$(mktemp "$install_extra_dir/.install-extra-log.XXXXXX")"
   register_temp_path "$final_temp"
   {
     printf 'Install Extra = [%s]\n' "$result"
@@ -673,7 +760,26 @@ restore_waybar() {
 
 # Restore selected Hypr files from DOTS into the ML4W hypr config tree.
 restore_hypr() {
+  local source_rel
+  local -a source_files=(
+    "hypr/conf/keybindings/default.lua"
+    "hypr/conf/monitor.lua"
+    "hypr/conf/windowrules/default.lua"
+    "hypr/hypridle.conf"
+    "hypr/hyprlock.conf"
+    "hypr/hyprland-gui.lua"
+    "hypr/logo-2.png"
+    "hypr/scripts/uptime.sh"
+    "waybar/modules.json"
+    "gtk-3.0/bookmarks"
+  )
+
   require_cmd qs
+  for source_rel in "${source_files[@]}"; do
+    [[ -f "$SCRIPT_DIR/$source_rel" ]] || die "HYPR source file not found: $SCRIPT_DIR/$source_rel"
+  done
+  [[ -d "$SCRIPT_DIR/quickshell" ]] || die "HYPR source folder not found: $SCRIPT_DIR/quickshell"
+  [[ -f "$SCRIPT_DIR/quickshell/overview/config.json" ]] || die "HYPR overview source not found: $SCRIPT_DIR/quickshell/overview/config.json"
   confirm_action "Restore HYPR" || return 0
   restore_config_file "HYPR" "hypr/conf/keybindings/default.lua" "hypr/conf/keybindings/default.lua"
   restore_config_file "HYPR" "hypr/conf/monitor.lua" "hypr/conf/monitor.lua"
@@ -712,6 +818,8 @@ restore_zshrc() {
 
 # Restore the matugen theme generator config and templates from DOTS.
 restore_matugen() {
+  [[ -f "$SCRIPT_DIR/matugen/config.toml" ]] || die "MATUGEN source file not found: $SCRIPT_DIR/matugen/config.toml"
+  [[ -d "$SCRIPT_DIR/matugen/templates" ]] || die "MATUGEN source folder not found: $SCRIPT_DIR/matugen/templates"
   confirm_action "Restore MATUGEN" || return 0
   restore_config_file "MATUGEN" "matugen/config.toml" "matugen/config.toml"
   restore_config_folder "MATUGEN" "matugen/templates" "matugen/templates"
@@ -728,7 +836,7 @@ unique_collect_target() {
 
   name="$(basename -- "$source_path")"
   candidate="$collect_dir/$name"
-  while [[ -e "$candidate" ]]; do
+  while [[ -e "$candidate" || -L "$candidate" ]]; do
     candidate="$collect_dir/$name-$counter"
     counter=$((counter + 1))
   done
@@ -754,7 +862,7 @@ collect_pre_restore() {
   )
 
   for source_path in "${source_paths[@]}"; do
-    [[ -e "$source_path" ]] || continue
+    [[ -e "$source_path" || -L "$source_path" ]] || continue
     target_path="$(unique_collect_target "$collect_dir" "$source_path")"
     log "Moving pre-restore snapshot: $source_path -> $target_path"
     mv -- "$source_path" "$target_path"
@@ -787,26 +895,60 @@ customize_thunar_custom_actions() {
   fi
 
   log "Customizing Thunar custom actions: $target_file"
+  snapshot_existing_target "$target_file"
+  cp -a -- "$target_file-pre-restore-$RESTORE_ID" "$target_file"
   sed -i -E 's|^([[:space:]]*)<command>.*</command>[[:space:]]*$|\1<command>kitty</command>|' "$target_file"
 }
 
-# Copy the qBittorrent Dracula theme from the backup device BIG folder.
-restore_qbittorrent_theme() {
+# Resolve the qBittorrent Dracula theme stored in the backup device BIG folder.
+resolve_qbittorrent_theme_source() {
   local device_root=""
-  local source_file=""
-  local target_file="$HOME/.config/qBittorrent/dracula.qbtheme"
+  local source_file
 
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
   source_file="$device_root/BIG/dracula.qbtheme"
   [[ -f "$source_file" ]] || die "qBittorrent theme file not found: $source_file"
+  printf '%s\n' "$source_file"
+}
+
+# Copy the qBittorrent Dracula theme from the backup device BIG folder.
+restore_qbittorrent_theme() {
+  local source_file
+  local target_file="$HOME/.config/qBittorrent/dracula.qbtheme"
+
+  source_file="$(resolve_qbittorrent_theme_source)"
 
   log "Restoring qBittorrent theme: $source_file -> $target_file"
+  snapshot_existing_target "$target_file"
   mkdir -p "$(dirname -- "$target_file")"
   cp -a -- "$source_file" "$target_file"
 }
 
 # Restore selected desktop settings and apply local post-restore customizations.
 restore_settings() {
+  local source_rel
+  local -a source_files=(
+    "gtk-3.0/settings.ini"
+    "gtk-4.0/settings.ini"
+    "qt6ct/qt6ct.conf"
+    "ml4w/settings/filemanager"
+    "ml4w/settings/kitty-cursor-trail.conf"
+    "ml4w/settings/rofi-border-radius.rasi"
+    "ml4w/settings/rofi-border.rasi"
+    "ml4w/settings/rofi-font.rasi"
+    "ml4w/settings/rofi_bordersize.sh"
+    "ml4w/settings/screenshot-editor"
+    "ml4w/settings/screenshot-folder"
+    "ml4w/settings/terminal.sh"
+    "ml4w/settings/waybar-quicklinks.json"
+    "ml4w/settings/waybar_quicklinks.sh"
+    "ml4w/settings/waybar_workspaces.sh"
+  )
+
+  for source_rel in "${source_files[@]}"; do
+    [[ -f "$SCRIPT_DIR/$source_rel" ]] || die "Settings source file not found: $SCRIPT_DIR/$source_rel"
+  done
+  resolve_qbittorrent_theme_source >/dev/null
   confirm_action "Restore Settings" || return 0
 
   # Toolkit theme settings.
@@ -885,6 +1027,7 @@ fi
 init_log_file
 preflight_checks
 setup_cleanup_trap
+verify_backup_status
 
 # Keep showing menu until user selects Exit.
 while true; do

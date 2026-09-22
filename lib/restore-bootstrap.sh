@@ -89,6 +89,23 @@ load_restore_helpers() {
   setup_cleanup_trap() { trap 'cleanup_temp_paths; ui_cleanup' EXIT; }
   rsync_restore_copy() { rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"; }
   sudo_rsync_restore_copy() { sudo rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"; }
+  resolve_writable_output_path() {
+    local preferred_file="$1"
+    local fallback_file="$2"
+    local preferred_dir
+    local fallback_dir
+
+    preferred_dir="$(dirname -- "$preferred_file")"
+    fallback_dir="$(dirname -- "$fallback_file")"
+    if { [[ -e "$preferred_file" ]] && [[ -w "$preferred_file" ]]; } ||
+      { [[ ! -e "$preferred_file" ]] && [[ -w "$preferred_dir" ]]; }; then
+      printf '%s\n' "$preferred_file"
+      return 0
+    fi
+    mkdir -p "$fallback_dir"
+    [[ -w "$fallback_dir" ]] || die "runtime output directory is not writable: $fallback_dir"
+    printf '%s\n' "$fallback_file"
+  }
   confirm_yes_no() {
     local prompt="$1"
     local default="${2:-N}"

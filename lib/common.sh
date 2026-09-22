@@ -157,7 +157,28 @@ init_log_file() {
 
 # Generate the backup timestamp used in BKP folder names.
 timestamp() {
-  date '+%j-%d-%m-%H-%M-%S'
+  date '+%Y-%j-%d-%m-%H-%M-%S'
+}
+
+# Use the preferred output file when writable, otherwise keep runtime output in user state.
+resolve_writable_output_path() {
+  local preferred_file="$1"
+  local fallback_file="$2"
+  local preferred_dir
+  local fallback_dir
+
+  preferred_dir="$(dirname -- "$preferred_file")"
+  fallback_dir="$(dirname -- "$fallback_file")"
+
+  if { [[ -e "$preferred_file" ]] && [[ -w "$preferred_file" ]]; } ||
+    { [[ ! -e "$preferred_file" ]] && [[ -w "$preferred_dir" ]]; }; then
+    printf '%s\n' "$preferred_file"
+    return 0
+  fi
+
+  mkdir -p "$fallback_dir"
+  [[ -w "$fallback_dir" ]] || die "runtime output directory is not writable: $fallback_dir"
+  printf '%s\n' "$fallback_file"
 }
 
 # Convert a byte count into a compact human-readable size.

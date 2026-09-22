@@ -96,6 +96,23 @@ load_restore_helpers() {
   setup_cleanup_trap() { trap 'cleanup_temp_paths; ui_cleanup' EXIT; }
   rsync_restore_copy() { rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"; }
   sudo_rsync_restore_copy() { sudo rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"; }
+  resolve_writable_output_path() {
+    local preferred_file="$1"
+    local fallback_file="$2"
+    local preferred_dir
+    local fallback_dir
+
+    preferred_dir="$(dirname -- "$preferred_file")"
+    fallback_dir="$(dirname -- "$fallback_file")"
+    if { [[ -e "$preferred_file" ]] && [[ -w "$preferred_file" ]]; } ||
+      { [[ ! -e "$preferred_file" ]] && [[ -w "$preferred_dir" ]]; }; then
+      printf '%s\n' "$preferred_file"
+      return 0
+    fi
+    mkdir -p "$fallback_dir"
+    [[ -w "$fallback_dir" ]] || die "runtime output directory is not writable: $fallback_dir"
+    printf '%s\n' "$fallback_file"
+  }
   confirm_yes_no() {
     local prompt="$1"
     local default="${2:-N}"
@@ -113,11 +130,13 @@ load_restore_helpers
 
 # Keep main restore output compact; the script reports one summary per item.
 RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)
-LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore.log}"
-RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
+RESTORE_ID="$(date '+%Y-%j-%d-%m-%H-%M-%S')"
+RESTORE_STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/bkp"
+LOG_FILE="${LOG_FILE:-$(resolve_writable_output_path "$SCRIPT_DIR/restore.log" "$RESTORE_STATE_ROOT/restore-main-$RESTORE_ID.log")}"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
 MANIFEST_FILE="$SCRIPT_DIR/backup-manifest.txt"
 MAIN_BACKUP_CONFIG="$SCRIPT_DIR/config/main.backup.conf"
+SSH_RESTORED=false
 
 # Top-level backup internals that should never be restored into $HOME.
 RESTORE_EXCLUDED_ITEMS=(
@@ -299,13 +318,28 @@ read_manifest_version() {
   awk -F' = ' '$1 == "Manifest Version" { print $2; exit }' "$manifest_file"
 }
 
+# Read and normalize the optional backup type marker.
+read_manifest_type() {
+  local manifest_file="$1"
+  local backup_type
+
+  backup_type="$(awk -F= '$1 == "backup_type" { print $2; exit }' "$manifest_file")"
+  backup_type="${backup_type:-$(awk -F' = ' '$1 == "Backup Type" { print $2; exit }' "$manifest_file")}"
+  backup_type="${backup_type#[}"
+  backup_type="${backup_type%]}"
+  printf '%s\n' "${backup_type,,}"
+}
+
 verify_backup_status() {
   local manifest_status=""
   local manifest_version=""
+  local manifest_type=""
 
   if [[ -f "$MANIFEST_FILE" ]]; then
     manifest_version="$(read_manifest_version "$MANIFEST_FILE")"
     [[ -z "$manifest_version" || "$manifest_version" == "1" ]] || die "unsupported manifest version: $manifest_version"
+    manifest_type="$(read_manifest_type "$MANIFEST_FILE")"
+    [[ -z "$manifest_type" || "$manifest_type" == "main" ]] || die "backup type is not MAIN: $manifest_type"
     manifest_status="$(read_manifest_status "$MANIFEST_FILE")"
     if [[ -n "$manifest_status" ]]; then
       [[ "$manifest_status" == "complete" || "$manifest_status" == "success" ]] || die "backup status is not complete: $manifest_status"
@@ -318,7 +352,7 @@ verify_backup_status() {
     return 0
   fi
 
-  log_warn "backup status not found in manifest; continuing for older backup format"
+  die "backup completion status not found; refusing to restore from: $SCRIPT_DIR"
 }
 
 parse_common_args "$@"
@@ -352,6 +386,7 @@ for item in "${HOME_ITEMS[@]}"; do
     log "Restoring: $item"
     snapshot_existing_target "$HOME/$item"
     rsync_restore_copy "$source_path" "$HOME/"
+    [[ "$item" == ".ssh" ]] && SSH_RESTORED=true
     log "Restored: $item"
   else
     log "Skipping missing backup item: $item"
@@ -361,7 +396,9 @@ done
 # Restore shared BIG content after the main Documents folder is in place.
 restore_shared_firmware
 
-# Normalize SSH file modes after rsync completes.
-fix_ssh_permissions
+# Normalize SSH file modes only when this run restored .ssh.
+if [[ "$SSH_RESTORED" == "true" ]]; then
+  fix_ssh_permissions
+fi
 collect_pre_restore
 log "Done: restore-main"

@@ -49,7 +49,13 @@ check_file_in_backup() {
 # Return the newest BKP-* directory under a backup root.
 latest_backup_dir() {
   local root="$1"
-  find "$root" -maxdepth 1 -type d -name 'BKP-*' 2>/dev/null | sort | tail -n 1
+  local record
+  local latest=""
+
+  while IFS= read -r -d '' record; do
+    latest="${record#* }"
+  done < <(find "$root" -maxdepth 1 -type d -name 'BKP-*' -printf '%T@ %p\0' 2>/dev/null | sort -z -n)
+  printf '%s\n' "$latest"
 }
 
 # Decode findmnt path escapes before printing paths for humans.

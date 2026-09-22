@@ -43,7 +43,7 @@ audit_log() {
 preflight_checks() {
   local path
 
-  require_all_cmds rsync sudo flock findmnt df du cryptsetup install lsblk mv
+  require_all_cmds rsync sudo flock findmnt df du cryptsetup install lsblk mv chmod
 
   for path in "${SERVICE_REQUIRED_PATHS[@]}"; do
     sudo test -e "$path" || die "required source path missing: $path"
@@ -294,6 +294,7 @@ create_validated_archive() {
   local archive_tmp="$SERV_DIR/.${RUN_ID}.tar.gz.in-progress"
 
   register_temp_path "$archive_tmp"
+  install -m 0600 /dev/null "$archive_tmp"
   ARCHIVE_VALIDATION="pending"
   set_backup_status "in_progress"
   if ! sudo tar -C "$SERV_DIR" -cf - "$RUN_ID" | pigz >"$archive_tmp"; then
@@ -307,6 +308,7 @@ create_validated_archive() {
     die "archive validation failed: $ARCHIVE_NAME"
   fi
   mv -- "$archive_tmp" "$ARCHIVE_NAME"
+  chmod 0600 "$ARCHIVE_NAME"
   ARCHIVE_VALIDATION="passed"
 }
 

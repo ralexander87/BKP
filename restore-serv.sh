@@ -96,6 +96,23 @@ load_restore_helpers() {
   setup_cleanup_trap() { trap 'cleanup_temp_paths; ui_cleanup' EXIT; }
   rsync_restore_copy() { rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"; }
   sudo_rsync_restore_copy() { sudo rsync "${RSYNC_RESTORE_ARGS[@]}" "$@"; }
+  resolve_writable_output_path() {
+    local preferred_file="$1"
+    local fallback_file="$2"
+    local preferred_dir
+    local fallback_dir
+
+    preferred_dir="$(dirname -- "$preferred_file")"
+    fallback_dir="$(dirname -- "$fallback_file")"
+    if { [[ -e "$preferred_file" ]] && [[ -w "$preferred_file" ]]; } ||
+      { [[ ! -e "$preferred_file" ]] && [[ -w "$preferred_dir" ]]; }; then
+      printf '%s\n' "$preferred_file"
+      return 0
+    fi
+    mkdir -p "$fallback_dir"
+    [[ -w "$fallback_dir" ]] || die "runtime output directory is not writable: $fallback_dir"
+    printf '%s\n' "$fallback_file"
+  }
   confirm_yes_no() {
     local prompt="$1"
     local default="${2:-N}"
@@ -111,9 +128,10 @@ load_restore_helpers() {
 load_restore_helpers
 # END RESTORE BOOTSTRAP
 
-LOG_FILE="${LOG_FILE:-$SCRIPT_DIR/restore.log}"
-RESTORE_ID="$(date '+%j-%d-%m-%H-%M-%S')"
-ROLLBACK_FILE="$SCRIPT_DIR/restore-serv-rollback-$RESTORE_ID.sh"
+RESTORE_ID="$(date '+%Y-%j-%d-%m-%H-%M-%S')"
+RESTORE_STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/bkp"
+LOG_FILE="${LOG_FILE:-$(resolve_writable_output_path "$SCRIPT_DIR/restore.log" "$RESTORE_STATE_ROOT/restore-serv-$RESTORE_ID.log")}"
+ROLLBACK_FILE="$(resolve_writable_output_path "$SCRIPT_DIR/restore-serv-rollback-$RESTORE_ID.sh" "$RESTORE_STATE_ROOT/restore-serv-rollback-$RESTORE_ID.sh")"
 RUN_RESULT="failed"
 CURRENT_ACTION="none"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
@@ -292,13 +310,26 @@ read_manifest_version() {
   awk -F' = ' '$1 == "Manifest Version" { print $2; exit }' "$manifest_file"
 }
 
+read_manifest_type() {
+  local backup_type
+
+  backup_type="$(awk -F= '$1 == "backup_type" { print $2; exit }' "$1")"
+  backup_type="${backup_type:-$(awk -F' = ' '$1 == "Backup Type" { print $2; exit }' "$1")}"
+  backup_type="${backup_type#[}"
+  backup_type="${backup_type%]}"
+  printf '%s\n' "${backup_type,,}"
+}
+
 verify_backup_status() {
   local manifest_status=""
   local manifest_version=""
+  local manifest_type=""
 
   if [[ -f "$MANIFEST_FILE" ]]; then
     manifest_version="$(read_manifest_version "$MANIFEST_FILE")"
     [[ -z "$manifest_version" || "$manifest_version" == "1" ]] || die "unsupported manifest version: $manifest_version"
+    manifest_type="$(read_manifest_type "$MANIFEST_FILE")"
+    [[ -z "$manifest_type" || "$manifest_type" == "service" || "$manifest_type" == "serv" ]] || die "backup type is not SERVICE: $manifest_type"
     manifest_status="$(read_manifest_status "$MANIFEST_FILE")"
     if [[ -n "$manifest_status" ]]; then
       [[ "$manifest_status" == "complete" || "$manifest_status" == "success" ]] || die "backup status is not complete: $manifest_status"
@@ -338,13 +369,42 @@ snapshot_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
 
-  [[ -e "$target" ]] || return 0
-  [[ ! -e "$snapshot" ]] || die "snapshot already exists: $snapshot"
+  if [[ ! -e "$target" && ! -L "$target" ]]; then
+    printf 'sudo rm -rf -- %q\n' "$target" >>"$ROLLBACK_FILE"
+    return 0
+  fi
+  [[ ! -e "$snapshot" && ! -L "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Creating snapshot: $target -> $snapshot"
   sudo cp -a "$target" "$snapshot"
   printf 'sudo rm -rf -- %q\n' "$target" >>"$ROLLBACK_FILE"
   printf 'sudo cp -a %q %q\n' "$snapshot" "$target" >>"$ROLLBACK_FILE"
+}
+
+# Record the enabled and active state of a service before changing it.
+snapshot_service_state() {
+  local service="$1"
+
+  if systemctl is-enabled --quiet "$service" 2>/dev/null; then
+    printf 'sudo systemctl enable %q >/dev/null 2>&1 || true\n' "$service" >>"$ROLLBACK_FILE"
+  else
+    printf 'sudo systemctl disable %q >/dev/null 2>&1 || true\n' "$service" >>"$ROLLBACK_FILE"
+  fi
+
+  if systemctl is-active --quiet "$service" 2>/dev/null; then
+    printf 'sudo systemctl start %q >/dev/null 2>&1 || true\n' "$service" >>"$ROLLBACK_FILE"
+  else
+    printf 'sudo systemctl stop %q >/dev/null 2>&1 || true\n' "$service" >>"$ROLLBACK_FILE"
+  fi
+}
+
+# Unload a module during rollback only when this restore loaded it.
+snapshot_kernel_module_state() {
+  local module="$1"
+
+  if [[ ! -d "/sys/module/$module" ]]; then
+    printf 'sudo modprobe -r %q >/dev/null 2>&1 || true\n' "$module" >>"$ROLLBACK_FILE"
+  fi
 }
 
 # Restore the lateralus grub theme folder into /boot/grub/themes/.
@@ -354,16 +414,13 @@ restore_grub_theme() {
 
   require_all_cmds sudo cp mkdir rsync
   [[ -d "$source_dir" ]] || die "grub theme source folder not found: $source_dir"
+  [[ -s "$source_dir/theme.txt" ]] || die "grub theme definition not found or empty: $source_dir/theme.txt"
 
   confirm_action "Restore grub theme" || return 0
   snapshot_target "$target_dir"
   log "Restoring grub theme: $source_dir -> /boot/grub/themes/"
   sudo mkdir -p "$target_dir"
   sudo_rsync_restore_copy "$source_dir/" "$target_dir/"
-
-  if command -v grub-script-check >/dev/null 2>&1; then
-    sudo grub-script-check "$target_dir/theme.txt" >/dev/null 2>&1 || die "grub theme validation failed"
-  fi
 
   audit_log "action_completed"
   log "Done: Restore grub theme"
@@ -377,9 +434,14 @@ restore_samba() {
   local local_user
   local answer
   local -a creds_files=()
+  local -a restored_creds_files=()
   local creds_file
 
   require_all_cmds sudo cp mkdir rsync chown chmod systemctl
+  [[ -f "$SCRIPT_DIR/$source_smb" ]] || die "samba source file not found: $SCRIPT_DIR/$source_smb"
+  if command -v testparm >/dev/null 2>&1; then
+    sudo testparm -s "$SCRIPT_DIR/$source_smb" >/dev/null || die "backed-up samba config validation failed"
+  fi
   confirm_action "Restore samba" || return 0
   snapshot_target "/etc/samba/smb.conf"
   restore_file_to_dir "samba" "$source_smb" "$target_dir"
@@ -395,17 +457,17 @@ restore_samba() {
       log "Restoring samba creds file: $(basename -- "$creds_file") -> $target_dir"
       snapshot_target "$target_dir/$(basename -- "$creds_file")"
       sudo_rsync_restore_copy "$creds_file" "$target_dir/"
+      restored_creds_files+=("$target_dir/$(basename -- "$creds_file")")
     done
   fi
 
-  # Harden samba credential files after restore.
-  shopt -s nullglob
-  creds_files=("$target_dir"/creds-*)
-  shopt -u nullglob
-  for creds_file in "${creds_files[@]}"; do
+  # Harden only credential files restored by this action.
+  for creds_file in "${restored_creds_files[@]}"; do
     sudo chown root:root "$creds_file"
     sudo chmod 600 "$creds_file"
   done
+
+  snapshot_service_state "smb.service"
 
   if command -v testparm >/dev/null 2>&1; then
     sudo testparm -s >/dev/null || die "samba config validation failed"
@@ -441,8 +503,13 @@ restore_samba() {
 restore_ssh() {
   require_all_cmds sudo cp mkdir rsync chown chmod systemctl
 
+  [[ -f "$SCRIPT_DIR/sshd_config" ]] || die "SSH source file not found: $SCRIPT_DIR/sshd_config"
+  if command -v sshd >/dev/null 2>&1; then
+    sudo sshd -t -f "$SCRIPT_DIR/sshd_config" || die "backed-up sshd config validation failed"
+  fi
   confirm_action "Restore SSH" || return 0
   snapshot_target "/etc/ssh/sshd_config"
+  snapshot_service_state "sshd.service"
   restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
   sudo chown root:root /etc/ssh/sshd_config
   sudo chmod 600 /etc/ssh/sshd_config
@@ -461,10 +528,40 @@ restore_ssh() {
 create_smb_tree() {
   local local_user
   local dir
+  local index
+  local -a existed=()
+  local -a owners=()
+  local -a modes=()
 
-  require_all_cmds sudo mkdir chown chmod
+  require_all_cmds sudo mkdir chown chmod stat
   confirm_action "Create SMB" || return 0
   local_user="$(local_non_root_user)"
+
+  # Capture all original directory states before mkdir -p changes any parent.
+  for dir in "${SMB_DIRS[@]}"; do
+    if sudo test -d "$dir"; then
+      existed+=(true)
+      owners+=("$(sudo stat -c '%u:%g' "$dir")")
+      modes+=("$(sudo stat -c '%a' "$dir")")
+    elif sudo test -e "$dir"; then
+      die "SMB target exists and is not a directory: $dir"
+    else
+      existed+=(false)
+      owners+=("")
+      modes+=("")
+    fi
+  done
+
+  # Register rollback in reverse path order so newly created children are removed first.
+  for ((index = ${#SMB_DIRS[@]} - 1; index >= 0; index--)); do
+    dir="${SMB_DIRS[$index]}"
+    if [[ "${existed[$index]}" == "true" ]]; then
+      printf 'sudo chown %q %q\n' "${owners[$index]}" "$dir" >>"$ROLLBACK_FILE"
+      printf 'sudo chmod %q %q\n' "${modes[$index]}" "$dir" >>"$ROLLBACK_FILE"
+    else
+      printf 'sudo rmdir -- %q 2>/dev/null || true\n' "$dir" >>"$ROLLBACK_FILE"
+    fi
+  done
 
   for dir in "${SMB_DIRS[@]}"; do
     log "Ensuring SMB directory: $dir"
@@ -523,6 +620,7 @@ restore_fstab() {
   fi
 
   log "Loading cifs kernel module"
+  snapshot_kernel_module_state "cifs"
   sudo modprobe cifs
 
   snapshot_target "/etc/fstab"
@@ -564,9 +662,10 @@ set_grub_assignment() {
 restore_grub_defaults() {
   local temp_grub
 
-  require_all_cmds sudo cp install mktemp grep sed grub-mkconfig
+  require_all_cmds sudo cp install mktemp grep sed grub-mkconfig bash
   confirm_action "Restore GRUB" || return 0
   snapshot_target "/etc/default/grub"
+  snapshot_target "/boot/grub/grub.cfg"
 
   temp_grub="$(mktemp)"
   register_temp_path "$temp_grub"
@@ -580,6 +679,7 @@ restore_grub_defaults() {
   set_grub_assignment "$temp_grub" "GRUB_THEME" "$GRUB_THEME_VALUE"
 
   grep -Fqx "GRUB_THEME=\"$GRUB_THEME_VALUE\"" "$temp_grub" || die "grub theme line validation failed"
+  bash -n "$temp_grub" || die "generated GRUB defaults syntax validation failed"
   sudo install -m 0644 "$temp_grub" /etc/default/grub
   log "Regenerating GRUB menu: /boot/grub/grub.cfg"
   sudo grub-mkconfig -o /boot/grub/grub.cfg
@@ -619,7 +719,10 @@ update_rollback_snapshot_path() {
   printf -v new_escaped '%q' "$new_path"
 
   shopt -s nullglob
-  rollback_files=("$SCRIPT_DIR"/restore-serv-rollback-*.sh)
+  rollback_files=(
+    "$SCRIPT_DIR"/restore-serv-rollback-*.sh
+    "$RESTORE_STATE_ROOT"/restore-serv-rollback-*.sh
+  )
   shopt -u nullglob
 
   for rollback_file in "${rollback_files[@]}"; do
