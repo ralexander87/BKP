@@ -15,12 +15,11 @@ MANIFEST_FILE=""
 ARCHIVE_VALIDATION="not_requested"
 SERV_BACKUP_CONFIG="$PROJECT_ROOT/config/serv.backup.conf"
 
-# Load user-editable required and optional service source paths.
+# Load user-editable required service source paths.
 load_serv_backup_config() {
   [[ -f "$SERV_BACKUP_CONFIG" ]] || die "service backup config not found: $SERV_BACKUP_CONFIG"
   # shellcheck source=config/serv.backup.conf
   source "$SERV_BACKUP_CONFIG"
-  SERVICE_PATHS=("${SERVICE_REQUIRED_PATHS[@]}" "${SERVICE_OPTIONAL_PATHS[@]}")
 }
 
 # Print command usage for help requests.
@@ -60,7 +59,7 @@ estimate_backup_size_bytes() {
   local item size
   local -a creds_files=()
 
-  for item in "${SERVICE_PATHS[@]}"; do
+  for item in "${SERVICE_REQUIRED_PATHS[@]}"; do
     size="$(sudo_path_size_bytes "$item")"
     total=$((total + size))
   done
@@ -92,8 +91,6 @@ write_manifest() {
     manifest_field "Service Restore Config" "$PROJECT_ROOT/config/serv.restore.conf"
     manifest_field "Local Service Restore Config" "$(manifest_presence "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'present' || printf 'missing')")"
     manifest_field "Required Service Paths" "${SERVICE_REQUIRED_PATHS[*]}"
-    manifest_field "Optional Service Paths" "${SERVICE_OPTIONAL_PATHS[*]}"
-    manifest_field "Service Paths" "${SERVICE_PATHS[*]}"
     manifest_field "Samba Creds Glob" "$SAMBA_CREDS_GLOB"
   } >"$manifest_tmp"
 
@@ -106,7 +103,6 @@ write_manifest() {
     json_string_field "service_restore_config" "$PROJECT_ROOT/config/serv.restore.conf"
     json_bool_field "local_service_restore_config" "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'true' || printf 'false')"
     json_raw_field "required_service_paths" "$(json_string_array "${SERVICE_REQUIRED_PATHS[@]}")"
-    json_raw_field "optional_service_paths" "$(json_string_array "${SERVICE_OPTIONAL_PATHS[@]}")"
     json_string_field "samba_creds_glob" "$SAMBA_CREDS_GLOB" ""
     printf '}\n'
   } >"$json_manifest_tmp"

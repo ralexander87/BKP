@@ -554,11 +554,9 @@ restore_config() {
     "avahi-daemon.service"
     "wsdd.service"
     "sshd.service"
-    "sshd.service"
     "nmb.service"
     "pcscd.service"
   )
-  local -A snapshotted_services=()
 
   require_all_cmds sudo cp mkdir rsync chown chmod systemctl
   [[ -f "$SCRIPT_DIR/smb.conf" ]] || die "samba source file not found: $SCRIPT_DIR/smb.conf"
@@ -583,10 +581,7 @@ restore_config() {
     snapshot_target "/etc/samba/$creds_name"
   done
   for service in "${services[@]}"; do
-    if [[ -z "${snapshotted_services[$service]:-}" ]]; then
-      snapshot_service_state "$service"
-      snapshotted_services["$service"]=1
-    fi
+    snapshot_service_state "$service"
   done
 
   restore_file_to_dir "samba" "smb.conf" "/etc/samba"

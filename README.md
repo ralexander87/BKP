@@ -34,7 +34,7 @@ Use `--quiet` to hide INFO-level terminal output while still writing full logs:
 ./bkp-main.sh --quiet
 ```
 
-- The script lists external mounted devices with source device, filesystem, label, and free space. 
+- The script lists external mounted devices with source device, filesystem, label, and free space.
 	- If one device is mounted, it is selected automatically
 	- If multiple devices are mounted, select the destination by number.
 
@@ -101,7 +101,7 @@ logs/bkp.log
 	- `pigz` integrity and tar readability are validated before the archive is renamed to its final path
 	- Published archives are restricted to mode `600` on filesystems that support Unix permissions
 - Interrupted backup runs are marked failed and temporary archives are removed by the exit cleanup flow
-- Terminal output is intentionally grouped. 
+- Terminal output is intentionally grouped.
 	- The backup scripts show a lightweight dashboard with compact run metrics, selected options, named task sections, recent warnings/errors.
 	- And a final success/failure summary instead of printing every copied file.
 
@@ -184,7 +184,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 ##### Current options:
 
 - `0 - Exit`
-- `1 - Create SMB`: creates 
+- `1 - Create SMB`: creates
 	- `/SMB`
 		- `/SMB/euclid`
 		- `/SMB/pneuma-kali`
@@ -194,25 +194,25 @@ cd /path/to/device/SERV/BKP-<timestamp>
 		- `/SMB/SCP/HDD-02`
 		- `/SMB/SCP/HDD-03`
 	- Then sets ownership to the local non-root user and permissions to `750`
-- `2 - Restore samba`: restores 
+- `2 - Restore samba`: restores
 	- `smb.conf`
-	- `creds-*` 
+	- `creds-*`
 		- to `/etc/samba/`
 	- Optionally runs `sudo smbpasswd -a <local-user>`
 		- Then enables and starts `smb.service`
-- `3 - Restore SSH`: restores 
+- `3 - Restore SSH`: restores
 	- `sshd_config`
 		- to `/etc/ssh/`
 	- Then enables and starts `sshd.service`
-- `4 - Restore fstab`: runs 
+- `4 - Restore fstab`: runs
 	- `sudo modprobe cifs`
 		- Replaces existing entries for the configured SMB mountpoints
 		- Validates the generated table
 		- Then atomically installs it as `/etc/fstab`
-- `5 - Restore grub theme`: restores 
+- `5 - Restore grub theme`: restores
 	- `BIG/lateralus` from the external backup device
 		- to `/boot/grub/themes/`
-- `6 - Restore GRUB`: updates 
+- `6 - Restore GRUB`: updates
 	- `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path
 		- Then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`
 - `90 - Restore CONFIG`: restores
@@ -244,7 +244,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 Public, version-controlled configuration is split by responsibility:
 
 - `config/main.backup.conf`: main source paths, shared `BIG` destinations, hidden files, and rsync exclusions
-- `config/serv.backup.conf`: required and optional service source paths plus the Samba credentials pattern
+- `config/serv.backup.conf`: required service source paths plus the Samba credentials pattern
 - `config/dots-extra.conf`: Arch/AUR packages, Flatpaks, and repository VLC removal behavior
 - `config/serv.restore.conf`: SMB directory and GRUB restore values
 

@@ -393,6 +393,10 @@ if grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/config/serv.restore.conf"; then
 fi
 grep -Fq 'systemctl enable smb.service' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'systemctl enable sshd.service' "$PROJECT_ROOT/restore-serv.sh"
+if [[ "$(sed -n '/^restore_config()/,/^}/p' "$PROJECT_ROOT/restore-serv.sh" | grep -Fc '"sshd.service"')" -ne 1 ]]; then
+  printf 'Restore CONFIG should list sshd.service exactly once\n' >&2
+  exit 1
+fi
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 1 create_smb_tree
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 2 restore_samba
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 3 restore_ssh
@@ -707,8 +711,6 @@ LUKS_DEVICE_PATH="/dev/nvme0n1p2"
 LUKS_HEADER_FILE="luks.bin"
 LUKS_HEADER_CREATED=true
 SERVICE_REQUIRED_PATHS=(/etc/samba/smb.conf /etc/ssh/sshd_config)
-SERVICE_OPTIONAL_PATHS=()
-SERVICE_PATHS=("${SERVICE_REQUIRED_PATHS[@]}" "${SERVICE_OPTIONAL_PATHS[@]}")
 SAMBA_CREDS_GLOB="/etc/samba/creds-*"
 write_manifest
 EOF
@@ -716,7 +718,11 @@ EOF
 grep -Fq 'Backup Type = [SERVICE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Archive Requested = [TRUE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'LUKS Header Created = [TRUE]' "$tmp/BKP/backup-manifest.txt"
-grep -Fq 'Service Paths = /etc/samba/smb.conf /etc/ssh/sshd_config' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'Required Service Paths = /etc/samba/smb.conf /etc/ssh/sshd_config' "$tmp/BKP/backup-manifest.txt"
+if grep -Fq 'Optional Service Paths' "$tmp/BKP/backup-manifest.txt"; then
+  printf 'service manifest should not contain removed optional path fields\n' >&2
+  exit 1
+fi
 python3 -m json.tool "$tmp/BKP/backup-manifest.json" >/dev/null
 grep -Fq '"archive_validation": "PASSED"' "$tmp/BKP/backup-manifest.json"
 rm -rf "$tmp"
