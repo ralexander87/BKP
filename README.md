@@ -215,6 +215,8 @@ cd /path/to/device/SERV/BKP-<timestamp>
 - `6 - Restore GRUB`: updates
 	- `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path
 		- Then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`
+- `7 - Restore RAMBOX`: runs `sudo chmod 755 /opt/rambox`
+	- Records the previous directory mode in the generated rollback helper
 - `90 - Restore CONFIG`: restores
 	- `smb.conf`, `creds-euclid`, `creds-pneuma`, and `creds-scp` to `/etc/samba/`
 	- `sshd_config` to `/etc/ssh/`

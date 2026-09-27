@@ -385,6 +385,8 @@ if grep -Fq 'GRUB_THEME_SOURCE' "$PROJECT_ROOT/bkp-serv.sh" "$PROJECT_ROOT/confi
   exit 1
 fi
 grep -Fq '90 - Restore CONFIG' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/restore-serv.sh"
 if grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/config/serv.restore.conf"; then
@@ -403,6 +405,7 @@ assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 3 restore_ssh
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 4 restore_fstab
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 5 restore_grub_theme
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 6 restore_grub_defaults
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 7 restore_rambox
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 90 restore_config
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 98 collect_pre_restore
 awk '

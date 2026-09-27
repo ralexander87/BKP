@@ -279,6 +279,7 @@ Select action:
   4 - Restore fstab
   5 - Restore grub theme
   6 - Restore GRUB
+  7 - Restore RAMBOX
 ============================
   90 - Restore CONFIG
 ============================
@@ -777,6 +778,27 @@ restore_grub_defaults() {
   log "Done: Restore GRUB"
 }
 
+# Restore executable directory permissions required by Rambox.
+restore_rambox() {
+  local target_dir="/opt/rambox"
+  local previous_mode
+
+  require_all_cmds sudo chmod stat
+  sudo test -d "$target_dir" || die "Rambox folder not found: $target_dir"
+  confirm_action "Restore RAMBOX" || return 0
+
+  previous_mode="$(sudo stat -c '%a' "$target_dir")"
+  [[ "$previous_mode" =~ ^[0-7]{3,4}$ ]] || die "could not read Rambox folder mode: $target_dir"
+  printf 'sudo chmod %q %q\n' "$previous_mode" "$target_dir" >>"$ROLLBACK_FILE"
+
+  log "Setting Rambox folder permissions: $target_dir -> 755"
+  sudo chmod 755 "$target_dir"
+  [[ "$(sudo stat -c '%a' "$target_dir")" == "755" ]] || die "failed to verify Rambox folder permissions: $target_dir"
+
+  audit_log "action_completed"
+  log "Done: Restore RAMBOX"
+}
+
 # Return a non-conflicting target path inside the PreRestored collection folder.
 unique_collect_target() {
   local collect_dir="$1"
@@ -945,6 +967,9 @@ while true; do
     ;;
   6)
     restore_grub_defaults
+    ;;
+  7)
+    restore_rambox
     ;;
   90)
     restore_config
