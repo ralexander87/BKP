@@ -145,6 +145,7 @@ DOTS_EXTRA_CONFIG="$SCRIPT_DIR/config/dots-extra.conf"
 MAIN_BACKUP_CONFIG="$SCRIPT_DIR/config/main.backup.conf"
 SDDM_CONFIG="${SDDM_CONFIG:-/usr/lib/sddm/sddm.conf.d/default.conf}"
 INSTALL_EXTRA_LOG="$(resolve_writable_output_path "$SCRIPT_DIR/install-extra.log" "$RESTORE_STATE_ROOT/install-extra-$RESTORE_ID.log")"
+LAST_SNAPSHOT_PATH=""
 
 # Load package and Flatpak choices bundled with this DOTS backup.
 load_dots_extra_config() {
@@ -272,12 +273,20 @@ EOF
 snapshot_existing_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
+  local collect_dir="$HOME/PreRestored"
+  local collected_snapshot
 
+  LAST_SNAPSHOT_PATH=""
   [[ -e "$target" || -L "$target" ]] || return 0
   [[ ! -e "$snapshot" && ! -L "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Moving existing target to safety snapshot: $snapshot"
   mv -- "$target" "$snapshot"
+  mkdir -p "$collect_dir"
+  collected_snapshot="$(unique_collect_target "$collect_dir" "$snapshot")"
+  log "Moving safety snapshot into PreRestored: $snapshot -> $collected_snapshot"
+  mv -- "$snapshot" "$collected_snapshot"
+  LAST_SNAPSHOT_PATH="$collected_snapshot"
 }
 
 # Confirm an action before it changes local configuration.
@@ -434,6 +443,19 @@ install_hyprmod() {
   [[ -f "$installer" ]] || die "HyprMod installer not found: $installer"
 
   confirm_action "Install HyprMod" || return 0
+  if command -v yay >/dev/null 2>&1; then
+    log "Yay is already installed"
+  else
+    log "Yay is required for HyprMod and will be installed first"
+    init_install_extra_log
+    if ! ensure_yay_installed; then
+      finalize_install_extra_log "FAILED"
+      log_error "Cannot continue with HyprMod because yay installation failed"
+      return 1
+    fi
+    finalize_install_extra_log "COMPLETED"
+  fi
+  require_cmd yay
   log "Running HyprMod installer: $installer"
   bash "$installer"
   log "Done: Install HyprMod"
@@ -676,6 +698,8 @@ install_extra() {
 set_autologin() {
   local local_user
   local snapshot="$SDDM_CONFIG-pre-restore-$RESTORE_ID"
+  local collect_dir="$HOME/PreRestored"
+  local collected_snapshot
 
   require_all_cmds sudo grep cp sed id
   [[ -f "$SDDM_CONFIG" ]] || die "SDDM config file not found: $SDDM_CONFIG"
@@ -688,6 +712,10 @@ set_autologin() {
   sudo test ! -e "$snapshot" || die "snapshot already exists: $snapshot"
   log "Saving SDDM config safety snapshot: $snapshot"
   sudo cp -a -- "$SDDM_CONFIG" "$snapshot"
+  mkdir -p "$collect_dir"
+  collected_snapshot="$(unique_collect_target "$collect_dir" "$snapshot")"
+  log "Moving SDDM safety snapshot into PreRestored: $snapshot -> $collected_snapshot"
+  sudo mv -- "$snapshot" "$collected_snapshot"
 
   log "Setting SDDM AutoLogin user: $local_user"
   sudo sed -i -E "s/^User=.*/User=$local_user/" "$SDDM_CONFIG"
@@ -844,7 +872,7 @@ unique_collect_target() {
   printf '%s\n' "$candidate"
 }
 
-# Move pre-restore snapshots into one home folder for easier review/removal.
+# Collect legacy or externally created home pre-restore snapshots.
 collect_pre_restore() {
   local collect_dir="$HOME/PreRestored"
   local source_path
@@ -896,7 +924,8 @@ customize_thunar_custom_actions() {
 
   log "Customizing Thunar custom actions: $target_file"
   snapshot_existing_target "$target_file"
-  cp -a -- "$target_file-pre-restore-$RESTORE_ID" "$target_file"
+  [[ -n "$LAST_SNAPSHOT_PATH" ]] || die "Thunar safety snapshot was not created: $target_file"
+  cp -a -- "$LAST_SNAPSHOT_PATH" "$target_file"
   sed -i -E 's|^([[:space:]]*)<command>.*</command>[[:space:]]*$|\1<command>kitty</command>|' "$target_file"
 }
 

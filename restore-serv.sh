@@ -370,6 +370,8 @@ local_non_root_user() {
 snapshot_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
+  local collect_dir="$HOME/PreRestored"
+  local collected_snapshot
 
   if [[ ! -e "$target" && ! -L "$target" ]]; then
     printf 'sudo rm -rf -- %q\n' "$target" >>"$ROLLBACK_FILE"
@@ -379,8 +381,12 @@ snapshot_target() {
 
   log "Creating snapshot: $target -> $snapshot"
   sudo cp -a "$target" "$snapshot"
+  mkdir -p "$collect_dir"
+  collected_snapshot="$(unique_collect_target "$collect_dir" "$snapshot")"
+  log "Moving safety snapshot into PreRestored: $snapshot -> $collected_snapshot"
+  sudo mv -- "$snapshot" "$collected_snapshot"
   printf 'sudo rm -rf -- %q\n' "$target" >>"$ROLLBACK_FILE"
-  printf 'sudo cp -a %q %q\n' "$snapshot" "$target" >>"$ROLLBACK_FILE"
+  printf 'sudo cp -a %q %q\n' "$collected_snapshot" "$target" >>"$ROLLBACK_FILE"
 }
 
 # Record the enabled and active state of a service before changing it.
@@ -777,7 +783,7 @@ unique_collect_target() {
 
   name="$(basename -- "$source_path")"
   candidate="$collect_dir/$name"
-  while [[ -e "$candidate" ]]; do
+  while [[ -e "$candidate" || -L "$candidate" ]]; do
     candidate="$collect_dir/$name-$counter"
     counter=$((counter + 1))
   done
@@ -824,7 +830,7 @@ update_rollback_snapshot_path() {
   done
 }
 
-# Move service pre-restore snapshots into the same home folder used by restore-dots.
+# Collect legacy service pre-restore snapshots left by older restore runs.
 collect_pre_restore() {
   local collect_dir="$HOME/PreRestored"
   local source_path

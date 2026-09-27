@@ -126,8 +126,8 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 - Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes
 - `restore-main.sh` hides per-file rsync progress and prints compact start/completion summaries for each restored top-level item
 - `restore-dots.sh` also hides per-file rsync progress and prints compact action summaries
-- Before restoring a folder into `$HOME`, `restore-main.sh` moves an existing target folder to `<name>-pre-restore-<timestamp>`.
-- After a successful restore, `restore-main.sh` moves all pre-restore snapshots into `$HOME/PreRestored` using collision-safe names
+- Before restoring an existing file or folder, the restore scripts create a `<name>-pre-restore-<timestamp>` safety snapshot and immediately move it into `$HOME/PreRestored` using a collision-safe name.
+- Restoration continues only after the safety snapshot has been moved successfully.
 - After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`
 
 #### Service backup:
@@ -220,8 +220,8 @@ cd /path/to/device/SERV/BKP-<timestamp>
 	- `smb.conf`, `creds-euclid`, `creds-pneuma`, and `creds-scp` to `/etc/samba/`
 	- `sshd_config` to `/etc/ssh/`
 	- Then enables and starts `avahi-daemon.service`, `wsdd.service`, `sshd.service`, `nmb.service`, and `pcscd.service`
-- `98 - Collect pre-restore`: moves service 
-	- `*-pre-restore-*` files and folders from known restore target locations into `$HOME/PreRestored`
+- `98 - Collect pre-restore`: collects legacy service
+	- `*-pre-restore-*` files and folders left in known restore target locations by older restore runs
 	- Preserves their ownership, and updates generated rollback scripts to the new paths
 
 #### Service restore fail-safes:
@@ -303,7 +303,8 @@ DOTS actions require the parent MAIN backup manifest or legacy status marker to 
 - `2 - Install FONTS`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup)
 	- Copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
 		- Refreshes that font cache when `fc-cache` is available
-- `3 - Install HyprMod`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-install-hyprmod`.
+- `3 - Install HyprMod`: checks for `yay` and installs it from its official AUR package when missing
+	- Then runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-install-hyprmod` only after `yay` is available
 - `4 - Install Extra`: removes repository `vlc` with Pacman when installed
 	- Checks whether `yay` is installed first; when missing, installs build requirements and builds `yay` from its official AUR package
 	- Checks for `org.videolan.VLC` and `org.gnome.Calculator` Flatpaks
@@ -336,7 +337,7 @@ DOTS actions require the parent MAIN backup manifest or legacy status marker to 
 	- Creates `~/.config/cava` as a symbolic link to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/cava`, preserving a conflicting local path as a safety snapshot
 - `19 - Restore SWAYNC`: moves the existing `swaync` folder to a safety snapshot, then copies `swaync` from the current `DOTS` folder
 - `20 - Restore WLOGOUT`: moves the existing `wlogout` folder to a safety snapshot, then restores the complete `wlogout` folder from the current `DOTS` folder
-- `98 - Collect pre-restore`: moves `*-pre-restore-*` files and folders found under `$HOME` into `$HOME/PreRestored`
+- `98 - Collect pre-restore`: collects legacy `*-pre-restore-*` files and folders left under `$HOME` by older restore runs
 - `99 - Restore Settings`: copies selected GTK, Qt, and `ml4w/settings/` files from the current `DOTS` folder to the matching ML4W config path
 	- Copies `BIG/dracula.qbtheme` from the backup device to `$HOME/.config/qBittorrent/dracula.qbtheme`
 	- Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists

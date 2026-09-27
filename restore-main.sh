@@ -205,12 +205,18 @@ fix_ssh_permissions() {
 snapshot_existing_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
+  local collect_dir="$HOME/PreRestored"
+  local collected_snapshot
 
   [[ -e "$target" || -L "$target" ]] || return 0
   [[ ! -e "$snapshot" && ! -L "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Moving existing target to safety snapshot: $snapshot"
   mv -- "$target" "$snapshot"
+  mkdir -p "$collect_dir"
+  collected_snapshot="$(unique_collect_target "$collect_dir" "$snapshot")"
+  log "Moving safety snapshot into PreRestored: $snapshot -> $collected_snapshot"
+  mv -- "$snapshot" "$collected_snapshot"
 }
 
 # Return a non-conflicting target path inside the PreRestored collection folder.
@@ -229,7 +235,7 @@ unique_collect_target() {
   printf '%s\n' "$candidate"
 }
 
-# Move all home pre-restore snapshots into one folder after a successful restore.
+# Collect legacy or externally created home pre-restore snapshots.
 collect_pre_restore() {
   local collect_dir="$HOME/PreRestored"
   local source_path

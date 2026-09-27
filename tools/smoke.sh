@@ -218,7 +218,7 @@ rm -rf "$tmp"
 printf 'Install DOTS second-confirmation safety OK\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/bin" "$tmp/BKP/DOTS"
+mkdir -p "$tmp/bin" "$tmp/BKP/DOTS" "$tmp/home"
 cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/BKP/DOTS/restore-dots.sh"
 chmod +x "$tmp/BKP/DOTS/restore-dots.sh"
 cat >"$tmp/BKP/backup-manifest.txt" <<'EOF'
@@ -234,10 +234,10 @@ chmod +x "$tmp/bin/sudo"
 printf '[Autologin]\nUser=old-user\n' >"$tmp/default.conf"
 test_user="$(id -un)"
 printf '5\nY\n0\n' | (
-  cd "$tmp/BKP/DOTS" && PATH="$tmp/bin:$PATH" USER="$test_user" SDDM_CONFIG="$tmp/default.conf" ./restore-dots.sh >/dev/null
+  cd "$tmp/BKP/DOTS" && HOME="$tmp/home" PATH="$tmp/bin:$PATH" USER="$test_user" SDDM_CONFIG="$tmp/default.conf" ./restore-dots.sh >/dev/null
 )
 grep -Fqx "User=$test_user" "$tmp/default.conf"
-find "$tmp" -maxdepth 1 -type f -name 'default.conf-pre-restore-*' -print -quit | grep -q .
+find "$tmp/home/PreRestored" -maxdepth 1 -type f -name 'default.conf-pre-restore-*' -print -quit | grep -q .
 rm -rf "$tmp"
 printf 'SDDM AutoLogin update OK: restore-dots.sh\n'
 
@@ -252,7 +252,7 @@ restore_config_file "MATUGEN" "matugen/config.toml" "matugen/config.toml"
 EOF
 (cd "$tmp" && HOME="$tmp/home" bash restore-dots-partial.sh >/dev/null)
 grep -Fqx 'new' "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/matugen/config.toml"
-find "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/matugen" -maxdepth 1 \
+find "$tmp/home/PreRestored" -maxdepth 1 \
   -name 'config.toml-pre-restore-*' -exec grep -Fqx 'old' '{}' \; -print -quit | grep -q .
 rm -rf "$tmp"
 printf 'DOTS file snapshot OK\n'
@@ -304,6 +304,20 @@ grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'sudo pacman -R --noconfirm vlc' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ensure_yay_installed' "$PROJECT_ROOT/restore-dots.sh"
+awk '
+  /^install_hyprmod\(\)/ { in_func = 1 }
+  in_func && /ensure_yay_installed/ { yay_check_seen = 1 }
+  in_func && /bash "\$installer"/ {
+    installer_seen = 1
+    if (!yay_check_seen) {
+      exit 1
+    }
+  }
+  in_func && /^}/ { exit(yay_check_seen && installer_seen ? 0 : 1) }
+' "$PROJECT_ROOT/restore-dots.sh" || {
+  printf 'Install HyprMod must ensure yay is installed before running its installer\n' >&2
+  exit 1
+}
 grep -Fq 'sudo pacman -S --needed --noconfirm base-devel git' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'https://aur.archlinux.org/yay.git' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "makepkg -si --needed --noconfirm" "$PROJECT_ROOT/restore-dots.sh"
@@ -430,7 +444,10 @@ FSTAB_LINES=(
   '//new/share   /SMB/test   cifs   _netdev,credentials=/etc/samba/creds-test,uid=1000,gid=1000   0 0'
 )
 ROLLBACK_FILE="$PWD/restore-serv-rollback-test.sh"
+sudo() { "$@"; }
 snapshot_target "$PWD/new-service-target"
+printf 'old service config\n' >"$PWD/existing-service-target"
+snapshot_target "$PWD/existing-service-target"
 replace_managed_fstab_entries "$1"
 update_rollback_snapshot_path "/etc/fstab-pre-restore-test" "$HOME/PreRestored/fstab-pre-restore-test"
 EOF
@@ -458,6 +475,13 @@ grep -Fq '//keep/share /SMB/keep' "$tmp/fstab"
 [[ "$(awk '$2 == "/SMB/test" { count++ } END { print count + 0 }' "$tmp/fstab")" -eq 1 ]]
 grep -Fq "$tmp/home/PreRestored/fstab-pre-restore-test" "$tmp/restore-serv-rollback-test.sh"
 grep -Fq "sudo rm -rf -- $tmp/new-service-target" "$tmp/restore-serv-rollback-test.sh"
+find "$tmp/home/PreRestored" -maxdepth 1 -type f -name 'existing-service-target-pre-restore-*' \
+  -exec grep -Fqx 'old service config' '{}' \; -print -quit | grep -q .
+if find "$tmp" -maxdepth 1 -name 'existing-service-target-pre-restore-*' -print -quit | grep -q .; then
+  printf 'service snapshot was not moved immediately into PreRestored\n' >&2
+  exit 1
+fi
+grep -Fq "$tmp/home/PreRestored/existing-service-target-pre-restore-" "$tmp/restore-serv-rollback-test.sh"
 rm -rf "$tmp"
 printf 'restore-serv managed fstab and rollback path OK\n'
 
