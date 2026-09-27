@@ -160,6 +160,7 @@ set_service_restore_defaults() {
   GRUB_TERMINAL_OUTPUT_VALUE="gfxterm"
   GRUB_GFXMODE_VALUE="1440x1080x32"
   GRUB_THEME_VALUE="/boot/grub/themes/lateralus/theme.txt"
+  GRUB_THEME_SHARED_RELATIVE="BIG/lateralus"
 }
 
 # Return success when a mount target is retired and should be removed.
@@ -415,12 +416,20 @@ snapshot_kernel_module_state() {
   fi
 }
 
-# Restore the lateralus grub theme folder into /boot/grub/themes/.
+# Resolve the backup device root from a script running inside SERV/BKP-*.
+resolve_backup_device_root() {
+  cd -- "$SCRIPT_DIR/../.." 2>/dev/null && pwd
+}
+
+# Restore the shared lateralus grub theme folder into /boot/grub/themes/.
 restore_grub_theme() {
-  local source_dir="$SCRIPT_DIR/lateralus"
+  local device_root
+  local source_dir
   local target_dir="/boot/grub/themes/lateralus"
 
   require_all_cmds sudo cp mkdir rsync
+  device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  source_dir="$device_root/$GRUB_THEME_SHARED_RELATIVE"
   [[ -d "$source_dir" ]] || die "grub theme source folder not found: $source_dir"
   [[ -s "$source_dir/theme.txt" ]] || die "grub theme definition not found or empty: $source_dir/theme.txt"
 

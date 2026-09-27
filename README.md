@@ -148,7 +148,6 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 - `/etc/samba/smb.conf`
 - `/etc/samba/creds-*`
 - `/etc/ssh/sshd_config`
-- `/boot/grub/themes/lateralus/` when present
 - `/etc/default/grub`
 - `/etc/mkinitcpio.conf`
 
@@ -161,7 +160,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 /path/to/device/SERV/BKP-<timestamp>.tar.gz
 ```
 
-- Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `lateralus/`, `grub`, `mkinitcpio.conf`, `creds-*`, `luks.bin`), not as full `/etc/...` or `/boot/...` directory trees.
+- Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `grub`, `mkinitcpio.conf`, `creds-*`, `luks.bin`), not as full `/etc/...` directory trees.
 
 #### Service backup fail-safes:
 
@@ -211,7 +210,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 		- Validates the generated table
 		- Then atomically installs it as `/etc/fstab`
 - `5 - Restore grub theme`: restores 
-	- `lateralus`
+	- `BIG/lateralus` from the external backup device
 		- to `/boot/grub/themes/`
 - `6 - Restore GRUB`: updates 
 	- `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path
@@ -308,7 +307,7 @@ DOTS actions require the parent MAIN backup manifest or legacy status marker to 
 - `4 - Install Extra`: removes repository `vlc` with Pacman when installed
 	- Checks whether `yay` is installed first; when missing, installs build requirements and builds `yay` from its official AUR package
 	- Checks for `org.videolan.VLC` and `org.gnome.Calculator` Flatpaks
-	- Checks for `jefferson`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, and `rambox-pro-bin`
+	- Checks for `jefferson`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, `rambox-pro-bin`, and `qrencode`
 		- Installs all missing packages and Flatpaks noninteractively after option 4 is selected
 	- Keeps package-manager details out of the terminal and writes them to `install-extra.log` beside the running script, or to the user state fallback on read-only media, with missing items and failed actions summarized first
 - `5 - Set AutoLogin`: saves a safety snapshot of `/usr/lib/sddm/sddm.conf.d/default.conf`

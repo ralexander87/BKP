@@ -300,6 +300,7 @@ grep -Fq '20 - Restore WLOGOUT' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'qrencode' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'sudo pacman -R --noconfirm vlc' "$PROJECT_ROOT/restore-dots.sh"
@@ -377,6 +378,12 @@ printf 'restore-dots settings menu OK\n'
 
 grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'GRUB_THEME_SHARED_RELATIVE="BIG/lateralus"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq "source_dir=\"\$device_root/\$GRUB_THEME_SHARED_RELATIVE\"" "$PROJECT_ROOT/restore-serv.sh"
+if grep -Fq 'GRUB_THEME_SOURCE' "$PROJECT_ROOT/bkp-serv.sh" "$PROJECT_ROOT/config/serv.backup.conf"; then
+  printf 'service backup should not copy the shared GRUB theme\n' >&2
+  exit 1
+fi
 grep -Fq '90 - Restore CONFIG' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/restore-serv.sh"
@@ -700,7 +707,7 @@ LUKS_DEVICE_PATH="/dev/nvme0n1p2"
 LUKS_HEADER_FILE="luks.bin"
 LUKS_HEADER_CREATED=true
 SERVICE_REQUIRED_PATHS=(/etc/samba/smb.conf /etc/ssh/sshd_config)
-SERVICE_OPTIONAL_PATHS=(/boot/grub/themes/lateralus)
+SERVICE_OPTIONAL_PATHS=()
 SERVICE_PATHS=("${SERVICE_REQUIRED_PATHS[@]}" "${SERVICE_OPTIONAL_PATHS[@]}")
 SAMBA_CREDS_GLOB="/etc/samba/creds-*"
 write_manifest
@@ -709,7 +716,7 @@ EOF
 grep -Fq 'Backup Type = [SERVICE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Archive Requested = [TRUE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'LUKS Header Created = [TRUE]' "$tmp/BKP/backup-manifest.txt"
-grep -Fq 'Service Paths = /etc/samba/smb.conf /etc/ssh/sshd_config /boot/grub/themes/lateralus' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'Service Paths = /etc/samba/smb.conf /etc/ssh/sshd_config' "$tmp/BKP/backup-manifest.txt"
 python3 -m json.tool "$tmp/BKP/backup-manifest.json" >/dev/null
 grep -Fq '"archive_validation": "PASSED"' "$tmp/BKP/backup-manifest.json"
 rm -rf "$tmp"

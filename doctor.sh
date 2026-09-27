@@ -196,7 +196,6 @@ for path in \
   "$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config" \
   "/etc/samba/smb.conf" \
   "/etc/ssh/sshd_config" \
-  "/boot/grub/themes/lateralus" \
   "/etc/default/grub" \
   "/etc/mkinitcpio.conf"; do
   check_path "$path"
@@ -215,6 +214,7 @@ else
     target="$(decode_findmnt_path "$target")"
     source="$(decode_findmnt_path "$source")"
     ok "mounted backup candidate: $target ($source, $fstype)"
+    check_path "$target/BIG/lateralus"
     check_main_backup "$(latest_backup_dir "$target/MAIN")"
     check_serv_backup "$(latest_backup_dir "$target/SERV")"
   done

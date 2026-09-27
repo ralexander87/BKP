@@ -251,10 +251,6 @@ verify_backup_contents() {
     [[ -e "$BACKUP_DIR/$required_item" ]] || die "missing expected backup item: $required_item"
   done
 
-  if sudo test -e "$GRUB_THEME_SOURCE"; then
-    [[ -e "$BACKUP_DIR/lateralus" ]] || die "missing expected backup item: lateralus"
-  fi
-
   if [[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]]; then
     [[ -f "$BACKUP_DIR/config/local/serv.restore.conf" ]] || die "missing expected backup item: config/local/serv.restore.conf"
   fi
@@ -382,7 +378,6 @@ else
 fi
 ui_add_task "serv-smbconf" "SMB config"
 ui_add_task "serv-sshd" "SSH config"
-ui_add_task "serv-theme" "GRUB theme lateralus"
 ui_add_task "serv-grub" "Default GRUB config"
 ui_add_task "serv-mkinitcpio" "Mkinitcpio config"
 ui_add_task "serv-creds" "Samba creds-*"
@@ -401,7 +396,6 @@ ui_render "force"
 # Back up fixed service paths.
 backup_path "serv-smbconf" "$SMB_CONFIG_SOURCE"
 backup_path "serv-sshd" "$SSH_CONFIG_SOURCE"
-backup_path "serv-theme" "$GRUB_THEME_SOURCE"
 backup_path "serv-grub" "$GRUB_DEFAULT_SOURCE"
 backup_path "serv-mkinitcpio" "$MKINITCPIO_SOURCE"
 
