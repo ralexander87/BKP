@@ -263,7 +263,7 @@ EOF
 
 # Ensure required dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds sudo awk cat
+  require_all_cmds sudo awk cat chmod dirname mktemp mv
 }
 
 # Show currently available service restore actions.
@@ -368,15 +368,45 @@ local_non_root_user() {
   printf '%s\n' "$local_user"
 }
 
+# Insert rollback commands immediately after the generated script header.
+prepend_rollback_commands() {
+  local marker="# Rollback commands are stored newest-first."
+  local rollback_dir
+  local rollback_temp
+  local line
+  local command_line
+  local marker_found=false
+
+  rollback_dir="$(dirname -- "$ROLLBACK_FILE")"
+  rollback_temp="$(mktemp "$rollback_dir/.restore-serv-rollback.XXXXXX")"
+  register_temp_path "$rollback_temp"
+  while IFS= read -r line; do
+    printf '%s\n' "$line" >>"$rollback_temp"
+    if [[ "$line" == "$marker" ]]; then
+      marker_found=true
+      for command_line in "$@"; do
+        printf '%s\n' "$command_line" >>"$rollback_temp"
+      done
+    fi
+  done <"$ROLLBACK_FILE"
+
+  [[ "$marker_found" == "true" ]] || die "rollback command marker not found: $ROLLBACK_FILE"
+  chmod --reference="$ROLLBACK_FILE" "$rollback_temp"
+  mv -- "$rollback_temp" "$ROLLBACK_FILE"
+}
+
 # Snapshot target path before modifying it and register rollback command.
 snapshot_target() {
   local target="$1"
   local snapshot="$target-pre-restore-$RESTORE_ID"
   local collect_dir="$HOME/PreRestored"
   local collected_snapshot
+  local remove_command
+  local restore_command
 
   if [[ ! -e "$target" && ! -L "$target" ]]; then
-    printf 'sudo rm -rf -- %q\n' "$target" >>"$ROLLBACK_FILE"
+    printf -v remove_command 'sudo rm -rf -- %q' "$target"
+    prepend_rollback_commands "$remove_command"
     return 0
   fi
   [[ ! -e "$snapshot" && ! -L "$snapshot" ]] || die "snapshot already exists: $snapshot"
@@ -387,33 +417,39 @@ snapshot_target() {
   collected_snapshot="$(unique_collect_target "$collect_dir" "$snapshot")"
   log "Moving safety snapshot into PreRestored: $snapshot -> $collected_snapshot"
   sudo mv -- "$snapshot" "$collected_snapshot"
-  printf 'sudo rm -rf -- %q\n' "$target" >>"$ROLLBACK_FILE"
-  printf 'sudo cp -a %q %q\n' "$collected_snapshot" "$target" >>"$ROLLBACK_FILE"
+  printf -v remove_command 'sudo rm -rf -- %q' "$target"
+  printf -v restore_command 'sudo cp -a %q %q' "$collected_snapshot" "$target"
+  prepend_rollback_commands "$remove_command" "$restore_command"
 }
 
 # Record the enabled and active state of a service before changing it.
 snapshot_service_state() {
   local service="$1"
+  local enabled_command
+  local active_command
 
   if systemctl is-enabled --quiet "$service" 2>/dev/null; then
-    printf 'sudo systemctl enable %q >/dev/null 2>&1 || true\n' "$service" >>"$ROLLBACK_FILE"
+    printf -v enabled_command 'sudo systemctl enable %q >/dev/null 2>&1 || true' "$service"
   else
-    printf 'sudo systemctl disable %q >/dev/null 2>&1 || true\n' "$service" >>"$ROLLBACK_FILE"
+    printf -v enabled_command 'sudo systemctl disable %q >/dev/null 2>&1 || true' "$service"
   fi
 
   if systemctl is-active --quiet "$service" 2>/dev/null; then
-    printf 'sudo systemctl start %q >/dev/null 2>&1 || true\n' "$service" >>"$ROLLBACK_FILE"
+    printf -v active_command 'sudo systemctl start %q >/dev/null 2>&1 || true' "$service"
   else
-    printf 'sudo systemctl stop %q >/dev/null 2>&1 || true\n' "$service" >>"$ROLLBACK_FILE"
+    printf -v active_command 'sudo systemctl stop %q >/dev/null 2>&1 || true' "$service"
   fi
+  prepend_rollback_commands "$active_command" "$enabled_command"
 }
 
 # Unload a module during rollback only when this restore loaded it.
 snapshot_kernel_module_state() {
   local module="$1"
+  local unload_command
 
   if [[ ! -d "/sys/module/$module" ]]; then
-    printf 'sudo modprobe -r %q >/dev/null 2>&1 || true\n' "$module" >>"$ROLLBACK_FILE"
+    printf -v unload_command 'sudo modprobe -r %q >/dev/null 2>&1 || true' "$module"
+    prepend_rollback_commands "$unload_command"
   fi
 }
 
@@ -623,6 +659,8 @@ create_smb_tree() {
   local -a existed=()
   local -a owners=()
   local -a modes=()
+  local -a rollback_commands=()
+  local rollback_command
 
   require_all_cmds sudo mkdir chown chmod stat
   confirm_action "Create SMB" || return 0
@@ -647,12 +685,16 @@ create_smb_tree() {
   for ((index = ${#SMB_DIRS[@]} - 1; index >= 0; index--)); do
     dir="${SMB_DIRS[$index]}"
     if [[ "${existed[$index]}" == "true" ]]; then
-      printf 'sudo chown %q %q\n' "${owners[$index]}" "$dir" >>"$ROLLBACK_FILE"
-      printf 'sudo chmod %q %q\n' "${modes[$index]}" "$dir" >>"$ROLLBACK_FILE"
+      printf -v rollback_command 'sudo chmod %q %q' "${modes[$index]}" "$dir"
+      rollback_commands+=("$rollback_command")
+      printf -v rollback_command 'sudo chown %q %q' "${owners[$index]}" "$dir"
+      rollback_commands+=("$rollback_command")
     else
-      printf 'sudo rmdir -- %q 2>/dev/null || true\n' "$dir" >>"$ROLLBACK_FILE"
+      printf -v rollback_command 'sudo rmdir -- %q 2>/dev/null || true' "$dir"
+      rollback_commands+=("$rollback_command")
     fi
   done
+  prepend_rollback_commands "${rollback_commands[@]}"
 
   for dir in "${SMB_DIRS[@]}"; do
     log "Ensuring SMB directory: $dir"
@@ -782,6 +824,7 @@ restore_grub_defaults() {
 restore_rambox() {
   local target_dir="/opt/rambox"
   local previous_mode
+  local rollback_command
 
   require_all_cmds sudo chmod stat
   sudo test -d "$target_dir" || die "Rambox folder not found: $target_dir"
@@ -789,7 +832,8 @@ restore_rambox() {
 
   previous_mode="$(sudo stat -c '%a' "$target_dir")"
   [[ "$previous_mode" =~ ^[0-7]{3,4}$ ]] || die "could not read Rambox folder mode: $target_dir"
-  printf 'sudo chmod %q %q\n' "$previous_mode" "$target_dir" >>"$ROLLBACK_FILE"
+  printf -v rollback_command 'sudo chmod %q %q' "$previous_mode" "$target_dir"
+  prepend_rollback_commands "$rollback_command"
 
   log "Setting Rambox folder permissions: $target_dir -> 755"
   sudo chmod 755 "$target_dir"
@@ -904,6 +948,7 @@ init_rollback_script() {
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # Generated rollback script for restore-serv run id: $RESTORE_ID
+# Rollback commands are stored newest-first.
 EOF
   chmod +x "$ROLLBACK_FILE"
 }

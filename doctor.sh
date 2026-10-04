@@ -16,16 +16,6 @@ fail() {
   EXIT_CODE=1
 }
 
-# Check that a required command is available in PATH.
-check_cmd() {
-  local cmd="$1"
-  if command -v "$cmd" >/dev/null 2>&1; then
-    ok "command: $cmd"
-  else
-    fail "missing command: $cmd"
-  fi
-}
-
 # Check that an expected local source path exists.
 check_path() {
   local path="$1"
@@ -176,28 +166,29 @@ printf 'BKP doctor\n'
 printf 'Project: %s\n\n' "$PROJECT_ROOT"
 
 printf 'Dependencies\n'
-for cmd in bash rsync pigz shellcheck shfmt git make flock findmnt df du install sudo cryptsetup lsblk tar curl numfmt awk sed grep tee systemctl; do
-  check_cmd "$cmd"
-done
+if ! bash "$PROJECT_ROOT/tools/check-deps.sh"; then
+  EXIT_CODE=1
+fi
 
 printf '\nSource paths\n'
-for path in \
-  "$HOME/Downloads" \
-  "$HOME/Pictures" \
-  "$HOME/Videos" \
-  "$HOME/Music" \
-  "$HOME/Obsidian" \
-  "$HOME/Code" \
-  "$HOME/Documents" \
-  "$HOME/.themes" \
-  "$HOME/.icons" \
-  "$HOME/.ssh" \
-  "$HOME/.vscode-oss" \
-  "$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config" \
-  "/etc/samba/smb.conf" \
-  "/etc/ssh/sshd_config" \
-  "/etc/default/grub" \
-  "/etc/mkinitcpio.conf"; do
+main_backup_config="$PROJECT_ROOT/config/main.backup.conf"
+serv_backup_config="$PROJECT_ROOT/config/serv.backup.conf"
+# shellcheck source=config/main.backup.conf
+source "$main_backup_config"
+# shellcheck source=config/serv.backup.conf
+source "$serv_backup_config"
+
+source_paths=(
+  "$HOME/$DOTS_ROOT_RELATIVE"
+  "$HOME/$DOTS_CONFIG_RELATIVE"
+  "$HOME/$FIRMWARE_HOME_RELATIVE"
+)
+for hidden_item in "${HIDDEN_HOME_ITEMS[@]}"; do
+  source_paths+=("$HOME/$hidden_item")
+done
+source_paths+=("${SERVICE_REQUIRED_PATHS[@]}")
+
+for path in "${source_paths[@]}"; do
   check_path "$path"
 done
 
@@ -243,12 +234,6 @@ fi
 rm -f /tmp/bkp-doctor-ssh.out
 
 printf '\nLocal checks\n'
-if make -C "$PROJECT_ROOT" deps >/dev/null; then
-  ok "make deps"
-else
-  fail "make deps failed"
-fi
-
 if "$PROJECT_ROOT/tools/smoke.sh" >/dev/null; then
   ok "make smoke prerequisites"
 else

@@ -16,9 +16,9 @@
 - `pigz` for optional archive compression
 - `curl` for the ML4W installer
 - `sudo`, `pacman`, `makepkg`, `git`, and `flatpak` for Arch package setup
-- `qs` for restarting Quickshell after HYPR restore
+- `qs` for restarting Quickshell after Restore QS
 - `shellcheck` for script checks
-- `shfmt` for formatting, optional
+- `shfmt` for formatting checks
 
 ## Quick Start
 
@@ -235,6 +235,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 - Automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
 - Generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
 	- Rollback covers replaced and newly created service targets, SMB directory metadata, service state, and a CIFS module loaded by the restore
+	- Commands are stored newest-first so repeated changes to one target are reversed in the correct order
 - Idempotent `fstab` updates by configured mountpoint (stale entries for those mountpoints are replaced)
 - Atomic file update flow for `/etc/fstab` and `/etc/default/grub` (temp file + install)
 - Post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
@@ -344,6 +345,7 @@ DOTS actions require the parent MAIN backup manifest or legacy status marker to 
 	- Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists
 
 - Restore and system-changing actions ask for confirmation before changing local configuration
+	- The default answer is `N`; press `Y` to proceed
 	- If you answer `N`, the action is cancelled and the script returns to the menu
 	- `4 - Install Extra` is intentionally unattended after selection and does not ask package-manager yes/no questions
 	- The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script
@@ -385,7 +387,7 @@ make deps
 make check
 ```
 
-`shellcheck` is required for `make check`. `shfmt` remains optional.
+`make deps` uses `tools/check-deps.sh` as the shared dependency inventory for the Makefile and `doctor.sh`. It reports commands needed by the core backup and development workflows as failures and commands used by individual restore actions as warnings.
 
 The smoke suite also uses `pigz`, `tar`, `truncate`, and `python3` for archive and JSON validation tests.
 
@@ -414,6 +416,17 @@ make doctor
 Current version is tracked in the `VERSION` file.
 
 ## Changelog
+
+### 0.5.0
+
+- Split Quickshell into `21 - Restore QS` and moved Waybar modules into `16 - Restore WAYBAR`
+- Moved GTK bookmarks and xsettingsd configuration into `99 - Restore Settings`
+- Changed restored `sshd_config` mode to `644` for newly created service backups
+- Made dotfiles action confirmations default to `N`
+- Stored service rollback commands newest-first so repeated changes reverse correctly
+- Kept catalog scans running when protected backup content makes `du` return a partial-result error
+- Added functional restore coverage for HYPR, Waybar, Quickshell, and Settings
+- Centralized dependency reporting and derived doctor source-path checks from backup configuration
 
 ### 0.4.0
 

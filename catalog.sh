@@ -74,7 +74,7 @@ catalog_backup_dir() {
     status="IN PROGRESS"
   fi
 
-  size="$(du -sh "$backup_dir" 2>/dev/null | awk '{ print $1 }')"
+  size="$(du -sh "$backup_dir" 2>/dev/null | awk '{ print $1 }' || true)"
   [[ -n "$size" ]] || size="UNKNOWN"
   if [[ -f "$(dirname -- "$backup_dir")/$run_id.tar.gz" ]]; then
     archive_state="YES"

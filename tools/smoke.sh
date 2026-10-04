@@ -330,7 +330,7 @@ grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq "confirm_yes_no \"Start \$label?\" \"Y\"" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "confirm_yes_no \"Start \$label?\" \"N\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'BIG/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 if sed -n '/^restore_hypr()/,/^}/p' "$PROJECT_ROOT/restore-dots.sh" | grep -Eq 'gtk-3.0/bookmarks|waybar/modules.json|quickshell|qs (kill|-d)'; then
@@ -385,6 +385,93 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 21 restore_qs
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'
+
+tmp="$(mktemp -d)"
+dots_dir="$tmp/device/MAIN/BKP-test/DOTS"
+mkdir -p \
+  "$dots_dir/lib" \
+  "$dots_dir/hypr/conf/keybindings" \
+  "$dots_dir/hypr/conf/windowrules" \
+  "$dots_dir/hypr/scripts" \
+  "$dots_dir/waybar/themes" \
+  "$dots_dir/waybar/scripts" \
+  "$dots_dir/quickshell/overview" \
+  "$dots_dir/gtk-3.0" \
+  "$dots_dir/gtk-4.0" \
+  "$dots_dir/qt6ct" \
+  "$dots_dir/xsettingsd" \
+  "$dots_dir/ml4w/settings" \
+  "$tmp/device/BIG" \
+  "$tmp/home"
+cp "$PROJECT_ROOT/lib/common.sh" "$dots_dir/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$dots_dir/restore-dots-partial.sh"
+for source_rel in \
+  hypr/conf/keybindings/default.lua \
+  hypr/conf/monitor.lua \
+  hypr/conf/windowrules/default.lua \
+  hypr/hypridle.conf \
+  hypr/hyprlock.conf \
+  hypr/hyprland-gui.lua \
+  hypr/logo-2.png \
+  hypr/scripts/uptime.sh \
+  waybar/modules.json \
+  gtk-3.0/bookmarks \
+  gtk-3.0/settings.ini \
+  gtk-4.0/settings.ini \
+  qt6ct/qt6ct.conf \
+  xsettingsd/xsettingsd.conf \
+  ml4w/settings/filemanager \
+  ml4w/settings/kitty-cursor-trail.conf \
+  ml4w/settings/rofi-border-radius.rasi \
+  ml4w/settings/rofi-border.rasi \
+  ml4w/settings/rofi-font.rasi \
+  ml4w/settings/rofi_bordersize.sh \
+  ml4w/settings/screenshot-editor \
+  ml4w/settings/screenshot-folder \
+  ml4w/settings/terminal.sh \
+  ml4w/settings/waybar-quicklinks.json \
+  ml4w/settings/waybar_quicklinks.sh \
+  ml4w/settings/waybar_workspaces.sh; do
+  printf 'fixture: %s\n' "$source_rel" >"$dots_dir/$source_rel"
+done
+printf 'theme fixture\n' >"$dots_dir/waybar/themes/theme.css"
+printf 'script fixture\n' >"$dots_dir/waybar/scripts/test.sh"
+cat >"$dots_dir/quickshell/overview/config.json" <<'EOF'
+{
+  "main": "Fira Sans Semibold",
+  "title": "Fira Sans Semibold",
+  "expressive": "Fira Sans Semibold"
+}
+EOF
+printf 'theme fixture\n' >"$tmp/device/BIG/dracula.qbtheme"
+cat >>"$dots_dir/restore-dots-partial.sh" <<'EOF'
+ML4W_CONFIG_ROOT="$HOME/ml4w-config"
+RESTORE_ID="functional-test"
+confirm_action() { return 0; }
+qs() { printf '%s\n' "$*" >>"$HOME/qs-actions.log"; }
+
+restore_hypr
+[[ -f "$ML4W_CONFIG_ROOT/hypr/conf/keybindings/default.lua" ]]
+[[ ! -e "$ML4W_CONFIG_ROOT/waybar/modules.json" ]]
+[[ ! -e "$ML4W_CONFIG_ROOT/quickshell" ]]
+
+restore_waybar
+[[ -f "$ML4W_CONFIG_ROOT/waybar/modules.json" ]]
+[[ -f "$ML4W_CONFIG_ROOT/waybar/themes/theme.css" ]]
+[[ -f "$ML4W_CONFIG_ROOT/waybar/scripts/test.sh" ]]
+
+restore_qs
+grep -Fq '"main": "Monofur Nerd Font"' "$ML4W_CONFIG_ROOT/quickshell/overview/config.json"
+[[ "$(sed -n '1p' "$HOME/qs-actions.log")" == "kill" ]]
+[[ "$(sed -n '2p' "$HOME/qs-actions.log")" == "-d" ]]
+
+restore_settings
+[[ -f "$ML4W_CONFIG_ROOT/gtk-3.0/bookmarks" ]]
+[[ -f "$ML4W_CONFIG_ROOT/xsettingsd/xsettingsd.conf" ]]
+EOF
+(cd "$dots_dir" && HOME="$tmp/home" bash restore-dots-partial.sh >/dev/null)
+rm -rf "$tmp"
+printf 'restore-dots split action behavior OK\n'
 
 grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
@@ -480,8 +567,21 @@ sudo() { "$@"; }
 snapshot_target "$PWD/new-service-target"
 printf 'old service config\n' >"$PWD/existing-service-target"
 snapshot_target "$PWD/existing-service-target"
+prepend_rollback_commands "# oldest rollback fixture"
+prepend_rollback_commands "# newest rollback fixture"
 replace_managed_fstab_entries "$1"
 update_rollback_snapshot_path "/etc/fstab-pre-restore-test" "$HOME/PreRestored/fstab-pre-restore-test"
+
+ROLLBACK_FILE="$PWD/repeated-target-rollback.sh"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'set -Eeuo pipefail' \
+  '# Rollback commands are stored newest-first.' >"$ROLLBACK_FILE"
+printf 'original\n' >"$PWD/repeated-service-target"
+snapshot_target "$PWD/repeated-service-target"
+printf 'intermediate\n' >"$PWD/repeated-service-target"
+snapshot_target "$PWD/repeated-service-target"
+printf 'final\n' >"$PWD/repeated-service-target"
 EOF
 printf '%s\n' \
   '# test fstab' \
@@ -491,9 +591,21 @@ printf '%s\n' \
   '//keep/share /SMB/keep cifs keep 0 0' >"$tmp/fstab"
 printf '%s\n' \
   '#!/usr/bin/env bash' \
+  'set -Eeuo pipefail' \
+  '# Generated rollback script for smoke test' \
+  '# Rollback commands are stored newest-first.' \
   'sudo cp -a /etc/fstab-pre-restore-test /etc/fstab' >"$tmp/restore-serv-rollback-test.sh"
 chmod +x "$tmp/restore-serv-rollback-test.sh"
 (cd "$tmp" && HOME="$tmp/home" bash restore-serv-partial.sh "$tmp/fstab" >/dev/null)
+cat >"$tmp/bin-sudo" <<'EOF'
+#!/usr/bin/env bash
+exec "$@"
+EOF
+chmod +x "$tmp/bin-sudo"
+mkdir -p "$tmp/bin"
+mv "$tmp/bin-sudo" "$tmp/bin/sudo"
+(cd "$tmp" && HOME="$tmp/home" PATH="$tmp/bin:$PATH" bash repeated-target-rollback.sh)
+grep -Fqx 'original' "$tmp/repeated-service-target"
 grep -Fq '//new/share   /SMB/test' "$tmp/fstab"
 if grep -Fq '//old/share' "$tmp/fstab"; then
   printf 'stale managed fstab entry was not removed\n' >&2
@@ -507,6 +619,9 @@ grep -Fq '//keep/share /SMB/keep' "$tmp/fstab"
 [[ "$(awk '$2 == "/SMB/test" { count++ } END { print count + 0 }' "$tmp/fstab")" -eq 1 ]]
 grep -Fq "$tmp/home/PreRestored/fstab-pre-restore-test" "$tmp/restore-serv-rollback-test.sh"
 grep -Fq "sudo rm -rf -- $tmp/new-service-target" "$tmp/restore-serv-rollback-test.sh"
+newest_line="$(grep -nF '# newest rollback fixture' "$tmp/restore-serv-rollback-test.sh" | cut -d: -f1)"
+oldest_line="$(grep -nF '# oldest rollback fixture' "$tmp/restore-serv-rollback-test.sh" | cut -d: -f1)"
+[[ "$newest_line" -lt "$oldest_line" ]]
 find "$tmp/home/PreRestored" -maxdepth 1 -type f -name 'existing-service-target-pre-restore-*' \
   -exec grep -Fqx 'old service config' '{}' \; -print -quit | grep -q .
 if find "$tmp" -maxdepth 1 -name 'existing-service-target-pre-restore-*' -print -quit | grep -q .; then
@@ -876,6 +991,9 @@ cat >"$tmp/SERV/BKP-legacy/backup-manifest.txt" <<'EOF'
 created_at=2025-01-02T03:04:05+00:00
 backup_status=complete
 EOF
+mkdir -p "$tmp/SERV/BKP-legacy/protected"
+printf 'protected fixture\n' >"$tmp/SERV/BKP-legacy/protected/data"
+chmod 000 "$tmp/SERV/BKP-legacy/protected"
 "$PROJECT_ROOT/catalog.sh" "$tmp" >"$tmp/catalog.out"
 grep -Fq 'MAIN' "$tmp/catalog.out"
 grep -Fq 'BKP-test' "$tmp/catalog.out"
@@ -883,6 +1001,7 @@ grep -Fq 'COMPLETED' "$tmp/catalog.out"
 grep -Fq 'PASSED' "$tmp/catalog.out"
 grep -Fq 'BKP-legacy' "$tmp/catalog.out"
 grep -Fq '2025-01-02T03:04:05+00:00' "$tmp/catalog.out"
+chmod 700 "$tmp/SERV/BKP-legacy/protected"
 rm -rf "$tmp"
 printf 'backup catalog OK\n'
 
