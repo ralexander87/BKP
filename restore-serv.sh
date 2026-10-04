@@ -530,7 +530,7 @@ restore_ssh() {
   snapshot_service_state "sshd.service"
   restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
   sudo chown root:root /etc/ssh/sshd_config
-  sudo chmod 600 /etc/ssh/sshd_config
+  sudo chmod 644 /etc/ssh/sshd_config
   if command -v sshd >/dev/null 2>&1; then
     sudo sshd -t || die "sshd config validation failed"
   fi
@@ -593,7 +593,7 @@ restore_config() {
 
   sudo chown root:root /etc/samba/smb.conf /etc/ssh/sshd_config
   sudo chmod 644 /etc/samba/smb.conf
-  sudo chmod 600 /etc/ssh/sshd_config
+  sudo chmod 644 /etc/ssh/sshd_config
   for creds_name in "${creds_names[@]}"; do
     sudo chown root:root "/etc/samba/$creds_name"
     sudo chmod 600 "/etc/samba/$creds_name"

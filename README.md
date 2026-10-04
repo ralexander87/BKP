@@ -238,7 +238,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 - Idempotent `fstab` updates by configured mountpoint (stale entries for those mountpoints are replaced)
 - Atomic file update flow for `/etc/fstab` and `/etc/default/grub` (temp file + install)
 - Post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
-- Permission hardening for sensitive files (`/etc/samba/creds-*`, `/etc/ssh/sshd_config`)
+- Restored ownership and modes for service files (`/etc/samba/creds-*` uses `600`; `/etc/ssh/sshd_config` uses `644`)
 - Restore audit entries in `restore.log`
 
 ## Configuration

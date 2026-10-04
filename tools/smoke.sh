@@ -405,6 +405,14 @@ if grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/config/serv.restore.conf"; then
 fi
 grep -Fq 'systemctl enable smb.service' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'systemctl enable sshd.service' "$PROJECT_ROOT/restore-serv.sh"
+if [[ "$(grep -Fc 'sudo chmod 644 /etc/ssh/sshd_config' "$PROJECT_ROOT/restore-serv.sh")" -ne 2 ]]; then
+  printf 'Both SSH restore paths must set sshd_config mode to 644\n' >&2
+  exit 1
+fi
+if grep -Fq 'sudo chmod 600 /etc/ssh/sshd_config' "$PROJECT_ROOT/restore-serv.sh"; then
+  printf 'SSH restore paths should not set sshd_config mode to 600\n' >&2
+  exit 1
+fi
 if [[ "$(sed -n '/^restore_config()/,/^}/p' "$PROJECT_ROOT/restore-serv.sh" | grep -Fc '"sshd.service"')" -ne 1 ]]; then
   printf 'Restore CONFIG should list sshd.service exactly once\n' >&2
   exit 1
