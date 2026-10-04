@@ -326,20 +326,20 @@ DOTS actions require the parent MAIN backup manifest or legacy status marker to 
 	- Into matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/` subfolders
 	- Copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`
 	- Copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`
-	- Copies `waybar/modules.json` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/waybar/modules.json`
-	- Copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`
-	- Moves the existing `quickshell` folder to a safety snapshot, restores the complete backed-up folder, and applies local font adjustments to `quickshell/overview/config.json`
-	- Restarts Quickshell by running `qs kill` followed by `qs -d`
 - `15 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder
 - `16 - Restore WAYBAR`: moves the existing Waybar themes and scripts folders to timestamped pre-restore snapshots
-	- Then copies `waybar/themes` and `waybar/scripts` from the current `DOTS` folder
+	- Copies `waybar/modules.json`, `waybar/themes`, and `waybar/scripts` from the current `DOTS` folder
 - `17 - Restore MATUGEN`: copies `matugen/config.toml` and restores the complete `matugen/templates` folder from the current `DOTS` folder to the matching ML4W config paths
 - `18 - Restore CAVA`: moves the existing `cava` folder to a safety snapshot, then copies `cava` from the current `DOTS` folder
 	- Creates `~/.config/cava` as a symbolic link to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/cava`, preserving a conflicting local path as a safety snapshot
 - `19 - Restore SWAYNC`: moves the existing `swaync` folder to a safety snapshot, then copies `swaync` from the current `DOTS` folder
 - `20 - Restore WLOGOUT`: moves the existing `wlogout` folder to a safety snapshot, then restores the complete `wlogout` folder from the current `DOTS` folder
+- `21 - Restore QS`: moves the existing `quickshell` folder to a safety snapshot, restores the complete backed-up folder, and applies local font adjustments to `quickshell/overview/config.json`
+	- Restarts Quickshell by running `qs kill` followed by `qs -d`
 - `98 - Collect pre-restore`: collects legacy `*-pre-restore-*` files and folders left under `$HOME` by older restore runs
 - `99 - Restore Settings`: copies selected GTK, Qt, and `ml4w/settings/` files from the current `DOTS` folder to the matching ML4W config path
+	- Copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`
+	- Copies `xsettingsd/xsettingsd.conf` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/xsettingsd/xsettingsd.conf`
 	- Copies `BIG/dracula.qbtheme` from the backup device to `$HOME/.config/qBittorrent/dracula.qbtheme`
 	- Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists
 
@@ -347,7 +347,7 @@ DOTS actions require the parent MAIN backup manifest or legacy status marker to 
 	- If you answer `N`, the action is cancelled and the script returns to the menu
 	- `4 - Install Extra` is intentionally unattended after selection and does not ask package-manager yes/no questions
 	- The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script
-	- Existing files changed by HYPR, Matugen, Settings, Thunar, and qBittorrent actions are moved to timestamped safety snapshots first
+	- Existing files changed by HYPR, QS, Matugen, Settings, Thunar, and qBittorrent actions are moved to timestamped safety snapshots first
 
 `config/serv.restore.conf` controls public service restore values for SMB directories and GRUB defaults. Local fstab entries can be stored in ignored `config/local/serv.restore.conf`; when present, this local file is copied into each `SERV` backup so restore behavior is tied to the backup that created it without publishing private mount details.
 

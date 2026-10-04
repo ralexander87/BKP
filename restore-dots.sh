@@ -263,6 +263,7 @@ Select action:
   18 - Restore CAVA
   19 - Restore SWAYNC
   20 - Restore WLOGOUT
+  21 - Restore QS
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -775,12 +776,14 @@ restore_cava() {
   log "Done: Restore CAVA"
 }
 
-# Snapshot and restore the backed-up WAYBAR themes and scripts folders.
+# Restore the backed-up WAYBAR modules file, themes, and scripts folders.
 restore_waybar() {
+  [[ -f "$SCRIPT_DIR/waybar/modules.json" ]] || die "waybar modules source file not found: $SCRIPT_DIR/waybar/modules.json"
   [[ -d "$SCRIPT_DIR/waybar/themes" ]] || die "waybar themes source folder not found: $SCRIPT_DIR/waybar/themes"
   [[ -d "$SCRIPT_DIR/waybar/scripts" ]] || die "waybar scripts source folder not found: $SCRIPT_DIR/waybar/scripts"
 
   confirm_action "Restore WAYBAR" || return 0
+  restore_config_file "WAYBAR" "waybar/modules.json" "waybar/modules.json"
   restore_config_folder "WAYBAR" "waybar/themes" "waybar/themes"
   restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"
   log "Done: Restore WAYBAR"
@@ -798,16 +801,11 @@ restore_hypr() {
     "hypr/hyprland-gui.lua"
     "hypr/logo-2.png"
     "hypr/scripts/uptime.sh"
-    "waybar/modules.json"
-    "gtk-3.0/bookmarks"
   )
 
-  require_cmd qs
   for source_rel in "${source_files[@]}"; do
     [[ -f "$SCRIPT_DIR/$source_rel" ]] || die "HYPR source file not found: $SCRIPT_DIR/$source_rel"
   done
-  [[ -d "$SCRIPT_DIR/quickshell" ]] || die "HYPR source folder not found: $SCRIPT_DIR/quickshell"
-  [[ -f "$SCRIPT_DIR/quickshell/overview/config.json" ]] || die "HYPR overview source not found: $SCRIPT_DIR/quickshell/overview/config.json"
   confirm_action "Restore HYPR" || return 0
   restore_config_file "HYPR" "hypr/conf/keybindings/default.lua" "hypr/conf/keybindings/default.lua"
   restore_config_file "HYPR" "hypr/conf/monitor.lua" "hypr/conf/monitor.lua"
@@ -817,14 +815,21 @@ restore_hypr() {
   restore_config_file "HYPR" "hypr/hyprland-gui.lua" "hypr/hyprland-gui.lua"
   restore_config_file "HYPR" "hypr/logo-2.png" "hypr/logo-2.png"
   restore_config_file "HYPR" "hypr/scripts/uptime.sh" "hypr/scripts/uptime.sh"
-  restore_config_file "HYPR" "waybar/modules.json" "waybar/modules.json"
-  restore_config_file "HYPR" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"
-  restore_config_folder "HYPR" "quickshell" "quickshell"
+  log "Done: Restore HYPR"
+}
+
+# Restore Quickshell, apply the local overview font choices, and restart it.
+restore_qs() {
+  require_cmd qs
+  [[ -d "$SCRIPT_DIR/quickshell" ]] || die "QS source folder not found: $SCRIPT_DIR/quickshell"
+  [[ -f "$SCRIPT_DIR/quickshell/overview/config.json" ]] || die "QS overview source not found: $SCRIPT_DIR/quickshell/overview/config.json"
+  confirm_action "Restore QS" || return 0
+  restore_config_folder "QS" "quickshell" "quickshell"
   customize_quickshell_overview_config
   log "Restarting Quickshell"
   qs kill
   qs -d
-  log "Done: Restore HYPR"
+  log "Done: Restore QS"
 }
 
 # Run ML4W's interactive login-shell changer.
@@ -957,9 +962,11 @@ restore_qbittorrent_theme() {
 restore_settings() {
   local source_rel
   local -a source_files=(
+    "gtk-3.0/bookmarks"
     "gtk-3.0/settings.ini"
     "gtk-4.0/settings.ini"
     "qt6ct/qt6ct.conf"
+    "xsettingsd/xsettingsd.conf"
     "ml4w/settings/filemanager"
     "ml4w/settings/kitty-cursor-trail.conf"
     "ml4w/settings/rofi-border-radius.rasi"
@@ -981,9 +988,11 @@ restore_settings() {
   confirm_action "Restore Settings" || return 0
 
   # Toolkit theme settings.
+  restore_config_file "Settings" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"
   restore_config_file "Settings" "gtk-3.0/settings.ini" "gtk-3.0/settings.ini"
   restore_config_file "Settings" "gtk-4.0/settings.ini" "gtk-4.0/settings.ini"
   restore_config_file "Settings" "qt6ct/qt6ct.conf" "qt6ct/qt6ct.conf"
+  restore_config_file "Settings" "xsettingsd/xsettingsd.conf" "xsettingsd/xsettingsd.conf"
 
   # ML4W settings files.
   restore_config_file "Settings" "ml4w/settings/filemanager" "ml4w/settings/filemanager"
@@ -1119,6 +1128,9 @@ while true; do
     ;;
   20)
     restore_wlogout
+    ;;
+  21)
+    restore_qs
     ;;
   98)
     collect_pre_restore

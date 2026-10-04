@@ -297,6 +297,7 @@ grep -Fq 'restore_config_folder "MATUGEN" "matugen/templates" "matugen/templates
 grep -Fq '18 - Restore CAVA' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '19 - Restore SWAYNC' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '20 - Restore WLOGOUT' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '21 - Restore QS' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -332,9 +333,15 @@ grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "confirm_yes_no \"Start \$label?\" \"Y\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'BIG/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'restore_config_folder "HYPR" "quickshell" "quickshell"' "$PROJECT_ROOT/restore-dots.sh"
+if sed -n '/^restore_hypr()/,/^}/p' "$PROJECT_ROOT/restore-dots.sh" | grep -Eq 'gtk-3.0/bookmarks|waybar/modules.json|quickshell|qs (kill|-d)'; then
+  printf 'Restore HYPR should not restore Settings, Waybar, or Quickshell content\n' >&2
+  exit 1
+fi
+grep -Fq 'restore_config_file "Settings" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'restore_config_file "Settings" "xsettingsd/xsettingsd.conf" "xsettingsd/xsettingsd.conf"' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'restore_config_folder "QS" "quickshell" "quickshell"' "$PROJECT_ROOT/restore-dots.sh"
 awk '
-  /^restore_hypr\(\)/ { in_func = 1 }
+  /^restore_qs\(\)/ { in_func = 1 }
   in_func && /^[[:space:]]+qs kill$/ { kill_seen = 1 }
   in_func && /^[[:space:]]+qs -d$/ {
     daemon_seen = 1
@@ -344,10 +351,11 @@ awk '
   }
   in_func && /^}/ { exit(kill_seen && daemon_seen ? 0 : 1) }
 ' "$PROJECT_ROOT/restore-dots.sh" || {
-  printf 'Restore HYPR must run qs kill before qs -d\n' >&2
+  printf 'Restore QS must run qs kill before qs -d\n' >&2
   exit 1
 }
 grep -Fq 'restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'restore_config_file "WAYBAR" "waybar/modules.json" "waybar/modules.json"' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "local link_path=\"\$HOME/.config/cava\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "ln -s -- \"\$target_dir\" \"\$link_path\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_path "SWAYNC" "swaync" "swaync"' "$PROJECT_ROOT/restore-dots.sh"
@@ -373,6 +381,7 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 17 restore_matugen
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 18 restore_cava
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 19 restore_swaync
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 20 restore_wlogout
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 21 restore_qs
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'
