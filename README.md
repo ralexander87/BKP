@@ -1,367 +1,70 @@
 # BKPv3
 
-> Bash scripts for backing up and restoring Linux user folders, service-related files, and dotfiles.
+> Bash scripts for backing up and restoring Linux user folders, service configuration, and dotfiles.
+
+## Documentation
+
+- [README-DOTS.md](README-DOTS.md): `bkp-main.sh`, `restore-main.sh`, and every `restore-dots.sh` action
+- [README-SERV.md](README-SERV.md): `bkp-serv.sh` and every `restore-serv.sh` action
 
 ## Scripts
 
-- `bkp-main.sh` / `restore-main.sh`: user folders, files, and dotfiles backup.
-- `bkp-serv.sh` / `restore-serv.sh`: service/system config backup and restore.
-- `restore-dots.sh`: dotfiles restore helper copied into backup `DOTS` folders.
-- `catalog.sh`: read-only catalog of completed and interrupted backups.
+- `bkp-main.sh`: backs up discovered home folders and ML4W dotfiles
+- `restore-main.sh`: restores a completed MAIN backup into `$HOME`
+- `restore-dots.sh`: installs or restores selected dotfiles from a MAIN backup
+- `bkp-serv.sh`: backs up service and system configuration
+- `restore-serv.sh`: restores selected service and system configuration
+- `catalog.sh`: provides a read-only catalog of completed and interrupted backups
+- `doctor.sh`: reports post-reinstall project and backup readiness
 
-## Requirements
-
-- `bash`
-- `rsync`
-- `pigz` for optional archive compression
-- `curl` for the ML4W installer
-- `sudo`, `pacman`, `makepkg`, `git`, and `flatpak` for Arch package setup
-- `qs` for restarting Quickshell after Restore QS
-- `shellcheck` for script checks
-- `shfmt` for formatting checks
+All backup and restore scripts support `--quiet`. INFO messages are hidden from the terminal while full messages continue to be written to their log.
 
 ## Quick Start
 
-#### Run the main backup:
+Run a MAIN backup:
 
 ```bash
 ./bkp-main.sh
 ```
 
-Use `--quiet` to hide INFO-level terminal output while still writing full logs:
-
-```bash
-./bkp-main.sh --quiet
-```
-
-- The script lists external mounted devices with source device, filesystem, label, and free space.
-	- If one device is mounted, it is selected automatically
-	- If multiple devices are mounted, select the destination by number.
-
-#### Each main backup is written to:
-
-```bash
-/path/to/device/MAIN/BKP-<timestamp>
-```
-
-#### The backup folder contains selected discovered `$HOME` folders directly:
-
-```text
-BKP-<timestamp>/
-  Downloads/
-  Pictures/
-  Documents/
-  <DiscoveredFolder>/
-  .ssh/
-  DOTS/
-  lib/
-  backup-manifest.txt
-  backup-manifest.json
-  restore-main.sh
-```
-
-##### The timestamp format is:
-
-```bash
-date +%Y-%j-%d-%m-%H-%M-%S
-```
-
-- Before copying files, `bkp-main.sh` asks whether to create a compressed `.tar.gz` archive after backup
-	- The default answer is `N`; when you answer `Y`, compression uses `pigz`
-- Backup content is first written to a hidden `.BKP-*.in-progress` folder
-	- The folder is renamed to `BKP-*` only after required content passes verification
-
-#### Main archives are written beside the backup folder:
-
-```bash
-/path/to/device/MAIN/BKP-<timestamp>.tar.gz
-```
-
-- The shared backup-device folders `BIG/wallpapers/` and `BIG/030-Firmware/` are not part of the per-run
-	- `BKP-*` folder and are explicitly excluded from compressed main archives
-- Before backup starts, `bkp-main.sh` offers a numbered skip list of all discovered non-hidden `$HOME` folders
-	- Enter one or more numbers separated by spaces or commas to exclude those folders
-- Before starting the backup, the script checks estimated source size against destination free space
-	- If the destination appears too small, it warns and asks whether to continue
-- Only one main backup can run at a time
-	- A lock file in `logs/` prevents accidental overlapping runs
-
-#### Backup runs write terminal output, progress summaries, warnings, errors, and audit-style entries to one shared project log:
-
-```bash
-logs/bkp.log
-```
-
-- Each backup includes a human-readable `backup-manifest.txt` with timestamp, host, user, destination, archive choice, copied items, Git commit when available, backup status, and final dashboard counters.
-- Each backup also includes a versioned `backup-manifest.json` sidecar for tools and automation
-	- Both manifests currently use schema version `1`
-- New restores require `Backup Status = [COMPLETED]` or `Run Result = [COMPLETED]` in `backup-manifest.txt`
-	- Legacy key/value manifests and separate `backup.status` files remain supported for older backups.
-- Requested archives are written to a temporary `.in-progress` path
-	- `pigz` integrity and tar readability are validated before the archive is renamed to its final path
-	- Published archives are restricted to mode `600` on filesystems that support Unix permissions
-- Interrupted backup runs are marked failed and temporary archives are removed by the exit cleanup flow
-- Terminal output is intentionally grouped.
-	- The backup scripts show a lightweight dashboard with compact run metrics, selected options, named task sections, recent warnings/errors.
-	- And a final success/failure summary instead of printing every copied file.
-
-#### Restore the main backup from inside a backup folder:
-
-```bash
-cd /path/to/device/MAIN/BKP-<timestamp>
-./restore-main.sh
-```
-
-`restore-main.sh` also supports `--quiet`
-
-- Each backup includes a copy of `restore-main.sh`
-	- It restores from its current folder back into `$HOME` after you confirm with `Y`
-- `restore-main.sh` discovers restorable top-level backup items from the current backup folder
-	- It skips backup helper content such as `DOTS`, `lib`, `restore-main.sh`, manifests, and logs
-	- It restores shared `BIG/030-Firmware/` back to `$HOME/Documents/030-Firmware/` when that shared folder exists
-- Restore runs write their output and results to `restore.log` in the backup folder
-	- `restore-dots.sh` writes to the parent backup folder's `restore.log` when it is run from `DOTS`
-	- When backup media is read-only, logs and generated rollback files are written under `${XDG_STATE_HOME:-$HOME/.local/state}/bkp/`
-- Backups also include `lib/common.sh` beside copied restore scripts. The restore scripts have a small built-in fallback, so they can still start from older backup folders where `lib/common.sh` is missing
-- Restore uses `rsync` metadata-preserving options for permissions, ownership, ACLs, and extended attributes
-- `restore-main.sh` hides per-file rsync progress and prints compact start/completion summaries for each restored top-level item
-- `restore-dots.sh` also hides per-file rsync progress and prints compact action summaries
-- Before restoring an existing file or folder, the restore scripts create a `<name>-pre-restore-<timestamp>` safety snapshot and immediately move it into `$HOME/PreRestored` using a collision-safe name.
-- Restoration continues only after the safety snapshot has been moved successfully.
-- After restoring `.ssh`, the script sets `.ssh` to `700`, `*.pub` files to `644`, and all other SSH files to `600`
-
-#### Service backup:
+Run a SERVICE backup:
 
 ```bash
 ./bkp-serv.sh
 ```
 
-- `bkp-serv.sh` also supports `--quiet`.
-- `bkp-serv.sh` uses the mounted-device selector and writes backups to:
+See the [MAIN and DOTS guide](README-DOTS.md) or [SERVICE guide](README-SERV.md) before running restore actions.
+
+## Requirements
+
+Use the shared dependency check for a complete report:
 
 ```bash
-/path/to/device/SERV/BKP-<timestamp>
+make deps
 ```
 
-#### It requests root authentication at startup, then backs up:
-
-- `/etc/samba/smb.conf`
-- `/etc/samba/creds-*`
-- `/etc/ssh/sshd_config`
-- `/etc/default/grub`
-- `/etc/mkinitcpio.conf`
-
-- Each service backup includes a copy of `restore-serv.sh` inside the backup folder.
-	- And supports optional `.tar.gz` compression with `pigz`.
-
-#### Service archives are written beside the backup folder:
-
-```bash
-/path/to/device/SERV/BKP-<timestamp>.tar.gz
-```
-
-- Service backup content is stored as standalone entries in the backup root (for example `smb.conf`, `sshd_config`, `grub`, `mkinitcpio.conf`, `creds-*`, `luks.bin`), not as full `/etc/...` directory trees.
-
-#### Service backup fail-safes:
-
-- Preflight checks for required commands and required source paths
-- Destination mount/writable verification before copy
-- Human-readable backup status marker (`[IN PROGRESS]`, `[COMPLETED]`, or `[FAILED]`) in `backup-manifest.txt` for restore safety
-- Completeness verification of expected backup content before marking complete
-- Backup audit entries in `logs/bkp.log`
-- Restore value config copied to `config/serv.restore.conf`
-- LUKS header backup saved as `luks.bin` when a LUKS source is detected; set `LUKS_DEVICE=/dev/...` to force a specific source device
-
-#### Restore service backup from inside a `SERV/BKP-*` folder:
-
-```bash
-cd /path/to/device/SERV/BKP-<timestamp>
-./restore-serv.sh
-```
-
-`restore-serv.sh` also supports `--quiet`.
-
-##### Current options:
-
-- `0 - Exit`
-- `1 - Create SMB`: creates
-	- `/SMB`
-		- `/SMB/euclid`
-		- `/SMB/pneuma-kali`
-		- `/SMB/lateralus`
-	- `/SMB/SCP`
-		- `/SMB/SCP/HDD-01`
-		- `/SMB/SCP/HDD-02`
-		- `/SMB/SCP/HDD-03`
-	- Then sets ownership to the local non-root user and permissions to `750`
-- `2 - Restore samba`: restores
-	- `smb.conf`
-	- `creds-*`
-		- to `/etc/samba/`
-	- Optionally runs `sudo smbpasswd -a <local-user>`
-		- Then enables and starts `smb.service`
-- `3 - Restore SSH`: restores
-	- `sshd_config`
-		- to `/etc/ssh/`
-	- Then enables and starts `sshd.service`
-- `4 - Restore fstab`: runs
-	- `sudo modprobe cifs`
-		- Replaces existing entries for the configured SMB mountpoints
-		- Validates the generated table
-		- Then atomically installs it as `/etc/fstab`
-- `5 - Restore grub theme`: restores
-	- `BIG/lateralus` from the external backup device
-		- to `/boot/grub/themes/`
-- `6 - Restore GRUB`: updates
-	- `/etc/default/grub` values for splash, terminal input/output, gfx mode, and GRUB theme path
-		- Then runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`
-- `7 - Restore RAMBOX`: runs `sudo chmod 755 /opt/rambox`
-	- Records the previous directory mode in the generated rollback helper
-- `90 - Restore CONFIG`: restores
-	- `smb.conf`, `creds-euclid`, `creds-pneuma`, and `creds-scp` to `/etc/samba/`
-	- `sshd_config` to `/etc/ssh/`
-	- Then enables and starts `avahi-daemon.service`, `wsdd.service`, `sshd.service`, `nmb.service`, and `pcscd.service`
-- `98 - Collect pre-restore`: collects legacy service
-	- `*-pre-restore-*` files and folders left in known restore target locations by older restore runs
-	- Preserves their ownership, and updates generated rollback scripts to the new paths
-
-#### Service restore fail-safes:
-
-- Restore is blocked unless
-	- `Backup Status` or `Run Result` in `backup-manifest.txt` is `[COMPLETED]`
-- SMB directories and GRUB target values are loaded from `config/serv.restore.conf` when present
-	- With local fstab entries loaded from ignored `config/local/serv.restore.conf` when present
-- Per-action confirmation prompts
-- Automatic pre-restore snapshots for changed targets (`*-pre-restore-<timestamp>`)
-- Generated rollback helper script: `restore-serv-rollback-<timestamp>.sh`
-	- Rollback covers replaced and newly created service targets, SMB directory metadata, service state, and a CIFS module loaded by the restore
-	- Commands are stored newest-first so repeated changes to one target are reversed in the correct order
-- Idempotent `fstab` updates by configured mountpoint (stale entries for those mountpoints are replaced)
-- Atomic file update flow for `/etc/fstab` and `/etc/default/grub` (temp file + install)
-- Post-restore validation hooks (`testparm -s`, `sshd -t`, `findmnt --verify` when available)
-- Restored ownership and modes for service files (`/etc/samba/creds-*` uses `600`; `/etc/ssh/sshd_config` uses `644`)
-- Restore audit entries in `restore.log`
+Core backup and development commands are reported as failures when absent. Commands used only by individual restore actions are reported as warnings.
 
 ## Configuration
 
 Public, version-controlled configuration is split by responsibility:
 
-- `config/main.backup.conf`: main source paths, shared `BIG` destinations, hidden files, and rsync exclusions
-- `config/serv.backup.conf`: required service source paths plus the Samba credentials pattern
+- `config/main.backup.conf`: MAIN source paths, shared `BIG` destinations, hidden files, and rsync exclusions
+- `config/serv.backup.conf`: required SERVICE source paths and the Samba credentials pattern
 - `config/dots-extra.conf`: Arch/AUR packages, Flatpaks, and repository VLC removal behavior
 - `config/serv.restore.conf`: SMB directory and GRUB restore values
 
-Machine-local values remain under ignored `config/local/`.
+Machine-local values remain under ignored `config/local/`. Relevant local configuration is copied into new backups so restore behavior stays tied to the backup that created it without publishing private values.
 
-New MAIN and DOTS backups include `config/main.backup.conf`, allowing restore scripts to use the firmware and wallpaper paths recorded with that backup. DOTS backups also include `config/dots-extra.conf`.
+## Backup Catalog
 
-The current `bkp-main.sh` backs up discovered `$HOME` folders:
-
-- Every top-level non-hidden folder in `$HOME`
-	- Listed in a numbered prompt so the user can exclude any folder for that run
-- Selected hidden folders when present
-	- `.themes`
-	- `.icons`
-	- `.ssh`
-	- `.vscode-oss`
-
-`Downloads/*.iso` files are excluded. The `.ssh/agent` folder is excluded.
-
-- `bkp-main.sh` also copies `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config` into `DOTS` and copies `restore-dots.sh` into that `DOTS` folder
-- `ml4w/wallpapers/` is excluded from each per-run `DOTS` copy and is stored in the shared backup-device folder `BIG/wallpapers/` instead
-- When `$HOME/.mydotfiles` or the nested ML4W config folder is missing, the DOTS backup tasks are skipped without failing the main backup
-- Wallpaper backup copies only files missing from `BIG/wallpapers/`
-	- existing files in that shared folder are left untouched.
-	- The shared `BIG/wallpapers/` folder is not included in compressed `MAIN/BKP-*.tar.gz` archives
-- `Documents/030-Firmware/` is excluded from each per-run `Documents` copy and is stored in the shared backup-device folder `BIG/030-Firmware/` instead.
-	- Firmware backup copies only files missing from `BIG/030-Firmware/`; existing files in that shared folder are left untouched.
-	- `restore-main.sh` restores `BIG/030-Firmware/` back to `$HOME/Documents/030-Firmware/` when that shared folder exists.
-	- The shared `BIG/030-Firmware/` folder and per-run `Documents/030-Firmware/` path are excluded from compressed `MAIN/BKP-*.tar.gz` archives.
-- Selected backup-only home files are copied directly into `BIG/`
-	- `.bash_history`
-	- `.zsh_history`
-	- `.zshrc`
-	- `.wget-hsts`
-		- These files are not restored by any restore script
-- When ignored `config/local/restore-dots-settings.sh` exists, it is copied into `DOTS/config/local/` and can be run by `99 - Restore Settings`
-
-#### Run dotfiles restore actions from inside a backup `DOTS` folder:
-
-```bash
-cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
-./restore-dots.sh
-```
-
-`restore-dots.sh` also supports `--quiet`.
-
-DOTS actions require the parent MAIN backup manifest or legacy status marker to report a completed backup.
-
-##### Current options:
-
-- `0 - Exit`
-- `1 - Install DOTS`: moves `$HOME/.config/hypr` to a safety snapshot
-	- Downloads the ML4W Stable installer over HTTPS into a temporary file and displays its first 20 lines
-	- Runs the downloaded installer with Bash only after a second confirmation
-- `2 - Install FONTS`: runs `BIG/fonts/install.sh` from the backup device root (with a local fallback lookup)
-	- Copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
-		- Refreshes that font cache when `fc-cache` is available
-- `3 - Install HyprMod`: checks for `yay` and installs it from its official AUR package when missing
-	- Then runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-install-hyprmod` only after `yay` is available
-- `4 - Install Extra`: removes repository `vlc` with Pacman when installed
-	- Checks whether `yay` is installed first; when missing, installs build requirements and builds `yay` from its official AUR package
-	- Checks for `org.videolan.VLC` and `org.gnome.Calculator` Flatpaks
-	- Checks for `jefferson`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, `rambox-pro-bin`, `qrencode`, and `python-pywalfox`
-		- Installs all missing packages and Flatpaks noninteractively after option 4 is selected
-	- Keeps package-manager details out of the terminal and writes them to `install-extra.log` beside the running script, or to the user state fallback on read-only media, with missing items and failed actions summarized first
-- `5 - Set AutoLogin`: saves a safety snapshot of `/usr/lib/sddm/sddm.conf.d/default.conf`
-	- Then sets its `User=` line to the local non-root username using `sudo`
-- `6 - Change SHELL`: runs `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/scripts/ml4w-change-shell`
-- `10 - Restore Wallpapers`: moves the existing wallpapers folder to a safety snapshot
-	- Then copies wallpapers from the backup device's shared `BIG/wallpapers/` folder
-- `11 - Restore ZSHRC`: moves an existing `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config/zshrc` folder to a safety snapshot and copies `zshrc` from the current `DOTS` folder
-- `12 - Restore KITTY`: moves the existing KITTY folder to a safety snapshot
-	- Copies `kitty` from the current `DOTS` folder
-- `13 - Restore FASTFETCH`: moves the existing FastFetch folder to a safety snapshot
-	- Copies `fastfetch` from the current `DOTS` folder
-- `14 - Restore HYPR`: copies `hypr/conf/keybindings/default.lua`, `hypr/conf/monitor.lua`, and `hypr/conf/windowrules/default.lua`
-	- Into matching `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/conf/` subfolders
-	- Copies `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/`
-	- Copies `hypr/scripts/uptime.sh` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/hypr/scripts/`
-- `15 - Restore ROFI`: moves the existing ROFI folder to a safety snapshot, then copies `rofi` from the current `DOTS` folder
-- `16 - Restore WAYBAR`: moves the existing Waybar themes and scripts folders to timestamped pre-restore snapshots
-	- Copies `waybar/modules.json`, `waybar/themes`, and `waybar/scripts` from the current `DOTS` folder
-- `17 - Restore MATUGEN`: copies `matugen/config.toml` and restores the complete `matugen/templates` folder from the current `DOTS` folder to the matching ML4W config paths
-- `18 - Restore CAVA`: moves the existing `cava` folder to a safety snapshot, then copies `cava` from the current `DOTS` folder
-	- Creates `~/.config/cava` as a symbolic link to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/cava`, preserving a conflicting local path as a safety snapshot
-- `19 - Restore SWAYNC`: moves the existing `swaync` folder to a safety snapshot, then copies `swaync` from the current `DOTS` folder
-- `20 - Restore WLOGOUT`: moves the existing `wlogout` folder to a safety snapshot, then restores the complete `wlogout` folder from the current `DOTS` folder
-- `21 - Restore QS`: moves the existing `quickshell` folder to a safety snapshot, restores the complete backed-up folder, and applies local font adjustments to `quickshell/overview/config.json`
-	- Restarts Quickshell by running `qs kill` followed by `qs -d`
-- `98 - Collect pre-restore`: collects legacy `*-pre-restore-*` files and folders left under `$HOME` by older restore runs
-- `99 - Restore Settings`: copies selected GTK, Qt, and `ml4w/settings/` files from the current `DOTS` folder to the matching ML4W config path
-	- Copies `gtk-3.0/bookmarks` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/gtk-3.0/bookmarks`
-	- Copies `xsettingsd/xsettingsd.conf` to `~/.mydotfiles/com.ml4w.dotfiles.stable/.config/xsettingsd/xsettingsd.conf`
-	- Copies `BIG/dracula.qbtheme` from the backup device to `$HOME/.config/qBittorrent/dracula.qbtheme`
-	- Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when that file exists
-
-- Restore and system-changing actions ask for confirmation before changing local configuration
-	- The default answer is `N`; press `Y` to proceed
-	- If you answer `N`, the action is cancelled and the script returns to the menu
-	- `4 - Install Extra` is intentionally unattended after selection and does not ask package-manager yes/no questions
-	- The copied `restore-dots.sh` includes the same bundled-helper and fallback behavior as the main restore script
-	- Existing files changed by HYPR, QS, Matugen, Settings, Thunar, and qBittorrent actions are moved to timestamped safety snapshots first
-
-`config/serv.restore.conf` controls public service restore values for SMB directories and GRUB defaults. Local fstab entries can be stored in ignored `config/local/serv.restore.conf`; when present, this local file is copied into each `SERV` backup so restore behavior is tied to the backup that created it without publishing private mount details.
-
-`config/local/` is intentionally ignored by Git. It is used for machine-local restore data such as fstab entries and optional dotfiles restore hooks. `doctor.sh` checks the latest mounted backups for these local files when they exist in the project.
-
-#### List available backups:
+List backups on detected external mounts:
 
 ```bash
 ./catalog.sh
 ```
 
-Pass one or more mounted-device paths to scan specific destinations:
+Scan one or more specific destinations:
 
 ```bash
 ./catalog.sh /run/media/$USER/netac
@@ -369,51 +72,55 @@ Pass one or more mounted-device paths to scan specific destinations:
 
 The catalog reports MAIN/SERV type, folder name, status, creation time, size, archive presence, and archive validation state. Hidden `.BKP-*.in-progress` folders are included so interrupted runs remain visible.
 
-#### Log rotation:
+## Logs
 
-The shared log rotates at 5 MiB and retains five numbered copies by default. Override these values for a run with `LOG_MAX_BYTES` and `LOG_ROTATE_COUNT`.
+Backup runs write terminal output, progress summaries, warnings, errors, and audit entries to:
+
+```text
+logs/bkp.log
+```
+
+The shared log rotates at 5 MiB and retains five numbered copies by default. Override these values with `LOG_MAX_BYTES` and `LOG_ROTATE_COUNT`.
+
+Restore logs are stored inside the backup when it is writable. On read-only backup media, logs and generated rollback files use `${XDG_STATE_HOME:-$HOME/.local/state}/bkp/`.
 
 ## Development
 
-#### Check dependencies:
+Check dependencies:
 
 ```bash
 make deps
 ```
 
-#### Run shell checks:
+Run shell checks:
 
 ```bash
 make check
 ```
 
-`make deps` uses `tools/check-deps.sh` as the shared dependency inventory for the Makefile and `doctor.sh`. It reports commands needed by the core backup and development workflows as failures and commands used by individual restore actions as warnings.
-
-The smoke suite also uses `pigz`, `tar`, `truncate`, and `python3` for archive and JSON validation tests.
-
-#### For CI-equivalent local checks:
+Run CI-equivalent local checks:
 
 ```bash
 make ci-check
 ```
 
-#### Run restore portability smoke checks:
+Run restore portability and behavior checks:
 
 ```bash
 make smoke
 ```
 
-#### Run a read-only post-reinstall readiness report:
+Run the post-reinstall readiness report:
 
 ```bash
 make doctor
 ```
 
-`doctor.sh` checks required commands, source paths, latest mounted backup structure, backup status markers, local ignored restore files when present, Git state, GitHub SSH authentication, and smoke-check prerequisites.
+`doctor.sh` checks required commands, configured source paths, latest mounted backup structure, backup status markers, local restore files when present, Git state, GitHub authentication, and smoke-check prerequisites.
 
 ## Versioning
 
-Current version is tracked in the `VERSION` file.
+The current version is stored in `VERSION`.
 
 ## Changelog
 
@@ -430,15 +137,15 @@ Current version is tracked in the `VERSION` file.
 
 ### 0.4.0
 
-- Centralized common script helpers (logging, prompts, rsync profiles, dependency checks)
-- Added log levels and `--quiet` mode across backup/restore scripts
+- Centralized common script helpers for logging, prompts, rsync profiles, and dependency checks
+- Added log levels and `--quiet` mode across backup and restore scripts
 - Standardized rsync execution paths for backup and restore operations
 - Added script-specific preflight dependency checks
-- Improved restore menu behavior to return to menu after cancelled actions
-- Switched critical config writes to atomic temp-file updates in service restore
-- Added GitHub Actions shell CI (`bash -n`, `shellcheck`, `shfmt -d`)
+- Improved restore menu behavior to return to the menu after cancelled actions
+- Switched critical service configuration writes to atomic temporary-file updates
+- Added GitHub Actions shell CI with `bash -n`, `shellcheck`, and `shfmt -d`
 - Added atomic backup publication, validated archives, versioned manifests, and backup cataloging
-- Added dynamic `$HOME` folder selection plus shared wallpaper and firmware storage
-- Added compact backup dashboards and compact per-item main restore output
-- Added automatic main pre-restore snapshot collection into `$HOME/PreRestored`
+- Added dynamic `$HOME` folder selection and shared wallpaper and firmware storage
+- Added compact backup dashboards and compact per-item MAIN restore output
+- Added automatic MAIN pre-restore snapshot collection into `$HOME/PreRestored`
 - Expanded dotfiles restore actions for packages, AutoLogin, shell changes, HYPR, Waybar, CAVA, SWAYNC, and Wlogout
