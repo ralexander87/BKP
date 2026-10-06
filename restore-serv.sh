@@ -371,6 +371,7 @@ Select action:
   91 - Restore boot profile
   92 - Restore discovery services
   93 - Restore smart-card service
+  94 - Restore complete profile
 ============================
   98 - Collect pre-restore
 EOF
@@ -702,28 +703,52 @@ restore_samba() {
 # Validate an sshd configuration without depending on installed host keys.
 validate_sshd_config_file() {
   local config_file="$1"
+  local dropin_dir="${2:-}"
   local validation_dir
+  local validation_config
   local validation_key
+  local validation_dropin_dir
 
-  require_all_cmds sshd ssh-keygen mktemp
+  require_all_cmds sshd ssh-keygen mktemp cp sed
   validation_dir="$(mktemp -d)"
   register_temp_path "$validation_dir"
+  validation_config="$validation_dir/sshd_config"
   validation_key="$validation_dir/ssh_host_ed25519_key"
+  cp -- "$config_file" "$validation_config"
+  if [[ -n "$dropin_dir" && -d "$dropin_dir" ]]; then
+    validation_dropin_dir="$validation_dir/sshd_config.d"
+    cp -R -- "$dropin_dir" "$validation_dropin_dir"
+    sed "s|/etc/ssh/sshd_config\.d/|$validation_dropin_dir/|g" "$validation_config" >"$validation_config.rewritten"
+    mv -- "$validation_config.rewritten" "$validation_config"
+  fi
   ssh-keygen -q -t ed25519 -N "" -f "$validation_key"
-  sudo sshd -t -f "$config_file" -h "$validation_key"
+  sudo sshd -t -f "$validation_config" -h "$validation_key"
 }
 
 # Restore sshd_config into /etc/ssh/.
 restore_ssh() {
-  require_all_cmds sudo cp mkdir rsync chown chmod systemctl sshd ssh-keygen
+  local source_dropin_dir="$SCRIPT_DIR/sshd_config.d"
+  local target_dropin_dir="/etc/ssh/sshd_config.d"
+
+  require_all_cmds sudo cp mkdir rsync chown chmod systemctl sshd ssh-keygen rm find
 
   [[ -f "$SCRIPT_DIR/sshd_config" ]] || die "SSH source file not found: $SCRIPT_DIR/sshd_config"
   log "Validating backed-up sshd configuration with a temporary host key"
-  validate_sshd_config_file "$SCRIPT_DIR/sshd_config" || die "backed-up sshd config validation failed"
+  validate_sshd_config_file "$SCRIPT_DIR/sshd_config" "$source_dropin_dir" || die "backed-up sshd config validation failed"
   snapshot_target "/etc/ssh/sshd_config"
   restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
   sudo chown root:root /etc/ssh/sshd_config
   sudo chmod 644 /etc/ssh/sshd_config
+
+  if [[ -d "$source_dropin_dir" ]]; then
+    log "Restoring SSH server config drop-ins: $source_dropin_dir -> $target_dropin_dir"
+    snapshot_target "$target_dropin_dir"
+    sudo rm -rf -- "$target_dropin_dir"
+    restore_tree_to_system "$source_dropin_dir" "$target_dropin_dir"
+    sudo chown -R root:root "$target_dropin_dir"
+    sudo find "$target_dropin_dir" -type d -exec chmod 755 {} +
+    sudo find "$target_dropin_dir" -type f -exec chmod 644 {} +
+  fi
 
   log "Generating any missing SSH host keys"
   sudo ssh-keygen -A
@@ -753,6 +778,15 @@ restore_discovery_profile() {
 # Enable the socket-activated smart-card service used by Arch Linux.
 restore_smartcard_profile() {
   enable_and_refresh_unit "pcscd.socket"
+}
+
+# Restore all grouped system configuration, including remote access.
+restore_complete_profile() {
+  restore_sharing_profile
+  restore_ssh
+  restore_boot_profile
+  restore_discovery_profile
+  restore_smartcard_profile
 }
 
 # Create SMB folders and set ownership/perms for the local non-root user.
@@ -1118,6 +1152,9 @@ while true; do
     ;;
   93)
     run_menu_action "Restore smart-card service" restore_smartcard_profile
+    ;;
+  94)
+    run_menu_action "Restore complete profile" restore_complete_profile
     ;;
   98)
     run_menu_action "Collect pre-restore" collect_pre_restore false

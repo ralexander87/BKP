@@ -91,6 +91,8 @@ The backup-only files in shared `BIG/` are not restored by any restore script.
 
 `Downloads/*.iso` and `.ssh/agent/` are excluded. `Documents/030-Firmware/` is excluded from the per-run Documents copy, and `ml4w/wallpapers/` is excluded from the per-run DOTS copy.
 
+The MAIN backup therefore preserves user SSH configuration, keys, `known_hosts`, and `authorized_keys` while omitting transient agent sockets. These files can contain private credentials, so the backup destination should be protected.
+
 When `$HOME/.mydotfiles` or its nested ML4W configuration folder is absent, DOTS tasks are skipped without failing the MAIN backup. Shared wallpaper and firmware copies use `--ignore-existing`, leaving existing shared files untouched.
 
 Source paths and exclusions are configured in `config/main.backup.conf`. DOTS package choices are configured in `config/dots-extra.conf`. Both files are bundled with relevant new backups.

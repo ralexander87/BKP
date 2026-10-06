@@ -127,12 +127,23 @@ check_serv_backup() {
   local manifest_file="$backup_dir/backup-manifest.txt"
   local status=""
   local manifest_version=""
+  local source_path
 
   [[ -n "$backup_dir" ]] || return 0
   ok "latest SERV backup: $backup_dir"
   check_file_in_backup "$backup_dir/restore-serv.sh"
   check_file_in_backup "$backup_dir/lib/common.sh"
   check_file_in_backup "$backup_dir/config/serv.restore.conf"
+  for source_path in "${SERVICE_REQUIRED_PATHS[@]}"; do
+    check_file_in_backup "$backup_dir/$(basename -- "$source_path")"
+  done
+  if [[ -d "$SSH_CONFIG_DROPIN_SOURCE" ]]; then
+    if [[ -d "$backup_dir/sshd_config.d" ]]; then
+      ok "backup directory: $backup_dir/sshd_config.d"
+    else
+      warn "SSH server drop-ins missing from backup: $backup_dir/sshd_config.d"
+    fi
+  fi
   if [[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]]; then
     check_file_in_backup "$backup_dir/config/local/serv.restore.conf"
   fi
@@ -159,6 +170,81 @@ check_serv_backup() {
     fi
   else
     fail "service backup status missing from manifest and legacy file"
+  fi
+}
+
+# Report SSH client, server, and Git transport readiness without changing them.
+check_ssh_health() {
+  local ssh_dir="$HOME/.ssh"
+  local ssh_dir_mode
+  local validation_dir
+  local validation_key
+  local auth_output
+  local systemctl_output
+
+  printf '\nSSH\n'
+  if [[ -d "$ssh_dir" ]]; then
+    ssh_dir_mode="$(stat -c '%a' "$ssh_dir")"
+    if [[ "$ssh_dir_mode" == "700" ]]; then
+      ok "user SSH directory mode: $ssh_dir_mode"
+    else
+      warn "user SSH directory mode is $ssh_dir_mode; expected 700: $ssh_dir"
+    fi
+  else
+    warn "user SSH directory missing: $ssh_dir"
+  fi
+
+  if command -v ssh >/dev/null 2>&1; then
+    if ssh -G -o BatchMode=yes github.com >/dev/null 2>&1; then
+      ok "SSH client configuration parses"
+    else
+      warn "SSH client configuration needs attention"
+    fi
+  else
+    warn "SSH client command missing"
+  fi
+
+  if systemctl_output="$(systemctl cat sshd.service 2>&1)"; then
+    if systemctl is-enabled --quiet sshd.service 2>/dev/null; then
+      ok "sshd.service enabled"
+    else
+      warn "sshd.service is not enabled"
+    fi
+    if systemctl is-active --quiet sshd.service; then
+      ok "sshd.service active"
+    else
+      warn "sshd.service is not active"
+    fi
+  elif [[ "$systemctl_output" == *"Failed to connect to"* ]]; then
+    warn "systemd system bus unavailable; sshd.service state checks skipped"
+  else
+    warn "sshd.service unit not found"
+  fi
+
+  if command -v sshd >/dev/null 2>&1 && command -v ssh-keygen >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+    validation_dir="$(mktemp -d)"
+    validation_key="$validation_dir/ssh_host_ed25519_key"
+    ssh-keygen -q -t ed25519 -N "" -f "$validation_key"
+    if sudo -n sshd -t -f /etc/ssh/sshd_config -h "$validation_key"; then
+      ok "SSH server configuration parses"
+    else
+      warn "SSH server configuration validation failed"
+    fi
+    rm -rf -- "$validation_dir"
+  else
+    warn "SSH server validation skipped; sshd, ssh-keygen, or noninteractive sudo unavailable"
+  fi
+
+  if command -v ssh >/dev/null 2>&1; then
+    auth_output="$(mktemp)"
+    if ssh -T -o BatchMode=yes -o ConnectTimeout=5 git@github.com >"$auth_output" 2>&1; then
+      ok "GitHub SSH authentication"
+    elif grep -Fq "successfully authenticated" "$auth_output"; then
+      ok "GitHub SSH authentication"
+    else
+      warn "GitHub SSH authentication needs attention: $(cat "$auth_output")"
+    fi
+    rm -f -- "$auth_output"
   fi
 }
 
@@ -192,6 +278,8 @@ for path in "${source_paths[@]}"; do
   check_path "$path"
 done
 
+check_ssh_health
+
 printf '\nExternal mounts\n'
 mapfile -t mounts < <(
   findmnt -rn -o TARGET,SOURCE,FSTYPE |
@@ -220,18 +308,6 @@ if git -C "$PROJECT_ROOT" status --short >/dev/null 2>&1; then
 else
   fail "git repository not readable"
 fi
-
-if ssh -T -o BatchMode=yes git@github.com >/tmp/bkp-doctor-ssh.out 2>&1; then
-  ok "GitHub SSH authentication"
-else
-  ssh_output="$(cat /tmp/bkp-doctor-ssh.out)"
-  if [[ "$ssh_output" == *"successfully authenticated"* ]]; then
-    ok "GitHub SSH authentication"
-  else
-    warn "GitHub SSH authentication needs attention: $ssh_output"
-  fi
-fi
-rm -f /tmp/bkp-doctor-ssh.out
 
 printf '\nLocal checks\n'
 if "$PROJECT_ROOT/tools/smoke.sh" >/dev/null; then

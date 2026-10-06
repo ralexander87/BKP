@@ -487,6 +487,7 @@ grep -Fq '90 - Restore sharing profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '91 - Restore boot profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '92 - Restore discovery services' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '93 - Restore smart-card service' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '94 - Restore complete profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
@@ -518,6 +519,12 @@ if sed -n '/^restore_sharing_profile()/,/^}/p; /^restore_boot_profile()/,/^}/p; 
   printf 'Non-SSH service profiles must not include SSH actions\n' >&2
   exit 1
 fi
+for profile_action in restore_sharing_profile restore_ssh restore_boot_profile restore_discovery_profile restore_smartcard_profile; do
+  sed -n '/^restore_complete_profile()/,/^}/p' "$PROJECT_ROOT/restore-serv.sh" | grep -Fq "$profile_action"
+done
+grep -Fq 'SSH_CONFIG_DROPIN_SOURCE="/etc/ssh/sshd_config.d"' "$PROJECT_ROOT/config/serv.backup.conf"
+grep -Fq "backup_path \"serv-sshd-dropins\" \"\$SSH_CONFIG_DROPIN_SOURCE\"" "$PROJECT_ROOT/bkp-serv.sh"
+grep -Fq "restore_tree_to_system \"\$source_dropin_dir\" \"\$target_dropin_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 1 create_smb_tree
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 2 restore_samba
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 3 restore_ssh
@@ -529,6 +536,7 @@ assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 90 restore_sharing_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 91 restore_boot_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 92 restore_discovery_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 93 restore_smartcard_profile
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 94 restore_complete_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 98 collect_pre_restore
 awk '
   /^restore_fstab\(\) / { in_func = 1 }
@@ -545,6 +553,21 @@ awk '
   exit 1
 }
 printf 'restore-serv menu OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/sshd_config.d"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-serv.sh" >"$tmp/restore-serv-partial.sh"
+cat >>"$tmp/restore-serv-partial.sh" <<'EOF'
+sudo() { "$@"; }
+printf 'Include /etc/ssh/sshd_config.d/*.conf\nPidFile %s/sshd.pid\n' "$PWD" >sshd_config
+printf 'PasswordAuthentication no\n' >sshd_config.d/10-bkp-smoke.conf
+validate_sshd_config_file "$PWD/sshd_config" "$PWD/sshd_config.d"
+cleanup_temp_paths
+EOF
+(cd "$tmp" && bash restore-serv-partial.sh)
+rm -rf "$tmp"
+printf 'restore-serv SSH drop-in validation OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/home/PreRestored"
@@ -864,6 +887,7 @@ RUN_RESULT="complete"
 LUKS_DEVICE_PATH="/dev/nvme0n1p2"
 LUKS_HEADER_FILE="luks.bin"
 LUKS_HEADER_CREATED=true
+SSH_CONFIG_DROPINS_INCLUDED=false
 SERVICE_REQUIRED_PATHS=(/etc/samba/smb.conf /etc/ssh/sshd_config)
 SAMBA_CREDS_GLOB="/etc/samba/creds-*"
 write_manifest
@@ -873,6 +897,7 @@ grep -Fq 'Backup Type = [SERVICE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Archive Requested = [TRUE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'LUKS Header Created = [TRUE]' "$tmp/BKP/backup-manifest.txt"
 grep -Fq 'Required Service Paths = /etc/samba/smb.conf /etc/ssh/sshd_config' "$tmp/BKP/backup-manifest.txt"
+grep -Fq 'SSH Config Drop-ins = [FALSE]' "$tmp/BKP/backup-manifest.txt"
 if grep -Fq 'Optional Service Paths' "$tmp/BKP/backup-manifest.txt"; then
   printf 'service manifest should not contain removed optional path fields\n' >&2
   exit 1

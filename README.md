@@ -35,6 +35,17 @@ Run a SERVICE backup:
 
 See the [MAIN and DOTS guide](README-DOTS.md) or [SERVICE guide](README-SERV.md) before running restore actions.
 
+## SSH Workflow
+
+BKPv3 handles user and server SSH configuration in separate backup streams:
+
+- MAIN backs up `$HOME/.ssh`, excluding the transient `.ssh/agent/` directory. MAIN restore reapplies directory mode `700`, public-key mode `644`, and mode `600` to other SSH files.
+- SERVICE backs up `/etc/ssh/sshd_config` and `/etc/ssh/sshd_config.d/` when the drop-in directory exists.
+- SERVICE restore option `3` restores only SSH. Option `94` runs the complete profile, including SSH alongside the sharing, boot, discovery, and smart-card profiles.
+- SSH server configuration is validated before installation and again before `sshd.service` is refreshed. Missing host keys are generated with `ssh-keygen -A`; host keys are not copied into SERVICE backups.
+
+MAIN backups can contain private user keys. Keep the backup device and any generated archives protected.
+
 ## Requirements
 
 Use the shared dependency check for a complete report:
@@ -116,7 +127,7 @@ Run the post-reinstall readiness report:
 make doctor
 ```
 
-`doctor.sh` checks required commands, configured source paths, latest mounted backup structure, backup status markers, local restore files when present, Git state, GitHub authentication, and smoke-check prerequisites.
+`doctor.sh` checks required commands, configured source paths, latest mounted backup structure, backup status markers, local restore files when present, SSH client parsing, SSH directory mode, `sshd.service` state, server configuration when noninteractive sudo is available, GitHub SSH authentication, Git state, and smoke-check prerequisites. Its SSH checks are read-only.
 
 ## Versioning
 
@@ -126,6 +137,12 @@ The current version is stored in `VERSION`.
 
 ### 0.5.0
 
+- Split SERVICE restore into focused sharing, boot, discovery, and smart-card profiles, plus a complete profile that includes SSH
+- Kept the SERVICE menu running after an action failure and added final partial-failure audit reporting
+- Added an optional one-time Timeshift snapshot before the first system-changing SERVICE action
+- Made GRUB theme restore and rollback aware of FAT-family filesystem limitations
+- Hardened SSH restore with isolated backup validation, missing host-key generation, installed-config validation, and safe service refresh
+- Added backup and restore coverage for `/etc/ssh/sshd_config.d/` drop-ins and read-only SSH doctor checks
 - Split Quickshell into `21 - Restore QS` and moved Waybar modules into `16 - Restore WAYBAR`
 - Moved GTK bookmarks and xsettingsd configuration into `99 - Restore Settings`
 - Changed restored `sshd_config` mode to `644` for newly created service backups

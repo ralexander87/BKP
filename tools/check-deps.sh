@@ -4,7 +4,9 @@ set -Eeuo pipefail
 # Commands required by core backup, catalog, and development checks.
 required_commands=(
   awk
+  basename
   bash
+  cat
   chmod
   cryptsetup
   df
@@ -18,11 +20,13 @@ required_commands=(
   install
   lsblk
   make
+  mktemp
   mv
   numfmt
   pigz
   python3
   rsync
+  rm
   sed
   shellcheck
   shfmt
@@ -44,6 +48,7 @@ optional_action_commands=(
   pacman
   qs
   smbpasswd
+  ssh
   ssh-keygen
   sshd
   testparm

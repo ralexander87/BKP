@@ -11,6 +11,7 @@ RUN_RESULT="failed"
 LUKS_DEVICE_PATH=""
 LUKS_HEADER_FILE="luks.bin"
 LUKS_HEADER_CREATED=false
+SSH_CONFIG_DROPINS_INCLUDED=false
 MANIFEST_FILE=""
 ARCHIVE_VALIDATION="not_requested"
 SERV_BACKUP_CONFIG="$PROJECT_ROOT/config/serv.backup.conf"
@@ -64,6 +65,11 @@ estimate_backup_size_bytes() {
     total=$((total + size))
   done
 
+  if sudo test -e "$SSH_CONFIG_DROPIN_SOURCE"; then
+    size="$(sudo_path_size_bytes "$SSH_CONFIG_DROPIN_SOURCE")"
+    total=$((total + size))
+  fi
+
   mapfile -t creds_files < <(sudo find "$SAMBA_CONFIG_DIR" -maxdepth 1 -type f -name "$SAMBA_CREDS_PATTERN" 2>/dev/null || true)
   for item in "${creds_files[@]}"; do
     size="$(sudo_path_size_bytes "$item")"
@@ -91,6 +97,7 @@ write_manifest() {
     manifest_field "Service Restore Config" "$PROJECT_ROOT/config/serv.restore.conf"
     manifest_field "Local Service Restore Config" "$(manifest_presence "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'present' || printf 'missing')")"
     manifest_field "Required Service Paths" "${SERVICE_REQUIRED_PATHS[*]}"
+    manifest_field "SSH Config Drop-ins" "$(manifest_bool "$SSH_CONFIG_DROPINS_INCLUDED")"
     manifest_field "Samba Creds Glob" "$SAMBA_CREDS_GLOB"
   } >"$manifest_tmp"
 
@@ -103,6 +110,7 @@ write_manifest() {
     json_string_field "service_restore_config" "$PROJECT_ROOT/config/serv.restore.conf"
     json_bool_field "local_service_restore_config" "$([[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]] && printf 'true' || printf 'false')"
     json_raw_field "required_service_paths" "$(json_string_array "${SERVICE_REQUIRED_PATHS[@]}")"
+    json_bool_field "ssh_config_dropins" "$SSH_CONFIG_DROPINS_INCLUDED"
     json_string_field "samba_creds_glob" "$SAMBA_CREDS_GLOB" ""
     printf '}\n'
   } >"$json_manifest_tmp"
@@ -251,6 +259,10 @@ verify_backup_contents() {
     [[ -f "$BACKUP_DIR/config/local/serv.restore.conf" ]] || die "missing expected backup item: config/local/serv.restore.conf"
   fi
 
+  if [[ "$SSH_CONFIG_DROPINS_INCLUDED" == "true" ]]; then
+    [[ -d "$BACKUP_DIR/sshd_config.d" ]] || die "missing expected backup item: sshd_config.d"
+  fi
+
   if [[ "$LUKS_HEADER_CREATED" == "true" ]]; then
     [[ -f "$BACKUP_DIR/$LUKS_HEADER_FILE" ]] || die "missing expected backup item: $LUKS_HEADER_FILE"
   fi
@@ -374,6 +386,7 @@ else
 fi
 ui_add_task "serv-smbconf" "SMB config"
 ui_add_task "serv-sshd" "SSH config"
+ui_add_task "serv-sshd-dropins" "SSH config drop-ins"
 ui_add_task "serv-grub" "Default GRUB config"
 ui_add_task "serv-mkinitcpio" "Mkinitcpio config"
 ui_add_task "serv-creds" "Samba creds-*"
@@ -392,6 +405,10 @@ ui_render "force"
 # Back up fixed service paths.
 backup_path "serv-smbconf" "$SMB_CONFIG_SOURCE"
 backup_path "serv-sshd" "$SSH_CONFIG_SOURCE"
+if sudo test -d "$SSH_CONFIG_DROPIN_SOURCE"; then
+  SSH_CONFIG_DROPINS_INCLUDED=true
+fi
+backup_path "serv-sshd-dropins" "$SSH_CONFIG_DROPIN_SOURCE"
 backup_path "serv-grub" "$GRUB_DEFAULT_SOURCE"
 backup_path "serv-mkinitcpio" "$MKINITCPIO_SOURCE"
 

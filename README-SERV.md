@@ -11,7 +11,7 @@
 - `pigz` and `tar` when creating compressed archives
 - `systemctl` for service state changes
 - `timeshift` for the optional one-time pre-restore system snapshot
-- Action-specific commands such as `smbpasswd`, `testparm`, `sshd`, `findmnt`, `modprobe`, and `grub-mkconfig`
+- Action-specific commands such as `smbpasswd`, `testparm`, `sshd`, `ssh-keygen`, `findmnt`, `modprobe`, and `grub-mkconfig`
 
 Run `make deps` from the project root for the complete dependency report.
 
@@ -40,13 +40,16 @@ It backs up:
 - `/etc/samba/smb.conf`
 - `/etc/samba/creds-*`
 - `/etc/ssh/sshd_config`
+- `/etc/ssh/sshd_config.d/` when present
 - `/etc/default/grub`
 - `/etc/mkinitcpio.conf`
 - A detected LUKS header as `luks.bin`
 
 Set `LUKS_DEVICE=/dev/...` to force a specific LUKS source device.
 
-Backup content is stored as standalone entries in the backup root, such as `smb.conf`, `sshd_config`, `grub`, `mkinitcpio.conf`, `creds-*`, and `luks.bin`. Each backup also includes `restore-serv.sh`, `lib/common.sh`, and the restore configuration used for that run.
+Backup content is stored as standalone entries in the backup root, such as `smb.conf`, `sshd_config`, optional `sshd_config.d/`, `grub`, `mkinitcpio.conf`, `creds-*`, and `luks.bin`. Each backup also includes `restore-serv.sh`, `lib/common.sh`, and the restore configuration used for that run.
+
+SSH host keys are machine-specific and are not included in SERVICE backups. Restore generates only missing host keys.
 
 Required source paths and the Samba credentials pattern are configured in `config/serv.backup.conf`.
 
@@ -101,8 +104,9 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Enables and refreshes `smb.service` and `nmb.service`, restarting them when already active
 - `3 - Restore SSH`
   - Restores `sshd_config` into `/etc/ssh/`
+  - Replaces `/etc/ssh/sshd_config.d/` when the backup contains that directory
   - Sets ownership to `root:root` and mode to `644`
-  - Validates the backed-up configuration with a temporary host key
+  - Validates the backed-up main file and drop-ins with a temporary host key
   - Generates missing machine host keys with `ssh-keygen -A`
   - Validates the installed configuration with `sshd -t`
   - Enables and refreshes `sshd.service`, restarting it when already active
@@ -131,9 +135,14 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Enables and refreshes `avahi-daemon.service` and `wsdd.service`
 - `93 - Restore smart-card service`
   - Enables and refreshes Arch Linux's socket-activated `pcscd.socket`
+- `94 - Restore complete profile`
+  - Runs the sharing profile, SSH restore, boot profile, discovery services, and smart-card service in sequence
+  - Leaves the separate RAMBOX permission action available as option `7`
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items from known service target locations into `$HOME/PreRestored`
   - Preserves ownership and updates rollback references to the collected paths
+
+Use option `3` for an SSH-only restore or option `94` for the complete system-configuration workflow.
 
 ### Restore Configuration
 
@@ -172,4 +181,5 @@ Additional safeguards include:
 - Atomic updates for `/etc/fstab` and `/etc/default/grub`
 - Post-restore validation where the relevant validation command is available
 - Audit entries and action results in `restore.log`
+- A final `completed_with_errors` audit event with result `partial_failure` when any selected action failed
 - A user-state fallback for logs and rollback helpers when backup media is read-only
