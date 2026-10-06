@@ -39,7 +39,7 @@ assert_dispatch() {
 
   awk -v selection="$selection" -v expected="$expected_function" '
     $0 ~ "^[[:space:]]*" selection "\\)" { in_selection = 1; next }
-    in_selection && $0 ~ "^[[:space:]]*" expected "[[:space:]]*$" { found = 1 }
+    in_selection && $0 ~ "(^|[[:space:]])" expected "([[:space:]]|$)" { found = 1 }
     in_selection && /^[[:space:]]*;;/ { exit }
     END { exit(found ? 0 : 1) }
   ' "$script" || {
@@ -477,11 +477,16 @@ grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'GRUB_THEME_SHARED_RELATIVE="BIG/lateralus"' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "source_dir=\"\$device_root/\$GRUB_THEME_SHARED_RELATIVE\"" "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq "restore_tree_to_system \"\$source_dir\" \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq "sudo rsync -rlt --no-perms --no-owner --no-group \"\$source_dir/\" \"\$target_dir/\"" "$PROJECT_ROOT/restore-serv.sh"
 if grep -Fq 'GRUB_THEME_SOURCE' "$PROJECT_ROOT/bkp-serv.sh" "$PROJECT_ROOT/config/serv.backup.conf"; then
   printf 'service backup should not copy the shared GRUB theme\n' >&2
   exit 1
 fi
-grep -Fq '90 - Restore CONFIG' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '90 - Restore sharing profile' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '91 - Restore boot profile' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '92 - Restore discovery services' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '93 - Restore smart-card service' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
@@ -490,18 +495,27 @@ if grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/config/serv.restore.conf"; then
   printf 'retired SMB directory should not be in public restore config\n' >&2
   exit 1
 fi
-grep -Fq 'systemctl enable smb.service' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq 'systemctl enable sshd.service' "$PROJECT_ROOT/restore-serv.sh"
-if [[ "$(grep -Fc 'sudo chmod 644 /etc/ssh/sshd_config' "$PROJECT_ROOT/restore-serv.sh")" -ne 2 ]]; then
-  printf 'Both SSH restore paths must set sshd_config mode to 644\n' >&2
+grep -Fq "validate_sshd_config_file \"\$SCRIPT_DIR/sshd_config\"" "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'sudo ssh-keygen -A' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'enable_and_refresh_unit "sshd.service"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'sudo chown root:root /etc/samba/smb.conf' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'sudo chmod 644 /etc/samba/smb.conf' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'enable_and_refresh_unit "smb.service"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'enable_and_refresh_unit "nmb.service"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'enable_and_refresh_unit "pcscd.socket"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq "sudo systemctl restart \"\$unit\"" "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'sudo timeshift --create' "$PROJECT_ROOT/restore-serv.sh"
+if [[ "$(grep -Fc 'sudo chmod 644 /etc/ssh/sshd_config' "$PROJECT_ROOT/restore-serv.sh")" -ne 1 ]]; then
+  printf 'The explicit SSH action must set sshd_config mode to 644\n' >&2
   exit 1
 fi
 if grep -Fq 'sudo chmod 600 /etc/ssh/sshd_config' "$PROJECT_ROOT/restore-serv.sh"; then
   printf 'SSH restore paths should not set sshd_config mode to 600\n' >&2
   exit 1
 fi
-if [[ "$(sed -n '/^restore_config()/,/^}/p' "$PROJECT_ROOT/restore-serv.sh" | grep -Fc '"sshd.service"')" -ne 1 ]]; then
-  printf 'Restore CONFIG should list sshd.service exactly once\n' >&2
+if sed -n '/^restore_sharing_profile()/,/^}/p; /^restore_boot_profile()/,/^}/p; /^restore_discovery_profile()/,/^}/p; /^restore_smartcard_profile()/,/^}/p' \
+  "$PROJECT_ROOT/restore-serv.sh" | grep -Eq 'SSH|ssh'; then
+  printf 'Non-SSH service profiles must not include SSH actions\n' >&2
   exit 1
 fi
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 1 create_smb_tree
@@ -511,33 +525,11 @@ assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 4 restore_fstab
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 5 restore_grub_theme
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 6 restore_grub_defaults
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 7 restore_rambox
-assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 90 restore_config
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 90 restore_sharing_profile
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 91 restore_boot_profile
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 92 restore_discovery_profile
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 93 restore_smartcard_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 98 collect_pre_restore
-awk '
-  /^restore_config\(\)/ { in_func = 1 }
-  in_func && /restore_file_to_dir "samba" "smb.conf"/ { smb_seen = 1 }
-  in_func && /restore_file_to_dir "SSH" "sshd_config"/ { ssh_seen = 1 }
-  in_func && /restore_file_to_dir "samba credentials"/ { creds_seen = 1 }
-  in_func && /sudo systemctl enable "\$\{services\[@\]\}"/ {
-    enable_seen = 1
-    if (!smb_seen || !ssh_seen || !creds_seen) {
-      exit 1
-    }
-  }
-  in_func && /sudo systemctl start "\$\{services\[@\]\}"/ {
-    start_seen = 1
-    if (!enable_seen) {
-      exit 1
-    }
-  }
-  in_func && /^}/ { exit(enable_seen && start_seen ? 0 : 1) }
-' "$PROJECT_ROOT/restore-serv.sh" || {
-  printf 'Restore CONFIG must enable services before starting them\n' >&2
-  exit 1
-}
-for required_config in smb.conf sshd_config creds-euclid creds-pneuma creds-scp; do
-  grep -Fq "\"$required_config\"" "$PROJECT_ROOT/restore-serv.sh"
-done
 awk '
   /^restore_fstab\(\) / { in_func = 1 }
   in_func && /sudo modprobe cifs/ { modprobe_seen = 1 }
@@ -559,11 +551,33 @@ mkdir -p "$tmp/lib" "$tmp/home/PreRestored"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
 awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-serv.sh" >"$tmp/restore-serv-partial.sh"
 cat >>"$tmp/restore-serv-partial.sh" <<'EOF'
+LOG_FILE="$PWD/audit.log"
+CURRENT_ACTION="Restore grub theme"
+RUN_RESULT="in_progress"
+audit_log "action_started"
+audit_log "action_completed"
+sudo() { "$@"; }
+confirm_yes_no() { return 0; }
+timeshift() { printf 'snapshot\n' >>"$PWD/timeshift.calls"; }
+SYSTEM_SNAPSHOT_STATE="pending"
+ensure_pre_restore_system_snapshot
+ensure_pre_restore_system_snapshot
+[[ "$(wc -l <"$PWD/timeshift.calls")" -eq 1 ]]
+
+SYSTEM_SNAPSHOT_STATE="skipped"
+expected_failure() { return 23; }
+run_menu_action "Expected failure" expected_failure
+[[ "$ACTION_FAILURE_COUNT" -eq 1 ]]
+
+mkdir -p "$PWD/theme-source" "$PWD/theme-target-parent"
+printf 'theme fixture\n' >"$PWD/theme-source/theme.txt"
+findmnt() { printf 'vfat\n'; }
+restore_tree_to_system "$PWD/theme-source" "$PWD/theme-target-parent/theme"
+grep -Fqx 'theme fixture' "$PWD/theme-target-parent/theme/theme.txt"
 FSTAB_LINES=(
   '//new/share   /SMB/test   cifs   _netdev,credentials=/etc/samba/creds-test,uid=1000,gid=1000   0 0'
 )
 ROLLBACK_FILE="$PWD/restore-serv-rollback-test.sh"
-sudo() { "$@"; }
 snapshot_target "$PWD/new-service-target"
 printf 'old service config\n' >"$PWD/existing-service-target"
 snapshot_target "$PWD/existing-service-target"
@@ -605,6 +619,10 @@ chmod +x "$tmp/bin-sudo"
 mkdir -p "$tmp/bin"
 mv "$tmp/bin-sudo" "$tmp/bin/sudo"
 (cd "$tmp" && HOME="$tmp/home" PATH="$tmp/bin:$PATH" bash repeated-target-rollback.sh)
+grep -Fq 'event=action_started action=Restore grub theme result=in_progress' "$tmp/audit.log"
+grep -Fq 'event=action_completed action=Restore grub theme result=success' "$tmp/audit.log"
+grep -Fq 'event=action_failed action=Expected failure result=failed' "$tmp/audit.log"
+grep -Fq 'Expected failure failed (exit 23); returning to menu' "$tmp/audit.log"
 grep -Fqx 'original' "$tmp/repeated-service-target"
 grep -Fq '//new/share   /SMB/test' "$tmp/fstab"
 if grep -Fq '//old/share' "$tmp/fstab"; then

@@ -44,8 +44,10 @@ optional_action_commands=(
   pacman
   qs
   smbpasswd
+  ssh-keygen
   sshd
   testparm
+  timeshift
   yay
 )
 

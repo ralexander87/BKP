@@ -132,11 +132,13 @@ RESTORE_ID="$(date '+%Y-%j-%d-%m-%H-%M-%S')"
 RESTORE_STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/bkp"
 LOG_FILE="${LOG_FILE:-$(resolve_writable_output_path "$SCRIPT_DIR/restore.log" "$RESTORE_STATE_ROOT/restore-serv-$RESTORE_ID.log")}"
 ROLLBACK_FILE="$(resolve_writable_output_path "$SCRIPT_DIR/restore-serv-rollback-$RESTORE_ID.sh" "$RESTORE_STATE_ROOT/restore-serv-rollback-$RESTORE_ID.sh")"
-RUN_RESULT="failed"
+RUN_RESULT="in_progress"
 CURRENT_ACTION="none"
 STATUS_FILE="$SCRIPT_DIR/backup.status"
 MANIFEST_FILE="$SCRIPT_DIR/backup-manifest.txt"
 SERVICE_RESTORE_CONFIG=""
+SYSTEM_SNAPSHOT_STATE="pending"
+ACTION_FAILURE_COUNT=0
 
 # Set built-in restore values before any bundled or local config overrides.
 set_service_restore_defaults() {
@@ -233,12 +235,59 @@ load_service_restore_config
 # Record structured audit entries for this restore run.
 audit_log() {
   local event="$1"
-  log "AUDIT event=$event action=$CURRENT_ACTION result=$RUN_RESULT rollback=$ROLLBACK_FILE"
+  local result="$RUN_RESULT"
+
+  case "$event" in
+  action_started) result="in_progress" ;;
+  action_completed) result="success" ;;
+  action_failed) result="failed" ;;
+  action_skipped | cancelled) result="skipped" ;;
+  esac
+
+  log "AUDIT event=$event action=$CURRENT_ACTION result=$result rollback=$ROLLBACK_FILE"
 }
 
-# Confirm an action before it changes local configuration.
+# Offer one Timeshift snapshot before the first system-changing action.
+ensure_pre_restore_system_snapshot() {
+  local snapshot_comment="BKPv3 pre-restore $RESTORE_ID"
+
+  case "$SYSTEM_SNAPSHOT_STATE" in
+  created | skipped | unavailable | failed_continued) return 0 ;;
+  failed_blocked) return 1 ;;
+  esac
+
+  if ! command -v timeshift >/dev/null 2>&1; then
+    SYSTEM_SNAPSHOT_STATE="unavailable"
+    log_warn "Timeshift is unavailable; continuing with file-level rollback only"
+    return 0
+  fi
+
+  if ! confirm_yes_no "Create one Timeshift snapshot before the first system change?" "N"; then
+    SYSTEM_SNAPSHOT_STATE="skipped"
+    log "Timeshift snapshot skipped"
+    return 0
+  fi
+
+  log "Creating Timeshift snapshot: $snapshot_comment"
+  if sudo timeshift --create --scripted --comments "$snapshot_comment" --tags O; then
+    SYSTEM_SNAPSHOT_STATE="created"
+    log "Timeshift snapshot created"
+    return 0
+  fi
+
+  log_error "Timeshift snapshot creation failed"
+  if confirm_yes_no "Continue without a Timeshift snapshot?" "N"; then
+    SYSTEM_SNAPSHOT_STATE="failed_continued"
+    return 0
+  fi
+  SYSTEM_SNAPSHOT_STATE="failed_blocked"
+  return 1
+}
+
+# Confirm an action and prepare its optional system snapshot.
 confirm_action() {
   local label="$1"
+  local snapshot_required="${2:-true}"
 
   CURRENT_ACTION="$label"
   confirm_yes_no "Start $label?" "N" || {
@@ -247,7 +296,44 @@ confirm_action() {
     return 1
   }
 
+  if [[ "$snapshot_required" == "true" ]] && ! ensure_pre_restore_system_snapshot; then
+    audit_log "cancelled"
+    log "$label cancelled because no system snapshot was available"
+    return 1
+  fi
+
   audit_log "action_started"
+  return 0
+}
+
+# Run one action fail-fast while keeping failures inside the interactive menu.
+run_menu_action() {
+  local label="$1"
+  local action_function="$2"
+  local snapshot_required="${3:-true}"
+  local action_exit
+
+  confirm_action "$label" "$snapshot_required" || return 0
+
+  set +e
+  (
+    trap - EXIT ERR INT TERM
+    set -Eeuo pipefail
+    trap 'cleanup_temp_paths' EXIT
+    "$action_function"
+  )
+  action_exit="$?"
+  set -e
+
+  if [[ "$action_exit" -eq 0 ]]; then
+    audit_log "action_completed"
+    log "Done: $label"
+    return 0
+  fi
+
+  ACTION_FAILURE_COUNT=$((ACTION_FAILURE_COUNT + 1))
+  audit_log "action_failed"
+  log_error "$label failed (exit $action_exit); returning to menu"
   return 0
 }
 
@@ -263,7 +349,7 @@ EOF
 
 # Ensure required dependencies exist before menu actions start.
 preflight_checks() {
-  require_all_cmds sudo awk cat chmod dirname mktemp mv
+  require_all_cmds sudo awk cat chmod dirname findmnt mktemp mv
 }
 
 # Show currently available service restore actions.
@@ -281,7 +367,10 @@ Select action:
   6 - Restore GRUB
   7 - Restore RAMBOX
 ============================
-  90 - Restore CONFIG
+  90 - Restore sharing profile
+  91 - Restore boot profile
+  92 - Restore discovery services
+  93 - Restore smart-card service
 ============================
   98 - Collect pre-restore
 EOF
@@ -403,6 +492,7 @@ snapshot_target() {
   local collected_snapshot
   local remove_command
   local restore_command
+  local target_fstype
 
   if [[ ! -e "$target" && ! -L "$target" ]]; then
     printf -v remove_command 'sudo rm -rf -- %q' "$target"
@@ -412,13 +502,28 @@ snapshot_target() {
   [[ ! -e "$snapshot" && ! -L "$snapshot" ]] || die "snapshot already exists: $snapshot"
 
   log "Creating snapshot: $target -> $snapshot"
-  sudo cp -a "$target" "$snapshot"
+  target_fstype="$(target_filesystem_type "$target")"
+  case "$target_fstype" in
+  vfat | exfat | msdos | ntfs | ntfs3 | fuseblk)
+    sudo cp -R -- "$target" "$snapshot"
+    ;;
+  *)
+    sudo cp -a -- "$target" "$snapshot"
+    ;;
+  esac
   mkdir -p "$collect_dir"
   collected_snapshot="$(unique_collect_target "$collect_dir" "$snapshot")"
   log "Moving safety snapshot into PreRestored: $snapshot -> $collected_snapshot"
   sudo mv -- "$snapshot" "$collected_snapshot"
   printf -v remove_command 'sudo rm -rf -- %q' "$target"
-  printf -v restore_command 'sudo cp -a %q %q' "$collected_snapshot" "$target"
+  case "$target_fstype" in
+  vfat | exfat | msdos | ntfs | ntfs3 | fuseblk)
+    printf -v restore_command 'sudo cp -R -- %q %q' "$collected_snapshot" "$target"
+    ;;
+  *)
+    printf -v restore_command 'sudo cp -a -- %q %q' "$collected_snapshot" "$target"
+    ;;
+  esac
   prepend_rollback_commands "$remove_command" "$restore_command"
 }
 
@@ -440,6 +545,58 @@ snapshot_service_state() {
     printf -v active_command 'sudo systemctl stop %q >/dev/null 2>&1 || true' "$service"
   fi
   prepend_rollback_commands "$active_command" "$enabled_command"
+}
+
+# Enable a unit and restart it when already active so restored settings take effect.
+enable_and_refresh_unit() {
+  local unit="$1"
+
+  systemctl cat "$unit" >/dev/null 2>&1 || die "systemd unit not found: $unit"
+  snapshot_service_state "$unit"
+
+  log "Enabling systemd unit: $unit"
+  sudo systemctl enable "$unit"
+  if systemctl is-active --quiet "$unit"; then
+    log "Restarting active systemd unit: $unit"
+    sudo systemctl restart "$unit"
+  else
+    log "Starting systemd unit: $unit"
+    sudo systemctl start "$unit"
+  fi
+  sudo systemctl is-active --quiet "$unit" || die "systemd unit did not become active: $unit"
+}
+
+# Resolve the filesystem supporting a target, including targets not created yet.
+target_filesystem_type() {
+  local target="$1"
+  local probe="$target"
+
+  while [[ ! -e "$probe" && ! -L "$probe" && "$probe" != "/" ]]; do
+    probe="$(dirname -- "$probe")"
+  done
+  findmnt -n -o FSTYPE --target "$probe"
+}
+
+# Restore a tree using only metadata supported by the target filesystem.
+restore_tree_to_system() {
+  local source_dir="$1"
+  local target_dir="$2"
+  local target_fstype
+
+  require_all_cmds sudo mkdir rsync findmnt dirname
+  target_fstype="$(target_filesystem_type "$target_dir")"
+  [[ -n "$target_fstype" ]] || die "could not determine target filesystem: $target_dir"
+
+  log "Target filesystem for $target_dir: $target_fstype"
+  sudo mkdir -p "$target_dir"
+  case "$target_fstype" in
+  vfat | exfat | msdos | ntfs | ntfs3 | fuseblk)
+    sudo rsync -rlt --no-perms --no-owner --no-group "$source_dir/" "$target_dir/"
+    ;;
+  *)
+    sudo_rsync_restore_copy "$source_dir/" "$target_dir/"
+    ;;
+  esac
 }
 
 # Unload a module during rollback only when this restore loaded it.
@@ -464,20 +621,15 @@ restore_grub_theme() {
   local source_dir
   local target_dir="/boot/grub/themes/lateralus"
 
-  require_all_cmds sudo cp mkdir rsync
+  require_all_cmds sudo cp mkdir rsync findmnt dirname
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
   source_dir="$device_root/$GRUB_THEME_SHARED_RELATIVE"
   [[ -d "$source_dir" ]] || die "grub theme source folder not found: $source_dir"
   [[ -s "$source_dir/theme.txt" ]] || die "grub theme definition not found or empty: $source_dir/theme.txt"
 
-  confirm_action "Restore grub theme" || return 0
   snapshot_target "$target_dir"
   log "Restoring grub theme: $source_dir -> /boot/grub/themes/"
-  sudo mkdir -p "$target_dir"
-  sudo_rsync_restore_copy "$source_dir/" "$target_dir/"
-
-  audit_log "action_completed"
-  log "Done: Restore grub theme"
+  restore_tree_to_system "$source_dir" "$target_dir"
 }
 
 # Restore samba smb.conf and creds-* files into /etc/samba/.
@@ -496,9 +648,10 @@ restore_samba() {
   if command -v testparm >/dev/null 2>&1; then
     sudo testparm -s "$SCRIPT_DIR/$source_smb" >/dev/null || die "backed-up samba config validation failed"
   fi
-  confirm_action "Restore samba" || return 0
   snapshot_target "/etc/samba/smb.conf"
   restore_file_to_dir "samba" "$source_smb" "$target_dir"
+  sudo chown root:root /etc/samba/smb.conf
+  sudo chmod 644 /etc/samba/smb.conf
 
   shopt -s nullglob
   creds_files=("$source_samba_dir"/creds-*)
@@ -521,8 +674,6 @@ restore_samba() {
     sudo chmod 600 "$creds_file"
   done
 
-  snapshot_service_state "smb.service"
-
   if command -v testparm >/dev/null 2>&1; then
     sudo testparm -s >/dev/null || die "samba config validation failed"
   fi
@@ -544,111 +695,64 @@ restore_samba() {
     ;;
   esac
 
-  log "Enabling smb.service"
-  sudo systemctl enable smb.service
-  log "Starting smb.service"
-  sudo systemctl start smb.service
+  enable_and_refresh_unit "smb.service"
+  enable_and_refresh_unit "nmb.service"
+}
 
-  audit_log "action_completed"
-  log "Done: Restore samba"
+# Validate an sshd configuration without depending on installed host keys.
+validate_sshd_config_file() {
+  local config_file="$1"
+  local validation_dir
+  local validation_key
+
+  require_all_cmds sshd ssh-keygen mktemp
+  validation_dir="$(mktemp -d)"
+  register_temp_path "$validation_dir"
+  validation_key="$validation_dir/ssh_host_ed25519_key"
+  ssh-keygen -q -t ed25519 -N "" -f "$validation_key"
+  sudo sshd -t -f "$config_file" -h "$validation_key"
 }
 
 # Restore sshd_config into /etc/ssh/.
 restore_ssh() {
-  require_all_cmds sudo cp mkdir rsync chown chmod systemctl
+  require_all_cmds sudo cp mkdir rsync chown chmod systemctl sshd ssh-keygen
 
   [[ -f "$SCRIPT_DIR/sshd_config" ]] || die "SSH source file not found: $SCRIPT_DIR/sshd_config"
-  if command -v sshd >/dev/null 2>&1; then
-    sudo sshd -t -f "$SCRIPT_DIR/sshd_config" || die "backed-up sshd config validation failed"
-  fi
-  confirm_action "Restore SSH" || return 0
+  log "Validating backed-up sshd configuration with a temporary host key"
+  validate_sshd_config_file "$SCRIPT_DIR/sshd_config" || die "backed-up sshd config validation failed"
   snapshot_target "/etc/ssh/sshd_config"
-  snapshot_service_state "sshd.service"
   restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
   sudo chown root:root /etc/ssh/sshd_config
   sudo chmod 644 /etc/ssh/sshd_config
-  if command -v sshd >/dev/null 2>&1; then
-    sudo sshd -t || die "sshd config validation failed"
-  fi
-  log "Enabling sshd.service"
-  sudo systemctl enable sshd.service
-  log "Starting sshd.service"
-  sudo systemctl start sshd.service
-  audit_log "action_completed"
-  log "Done: Restore SSH"
+
+  log "Generating any missing SSH host keys"
+  sudo ssh-keygen -A
+  sudo sshd -t || die "restored sshd config validation failed"
+  enable_and_refresh_unit "sshd.service"
 }
 
-# Restore the complete Samba/SSH configuration set, then enable and start its services.
-restore_config() {
-  local creds_name
-  local service
-  local -a creds_names=(
-    "creds-euclid"
-    "creds-pneuma"
-    "creds-scp"
-  )
-  local -a services=(
-    "avahi-daemon.service"
-    "wsdd.service"
-    "sshd.service"
-    "nmb.service"
-    "pcscd.service"
-  )
+# Restore the complete non-SSH file-sharing setup.
+restore_sharing_profile() {
+  create_smb_tree
+  restore_samba
+  restore_fstab
+}
 
-  require_all_cmds sudo cp mkdir rsync chown chmod systemctl
-  [[ -f "$SCRIPT_DIR/smb.conf" ]] || die "samba source file not found: $SCRIPT_DIR/smb.conf"
-  [[ -f "$SCRIPT_DIR/sshd_config" ]] || die "SSH source file not found: $SCRIPT_DIR/sshd_config"
-  for creds_name in "${creds_names[@]}"; do
-    [[ -f "$SCRIPT_DIR/$creds_name" ]] || die "samba credentials source file not found: $SCRIPT_DIR/$creds_name"
-  done
+# Restore the GRUB theme and configured GRUB defaults together.
+restore_boot_profile() {
+  restore_grub_theme
+  restore_grub_defaults
+}
 
-  if command -v testparm >/dev/null 2>&1; then
-    sudo testparm -s "$SCRIPT_DIR/smb.conf" >/dev/null || die "backed-up samba config validation failed"
-  fi
-  if command -v sshd >/dev/null 2>&1; then
-    sudo sshd -t -f "$SCRIPT_DIR/sshd_config" || die "backed-up sshd config validation failed"
-  fi
+# Enable and refresh local network discovery services.
+restore_discovery_profile() {
+  enable_and_refresh_unit "avahi-daemon.service"
+  enable_and_refresh_unit "wsdd.service"
+}
 
-  confirm_action "Restore CONFIG" || return 0
-
-  # Capture every file and service state before making the first change.
-  snapshot_target "/etc/samba/smb.conf"
-  snapshot_target "/etc/ssh/sshd_config"
-  for creds_name in "${creds_names[@]}"; do
-    snapshot_target "/etc/samba/$creds_name"
-  done
-  for service in "${services[@]}"; do
-    snapshot_service_state "$service"
-  done
-
-  restore_file_to_dir "samba" "smb.conf" "/etc/samba"
-  restore_file_to_dir "SSH" "sshd_config" "/etc/ssh"
-  for creds_name in "${creds_names[@]}"; do
-    restore_file_to_dir "samba credentials" "$creds_name" "/etc/samba"
-  done
-
-  sudo chown root:root /etc/samba/smb.conf /etc/ssh/sshd_config
-  sudo chmod 644 /etc/samba/smb.conf
-  sudo chmod 644 /etc/ssh/sshd_config
-  for creds_name in "${creds_names[@]}"; do
-    sudo chown root:root "/etc/samba/$creds_name"
-    sudo chmod 600 "/etc/samba/$creds_name"
-  done
-
-  if command -v testparm >/dev/null 2>&1; then
-    sudo testparm -s >/dev/null || die "restored samba config validation failed"
-  fi
-  if command -v sshd >/dev/null 2>&1; then
-    sudo sshd -t || die "restored sshd config validation failed"
-  fi
-
-  log "Enabling CONFIG services: ${services[*]}"
-  sudo systemctl enable "${services[@]}"
-  log "Starting CONFIG services: ${services[*]}"
-  sudo systemctl start "${services[@]}"
-
-  audit_log "action_completed"
-  log "Done: Restore CONFIG"
+# Enable the socket-activated smart-card service used by Arch Linux.
+restore_smartcard_profile() {
+  enable_and_refresh_unit "pcscd.socket"
 }
 
 # Create SMB folders and set ownership/perms for the local non-root user.
@@ -663,7 +767,6 @@ create_smb_tree() {
   local rollback_command
 
   require_all_cmds sudo mkdir chown chmod stat
-  confirm_action "Create SMB" || return 0
   local_user="$(local_non_root_user)"
 
   # Capture all original directory states before mkdir -p changes any parent.
@@ -703,8 +806,6 @@ create_smb_tree() {
     sudo chmod 750 "$dir"
   done
 
-  audit_log "action_completed"
-  log "Done: Create SMB"
 }
 
 # Replace entries for configured mountpoints in an fstab file.
@@ -744,11 +845,8 @@ restore_fstab() {
   local temp_fstab
 
   require_all_cmds sudo cp install mktemp modprobe
-  confirm_action "Restore fstab" || return 0
   if [[ "${#FSTAB_LINES[@]}" -eq 0 && "${#RETIRED_FSTAB_TARGETS[@]}" -eq 0 ]]; then
     log "No SMB fstab entries configured; add local entries in config/local/serv.restore.conf"
-    RUN_RESULT="skipped"
-    audit_log "action_skipped"
     return 0
   fi
 
@@ -771,8 +869,6 @@ restore_fstab() {
 
   sudo install -m 0644 "$temp_fstab" /etc/fstab
 
-  audit_log "action_completed"
-  log "Done: Restore fstab"
 }
 
 # Set or append one quoted GRUB assignment inside a temp config file.
@@ -796,7 +892,6 @@ restore_grub_defaults() {
   local temp_grub
 
   require_all_cmds sudo cp install mktemp grep sed grub-mkconfig bash
-  confirm_action "Restore GRUB" || return 0
   snapshot_target "/etc/default/grub"
   snapshot_target "/boot/grub/grub.cfg"
 
@@ -816,8 +911,6 @@ restore_grub_defaults() {
   sudo install -m 0644 "$temp_grub" /etc/default/grub
   log "Regenerating GRUB menu: /boot/grub/grub.cfg"
   sudo grub-mkconfig -o /boot/grub/grub.cfg
-  audit_log "action_completed"
-  log "Done: Restore GRUB"
 }
 
 # Restore executable directory permissions required by Rambox.
@@ -828,7 +921,6 @@ restore_rambox() {
 
   require_all_cmds sudo chmod stat
   sudo test -d "$target_dir" || die "Rambox folder not found: $target_dir"
-  confirm_action "Restore RAMBOX" || return 0
 
   previous_mode="$(sudo stat -c '%a' "$target_dir")"
   [[ "$previous_mode" =~ ^[0-7]{3,4}$ ]] || die "could not read Rambox folder mode: $target_dir"
@@ -839,8 +931,6 @@ restore_rambox() {
   sudo chmod 755 "$target_dir"
   [[ "$(sudo stat -c '%a' "$target_dir")" == "755" ]] || die "failed to verify Rambox folder permissions: $target_dir"
 
-  audit_log "action_completed"
-  log "Done: Restore RAMBOX"
 }
 
 # Return a non-conflicting target path inside the PreRestored collection folder.
@@ -917,7 +1007,6 @@ collect_pre_restore() {
   local dir
 
   require_all_cmds sudo find mv mkdir grep mktemp
-  confirm_action "Collect pre-restore" || return 0
   mkdir -p "$collect_dir"
 
   mapfile -d '' -t source_paths < <(
@@ -936,8 +1025,7 @@ collect_pre_restore() {
     count=$((count + 1))
   done
 
-  audit_log "action_completed"
-  log "Done: Collect pre-restore ($count item(s) moved to $collect_dir)"
+  log "Collected $count pre-restore item(s) into $collect_dir"
 }
 
 # Initialize rollback helper script for this restore run.
@@ -957,12 +1045,15 @@ EOF
 finalize_restore() {
   local exit_code="$1"
 
-  if [[ "$exit_code" -eq 0 ]]; then
-    RUN_RESULT="success"
-    audit_log "completed"
-  else
+  if [[ "$exit_code" -ne 0 ]]; then
     RUN_RESULT="failed"
     audit_log "failed"
+  elif [[ "$ACTION_FAILURE_COUNT" -gt 0 ]]; then
+    RUN_RESULT="partial_failure"
+    audit_log "completed_with_errors"
+  else
+    RUN_RESULT="success"
+    audit_log "completed"
   fi
 }
 
@@ -996,31 +1087,40 @@ while true; do
     exit 0
     ;;
   1)
-    create_smb_tree
+    run_menu_action "Create SMB" create_smb_tree
     ;;
   2)
-    restore_samba
+    run_menu_action "Restore samba" restore_samba
     ;;
   3)
-    restore_ssh
+    run_menu_action "Restore SSH" restore_ssh
     ;;
   4)
-    restore_fstab
+    run_menu_action "Restore fstab" restore_fstab
     ;;
   5)
-    restore_grub_theme
+    run_menu_action "Restore grub theme" restore_grub_theme
     ;;
   6)
-    restore_grub_defaults
+    run_menu_action "Restore GRUB" restore_grub_defaults
     ;;
   7)
-    restore_rambox
+    run_menu_action "Restore RAMBOX" restore_rambox
     ;;
   90)
-    restore_config
+    run_menu_action "Restore sharing profile" restore_sharing_profile
+    ;;
+  91)
+    run_menu_action "Restore boot profile" restore_boot_profile
+    ;;
+  92)
+    run_menu_action "Restore discovery services" restore_discovery_profile
+    ;;
+  93)
+    run_menu_action "Restore smart-card service" restore_smartcard_profile
     ;;
   98)
-    collect_pre_restore
+    run_menu_action "Collect pre-restore" collect_pre_restore false
     ;;
   *)
     log_warn "invalid selection: $selection"

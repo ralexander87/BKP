@@ -10,6 +10,7 @@
 - `cryptsetup` and `lsblk` for LUKS header discovery and backup
 - `pigz` and `tar` when creating compressed archives
 - `systemctl` for service state changes
+- `timeshift` for the optional one-time pre-restore system snapshot
 - Action-specific commands such as `smbpasswd`, `testparm`, `sshd`, `findmnt`, `modprobe`, and `grub-mkconfig`
 
 Run `make deps` from the project root for the complete dependency report.
@@ -82,7 +83,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 ./restore-serv.sh
 ```
 
-`restore-serv.sh` supports `--quiet`. It validates backup status, creates a rollback helper, requests sudo authentication, and opens the menu. Every service action defaults its confirmation prompt to `N`.
+`restore-serv.sh` supports `--quiet`. It validates backup status, creates a rollback helper, requests sudo authentication, and opens the menu. Every service action defaults its confirmation prompt to `N`. Before the first system-changing action, Timeshift is offered once when installed. A failed action is logged and returns to the menu instead of terminating the restore session.
 
 ### Restore Actions
 
@@ -93,15 +94,18 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Sets ownership to the local non-root user and permissions to `750`
 - `2 - Restore samba`
   - Restores `smb.conf` and `creds-*` into `/etc/samba/`
+  - Sets `smb.conf` ownership to `root:root` and mode to `644`
   - Uses mode `600` for credential files
   - Validates configuration with `testparm -s` when available
   - Optionally runs `sudo smbpasswd -a <local-user>`
-  - Enables and starts `smb.service`
+  - Enables and refreshes `smb.service` and `nmb.service`, restarting them when already active
 - `3 - Restore SSH`
   - Restores `sshd_config` into `/etc/ssh/`
   - Sets ownership to `root:root` and mode to `644`
-  - Validates configuration with `sshd -t` when available
-  - Enables and starts `sshd.service`
+  - Validates the backed-up configuration with a temporary host key
+  - Generates missing machine host keys with `ssh-keygen -A`
+  - Validates the installed configuration with `sshd -t`
+  - Enables and refreshes `sshd.service`, restarting it when already active
 - `4 - Restore fstab`
   - Loads the CIFS kernel module
   - Replaces existing entries for configured and retired SMB mountpoints
@@ -109,6 +113,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Atomically installs `/etc/fstab`
 - `5 - Restore grub theme`
   - Restores shared `BIG/lateralus` from the backup device to `/boot/grub/themes/lateralus`
+  - Detects the target filesystem and avoids unsupported ownership, mode, ACL, and xattr preservation on FAT-family filesystems
 - `6 - Restore GRUB`
   - Updates configured splash, terminal input/output, graphics mode, and theme values in `/etc/default/grub`
   - Atomically installs the updated file
@@ -116,10 +121,16 @@ cd /path/to/device/SERV/BKP-<timestamp>
 - `7 - Restore RAMBOX`
   - Records the previous `/opt/rambox` mode in the rollback helper
   - Sets `/opt/rambox` to mode `755`
-- `90 - Restore CONFIG`
-  - Restores `smb.conf`, `creds-euclid`, `creds-pneuma`, and `creds-scp` into `/etc/samba/`
-  - Restores `sshd_config` into `/etc/ssh/` with mode `644`
-  - Enables and starts `avahi-daemon.service`, `wsdd.service`, `sshd.service`, `nmb.service`, and `pcscd.service`
+- `90 - Restore sharing profile`
+  - Creates the configured SMB directory tree
+  - Restores Samba configuration and credentials
+  - Restores the configured CIFS entries in `/etc/fstab`
+- `91 - Restore boot profile`
+  - Restores the GRUB theme and configured GRUB defaults
+- `92 - Restore discovery services`
+  - Enables and refreshes `avahi-daemon.service` and `wsdd.service`
+- `93 - Restore smart-card service`
+  - Enables and refreshes Arch Linux's socket-activated `pcscd.socket`
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items from known service target locations into `$HOME/PreRestored`
   - Preserves ownership and updates rollback references to the collected paths
@@ -154,7 +165,10 @@ Rollback covers replaced and newly created targets, SMB directory metadata, serv
 
 Additional safeguards include:
 
+- An optional one-time Timeshift snapshot before the first system change
+- Per-action failure isolation so the menu remains available after an error
 - Idempotent fstab updates by configured mountpoint
+- Target-filesystem-aware tree restores
 - Atomic updates for `/etc/fstab` and `/etc/default/grub`
 - Post-restore validation where the relevant validation command is available
 - Audit entries and action results in `restore.log`
