@@ -46,7 +46,6 @@ optional_action_commands=(
   grub-mkconfig
   makepkg
   pacman
-  qs
   smbpasswd
   ssh
   ssh-keygen

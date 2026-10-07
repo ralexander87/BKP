@@ -10,7 +10,6 @@
 - `pigz` and `tar` when creating compressed archives
 - `curl` for the ML4W installer
 - `sudo`, `pacman`, `makepkg`, `git`, `flatpak`, and `yay` for package actions
-- `qs` for restarting Quickshell after Restore QS
 - `fc-cache` for refreshing the font cache when available
 
 Run `make deps` from the project root for the complete dependency report.
@@ -197,8 +196,8 @@ Actions ask for confirmation before changing local configuration. The default an
 - `10 - Restore Wallpapers`
   - Snapshots the current wallpapers folder
   - Copies shared `BIG/wallpapers/` into the ML4W wallpapers folder
-- `11 - Restore ZSHRC`
-  - Snapshots and restores the complete `zshrc` folder
+- `11 - Restore ZSHRC, BASHRC`
+  - Snapshots and restores the complete `zshrc` and `bashrc` folders
 - `12 - Restore KITTY`
   - Snapshots and restores the complete `kitty` folder
 - `13 - Restore FASTFETCH`
@@ -226,8 +225,8 @@ Actions ask for confirmation before changing local configuration. The default an
   - Snapshots and restores the complete `wlogout` folder
 - `21 - Restore QS`
   - Snapshots and restores the complete `quickshell` folder
-  - Applies local font adjustments to `quickshell/overview/config.json`
-  - Runs `qs kill` followed by `qs -d`
+- `22 - Restore WALKER`
+  - Snapshots and restores the complete `walker` folder
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items under `$HOME` into `$HOME/PreRestored`
 - `99 - Restore Settings`

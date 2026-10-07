@@ -253,7 +253,7 @@ Select action:
   6 - Change SHELL
 ============================
   10 - Restore Wallpapers
-  11 - Restore ZSHRC
+  11 - Restore ZSHRC, BASHRC
   12 - Restore KITTY
   13 - Restore FASTFETCH
   14 - Restore HYPR
@@ -264,6 +264,7 @@ Select action:
   19 - Restore SWAYNC
   20 - Restore WLOGOUT
   21 - Restore QS
+  22 - Restore WALKER
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -390,20 +391,6 @@ restore_config_folder() {
 # Resolve the backup device root from a script running inside MAIN/BKP-*/DOTS.
 resolve_backup_device_root() {
   cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd
-}
-
-# Normalize quickshell overview fonts after restoring the backed-up config.
-customize_quickshell_overview_config() {
-  local target_file="$ML4W_CONFIG_ROOT/quickshell/overview/config.json"
-
-  [[ -f "$target_file" ]] || die "quickshell overview config target file not found: $target_file"
-
-  log "Customizing quickshell overview config: $target_file"
-  sed -i -E \
-    -e 's|^([[:space:]]*"main":[[:space:]]*)"Fira Sans Semibold"|\1"Monofur Nerd Font"|' \
-    -e 's|^([[:space:]]*"title":[[:space:]]*)"Fira Sans Semibold"|\1"Monofur Nerd Font"|' \
-    -e 's|^([[:space:]]*"expressive":[[:space:]]*)"Fira Sans Semibold"|\1"Monofur Nerd Font"|' \
-    "$target_file"
 }
 
 # Replace the ML4W wallpapers folder from the shared BIG/wallpapers backup.
@@ -749,6 +736,11 @@ restore_wlogout() {
   restore_config_path "WLOGOUT" "wlogout" "wlogout"
 }
 
+# Replace the Walker config folder from the current DOTS backup.
+restore_walker() {
+  restore_config_path "WALKER" "walker" "walker"
+}
+
 # Replace the CAVA config folder from the current DOTS backup.
 restore_cava() {
   local source_dir="$SCRIPT_DIR/cava"
@@ -818,18 +810,9 @@ restore_hypr() {
   log "Done: Restore HYPR"
 }
 
-# Restore Quickshell, apply the local overview font choices, and restart it.
+# Replace the complete Quickshell config folder from the current DOTS backup.
 restore_qs() {
-  require_cmd qs
-  [[ -d "$SCRIPT_DIR/quickshell" ]] || die "QS source folder not found: $SCRIPT_DIR/quickshell"
-  [[ -f "$SCRIPT_DIR/quickshell/overview/config.json" ]] || die "QS overview source not found: $SCRIPT_DIR/quickshell/overview/config.json"
-  confirm_action "Restore QS" || return 0
-  restore_config_folder "QS" "quickshell" "quickshell"
-  customize_quickshell_overview_config
-  log "Restarting Quickshell"
-  qs kill
-  qs -d
-  log "Done: Restore QS"
+  restore_config_path "QS" "quickshell" "quickshell"
 }
 
 # Run ML4W's interactive login-shell changer.
@@ -844,9 +827,15 @@ change_shell() {
   log "Done: Change SHELL"
 }
 
-# Replace the backed-up zshrc config folder in the ML4W config tree.
-restore_zshrc() {
-  restore_config_path "ZSHRC" "zshrc" "zshrc"
+# Replace the backed-up zshrc and bashrc folders in the ML4W config tree.
+restore_shell_rc() {
+  [[ -d "$SCRIPT_DIR/zshrc" ]] || die "ZSHRC source folder not found: $SCRIPT_DIR/zshrc"
+  [[ -d "$SCRIPT_DIR/bashrc" ]] || die "BASHRC source folder not found: $SCRIPT_DIR/bashrc"
+
+  confirm_action "Restore ZSHRC, BASHRC" || return 0
+  restore_config_folder "ZSHRC" "zshrc" "zshrc"
+  restore_config_folder "BASHRC" "bashrc" "bashrc"
+  log "Done: Restore ZSHRC, BASHRC"
 }
 
 # Restore the matugen theme generator config and templates from DOTS.
@@ -1100,7 +1089,7 @@ while true; do
     restore_wallpapers
     ;;
   11)
-    restore_zshrc
+    restore_shell_rc
     ;;
   12)
     restore_kitty
@@ -1131,6 +1120,9 @@ while true; do
     ;;
   21)
     restore_qs
+    ;;
+  22)
+    restore_walker
     ;;
   98)
     collect_pre_restore

@@ -291,6 +291,7 @@ grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '5 - Set AutoLogin' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '6 - Change SHELL' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '10 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '11 - Restore ZSHRC, BASHRC' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '14 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '17 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_folder "MATUGEN" "matugen/templates" "matugen/templates"' "$PROJECT_ROOT/restore-dots.sh"
@@ -298,6 +299,7 @@ grep -Fq '18 - Restore CAVA' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '19 - Restore SWAYNC' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '20 - Restore WLOGOUT' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '21 - Restore QS' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '22 - Restore WALKER' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -339,27 +341,20 @@ if sed -n '/^restore_hypr()/,/^}/p' "$PROJECT_ROOT/restore-dots.sh" | grep -Eq '
 fi
 grep -Fq 'restore_config_file "Settings" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_file "Settings" "xsettingsd/xsettingsd.conf" "xsettingsd/xsettingsd.conf"' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'restore_config_folder "QS" "quickshell" "quickshell"' "$PROJECT_ROOT/restore-dots.sh"
-awk '
-  /^restore_qs\(\)/ { in_func = 1 }
-  in_func && /^[[:space:]]+qs kill$/ { kill_seen = 1 }
-  in_func && /^[[:space:]]+qs -d$/ {
-    daemon_seen = 1
-    if (!kill_seen) {
-      exit 1
-    }
-  }
-  in_func && /^}/ { exit(kill_seen && daemon_seen ? 0 : 1) }
-' "$PROJECT_ROOT/restore-dots.sh" || {
-  printf 'Restore QS must run qs kill before qs -d\n' >&2
+grep -Fq 'restore_config_path "QS" "quickshell" "quickshell"' "$PROJECT_ROOT/restore-dots.sh"
+if grep -Eq 'customize_quickshell|qs kill|qs -d' "$PROJECT_ROOT/restore-dots.sh"; then
+  printf 'Restore QS should only restore the complete quickshell folder\n' >&2
   exit 1
-}
+fi
 grep -Fq 'restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_file "WAYBAR" "waybar/modules.json" "waybar/modules.json"' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'restore_config_folder "ZSHRC" "zshrc" "zshrc"' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'restore_config_folder "BASHRC" "bashrc" "bashrc"' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "local link_path=\"\$HOME/.config/cava\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "ln -s -- \"\$target_dir\" \"\$link_path\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_path "SWAYNC" "swaync" "swaync"' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_path "WLOGOUT" "wlogout" "wlogout"' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'restore_config_path "WALKER" "walker" "walker"' "$PROJECT_ROOT/restore-dots.sh"
 if grep -Fq 'customize_wlogout_glass_style' "$PROJECT_ROOT/restore-dots.sh"; then
   printf 'retired wlogout style customization should not remain\n' >&2
   exit 1
@@ -371,7 +366,7 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_extra
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 5 set_autologin
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 6 change_shell
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 10 restore_wallpapers
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 11 restore_zshrc
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 11 restore_shell_rc
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 12 restore_kitty
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 13 restore_fastfetch
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 14 restore_hypr
@@ -382,6 +377,7 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 18 restore_cava
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 19 restore_swaync
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 20 restore_wlogout
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 21 restore_qs
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 22 restore_walker
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'
@@ -396,6 +392,9 @@ mkdir -p \
   "$dots_dir/waybar/themes" \
   "$dots_dir/waybar/scripts" \
   "$dots_dir/quickshell/overview" \
+  "$dots_dir/walker" \
+  "$dots_dir/zshrc" \
+  "$dots_dir/bashrc" \
   "$dots_dir/gtk-3.0" \
   "$dots_dir/gtk-4.0" \
   "$dots_dir/qt6ct" \
@@ -436,6 +435,9 @@ for source_rel in \
 done
 printf 'theme fixture\n' >"$dots_dir/waybar/themes/theme.css"
 printf 'script fixture\n' >"$dots_dir/waybar/scripts/test.sh"
+printf 'walker fixture\n' >"$dots_dir/walker/config.toml"
+printf 'zshrc fixture\n' >"$dots_dir/zshrc/config"
+printf 'bashrc fixture\n' >"$dots_dir/bashrc/config"
 cat >"$dots_dir/quickshell/overview/config.json" <<'EOF'
 {
   "main": "Fira Sans Semibold",
@@ -448,7 +450,17 @@ cat >>"$dots_dir/restore-dots-partial.sh" <<'EOF'
 ML4W_CONFIG_ROOT="$HOME/ml4w-config"
 RESTORE_ID="functional-test"
 confirm_action() { return 0; }
-qs() { printf '%s\n' "$*" >>"$HOME/qs-actions.log"; }
+
+mkdir -p "$ML4W_CONFIG_ROOT/zshrc" "$ML4W_CONFIG_ROOT/bashrc"
+printf 'old zshrc fixture\n' >"$ML4W_CONFIG_ROOT/zshrc/config"
+printf 'old bashrc fixture\n' >"$ML4W_CONFIG_ROOT/bashrc/config"
+restore_shell_rc
+grep -Fqx 'zshrc fixture' "$ML4W_CONFIG_ROOT/zshrc/config"
+grep -Fqx 'bashrc fixture' "$ML4W_CONFIG_ROOT/bashrc/config"
+find "$HOME/PreRestored" -maxdepth 1 -type d -name 'zshrc-pre-restore-*' \
+  -exec grep -Fqx 'old zshrc fixture' '{}/config' \; -print -quit | grep -q .
+find "$HOME/PreRestored" -maxdepth 1 -type d -name 'bashrc-pre-restore-*' \
+  -exec grep -Fqx 'old bashrc fixture' '{}/config' \; -print -quit | grep -q .
 
 restore_hypr
 [[ -f "$ML4W_CONFIG_ROOT/hypr/conf/keybindings/default.lua" ]]
@@ -460,10 +472,20 @@ restore_waybar
 [[ -f "$ML4W_CONFIG_ROOT/waybar/themes/theme.css" ]]
 [[ -f "$ML4W_CONFIG_ROOT/waybar/scripts/test.sh" ]]
 
+mkdir -p "$ML4W_CONFIG_ROOT/quickshell"
+printf 'old quickshell fixture\n' >"$ML4W_CONFIG_ROOT/quickshell/old.conf"
 restore_qs
-grep -Fq '"main": "Monofur Nerd Font"' "$ML4W_CONFIG_ROOT/quickshell/overview/config.json"
-[[ "$(sed -n '1p' "$HOME/qs-actions.log")" == "kill" ]]
-[[ "$(sed -n '2p' "$HOME/qs-actions.log")" == "-d" ]]
+grep -Fq '"main": "Fira Sans Semibold"' "$ML4W_CONFIG_ROOT/quickshell/overview/config.json"
+[[ ! -e "$ML4W_CONFIG_ROOT/quickshell/old.conf" ]]
+find "$HOME/PreRestored" -maxdepth 1 -type d -name 'quickshell-pre-restore-*' \
+  -exec grep -Fqx 'old quickshell fixture' '{}/old.conf' \; -print -quit | grep -q .
+
+mkdir -p "$ML4W_CONFIG_ROOT/walker"
+printf 'old walker fixture\n' >"$ML4W_CONFIG_ROOT/walker/config.toml"
+restore_walker
+grep -Fqx 'walker fixture' "$ML4W_CONFIG_ROOT/walker/config.toml"
+find "$HOME/PreRestored" -maxdepth 1 -type d -name 'walker-pre-restore-*' \
+  -exec grep -Fqx 'old walker fixture' '{}/config.toml' \; -print -quit | grep -q .
 
 restore_settings
 [[ -f "$ML4W_CONFIG_ROOT/gtk-3.0/bookmarks" ]]
