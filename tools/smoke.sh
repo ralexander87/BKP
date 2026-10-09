@@ -280,6 +280,36 @@ fi
 rm -rf "$tmp"
 printf 'Install Extra log format OK: restore-dots.sh\n'
 
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/bin" "$tmp/lib"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$tmp/restore-dots-partial.sh"
+cat >"$tmp/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$SUDO_TEST_LOG"
+EOF
+chmod +x "$tmp/bin/sudo"
+cat >>"$tmp/restore-dots-partial.sh" <<'EOF'
+SUDO_KEEPALIVE_INTERVAL_SECONDS=0.05
+start_sudo_keepalive
+sleep 0.15
+keepalive_pid="$SUDO_KEEPALIVE_PID"
+kill -0 "$keepalive_pid"
+stop_sudo_keepalive
+[[ -z "$SUDO_KEEPALIVE_PID" ]]
+if kill -0 "$keepalive_pid" 2>/dev/null; then
+  printf 'sudo keepalive process should stop after the action\n' >&2
+  exit 1
+fi
+EOF
+if ((EUID != 0)); then
+  SUDO_TEST_LOG="$tmp/sudo.log" PATH="$tmp/bin:$PATH" bash "$tmp/restore-dots-partial.sh"
+  [[ "$(grep -Fxc -- '-v' "$tmp/sudo.log")" -eq 1 ]]
+  grep -Fqx -- '-n -v' "$tmp/sudo.log"
+fi
+rm -rf "$tmp"
+printf 'sudo action keepalive OK: restore-dots.sh\n'
+
 grep -Fq 'RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)' "$PROJECT_ROOT/restore-dots.sh"
 if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; then
   printf 'Install Extra command output should stay in its log instead of flooding the terminal\n' >&2
@@ -309,6 +339,8 @@ grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'sudo pacman -R --noconfirm vlc' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ensure_yay_installed' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'start_sudo_keepalive' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'sudo -n -v' "$PROJECT_ROOT/restore-dots.sh"
 awk '
   /^install_hyprmod\(\)/ { in_func = 1 }
   in_func && /ensure_yay_installed/ { yay_check_seen = 1 }

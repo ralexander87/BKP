@@ -146,6 +146,8 @@ MAIN_BACKUP_CONFIG="$SCRIPT_DIR/config/main.backup.conf"
 SDDM_CONFIG="${SDDM_CONFIG:-/usr/lib/sddm/sddm.conf.d/default.conf}"
 INSTALL_EXTRA_LOG="$(resolve_writable_output_path "$SCRIPT_DIR/install-extra.log" "$RESTORE_STATE_ROOT/install-extra-$RESTORE_ID.log")"
 LAST_SNAPSHOT_PATH=""
+SUDO_KEEPALIVE_PID=""
+SUDO_KEEPALIVE_INTERVAL_SECONDS="${SUDO_KEEPALIVE_INTERVAL_SECONDS:-60}"
 
 # Load package and Flatpak choices bundled with this DOTS backup.
 load_dots_extra_config() {
@@ -303,6 +305,38 @@ confirm_action() {
   return 0
 }
 
+# Authenticate sudo once and refresh its timestamp while one install action runs.
+start_sudo_keepalive() {
+  if ((EUID == 0)); then
+    return 0
+  fi
+
+  require_cmd sudo
+  log "Requesting root authentication once for this action"
+  if ! sudo -v; then
+    log_error "Root authentication failed"
+    return 1
+  fi
+
+  (
+    trap - INT TERM
+    while sleep "$SUDO_KEEPALIVE_INTERVAL_SECONDS"; do
+      sudo -n -v >/dev/null 2>&1 || exit 0
+    done
+  ) &
+  SUDO_KEEPALIVE_PID="$!"
+}
+
+# Stop refreshing sudo when the selected install action has finished.
+stop_sudo_keepalive() {
+  local keepalive_pid="$SUDO_KEEPALIVE_PID"
+
+  SUDO_KEEPALIVE_PID=""
+  [[ -n "$keepalive_pid" ]] || return 0
+  kill "$keepalive_pid" 2>/dev/null || true
+  wait "$keepalive_pid" 2>/dev/null || true
+}
+
 # Install ML4W stable DOTS after removing the current Hypr configuration.
 install_dots() {
   require_cmd bash
@@ -431,6 +465,7 @@ install_hyprmod() {
   [[ -f "$installer" ]] || die "HyprMod installer not found: $installer"
 
   confirm_action "Install HyprMod" || return 0
+  start_sudo_keepalive || return 1
   if command -v yay >/dev/null 2>&1; then
     log "Yay is already installed"
   else
@@ -439,13 +474,19 @@ install_hyprmod() {
     if ! ensure_yay_installed; then
       finalize_install_extra_log "FAILED"
       log_error "Cannot continue with HyprMod because yay installation failed"
+      stop_sudo_keepalive
       return 1
     fi
     finalize_install_extra_log "COMPLETED"
   fi
   require_cmd yay
   log "Running HyprMod installer: $installer"
-  bash "$installer"
+  if ! bash "$installer"; then
+    log_error "HyprMod installer failed"
+    stop_sudo_keepalive
+    return 1
+  fi
+  stop_sudo_keepalive
   log "Done: Install HyprMod"
 }
 
@@ -611,12 +652,21 @@ install_extra() {
   fi
   load_dots_extra_config
 
+  if ! start_sudo_keepalive; then
+    EXTRA_FAILED_ACTIONS+=("Authenticate sudo")
+    extra_log_message "ERROR" "Cannot continue with Install Extra because root authentication failed"
+    finalize_install_extra_log "FAILED"
+    return 1
+  fi
+
   if ! ensure_yay_installed; then
     finalize_install_extra_log "FAILED"
+    stop_sudo_keepalive
     return 1
   fi
   if ! require_extra_commands pacman yay flatpak sudo; then
     finalize_install_extra_log "FAILED"
+    stop_sudo_keepalive
     return 1
   fi
 
@@ -651,6 +701,7 @@ install_extra() {
   if [[ "$remove_repo_vlc" != "true" && "${#missing_packages[@]}" -eq 0 && "${#missing_flatpaks[@]}" -eq 0 ]]; then
     extra_log_message "INFO" "Done: Install Extra (all items already installed)"
     finalize_install_extra_log "COMPLETED"
+    stop_sudo_keepalive
     return 0
   fi
 
@@ -658,6 +709,7 @@ install_extra() {
     run_extra_command "Remove repository VLC package" \
       sudo pacman -R --noconfirm vlc || {
       finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
       return 1
     }
   fi
@@ -666,6 +718,7 @@ install_extra() {
     run_extra_command "Install Extra Flatpak: $app" \
       flatpak install --noninteractive -y "$app" || {
       finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
       return 1
     }
   done
@@ -674,12 +727,14 @@ install_extra() {
     run_extra_command "Install Extra packages: ${missing_packages[*]}" \
       yay -S --needed --noconfirm -- "${missing_packages[@]}" || {
       finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
       return 1
     }
   fi
 
   extra_log_message "INFO" "Done: Install Extra"
   finalize_install_extra_log "COMPLETED"
+  stop_sudo_keepalive
 }
 
 # Set SDDM autologin to the local non-root desktop user.
@@ -1054,6 +1109,8 @@ fi
 init_log_file
 preflight_checks
 setup_cleanup_trap
+# Also stop any active sudo refresher if the script is interrupted or exits early.
+trap 'stop_sudo_keepalive; cleanup_temp_paths; ui_cleanup' EXIT
 verify_backup_status
 
 # Keep showing menu until user selects Exit.

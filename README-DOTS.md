@@ -176,9 +176,11 @@ Actions ask for confirmation before changing local configuration. The default an
   - Copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
   - Refreshes the font cache when `fc-cache` is available
 - `3 - Install HyprMod`
+  - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` from its official AUR package when missing
   - Runs the ML4W `ml4w-install-hyprmod` script after `yay` is available
 - `4 - Install Extra`
+  - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` and its build requirements when needed
   - Removes repository VLC when configured and installed
   - Installs configured Arch/AUR packages and Flatpaks noninteractively
