@@ -140,7 +140,7 @@ For each existing target, the script creates a `<name>-pre-restore-<timestamp>` 
 
 After restoration, it collects legacy `*-pre-restore-*` files and folders that older runs left under `$HOME` into `$HOME/PreRestored`.
 
-Shared `BIG/030-Firmware/` is restored to `$HOME/Documents/030-Firmware/` when present. After `.ssh` is restored, modes are normalized to:
+Shared `BIG/030-Firmware/` is restored to `$HOME/Documents/030-Firmware/` when present. Shared `BIG/cc.arduino.IDE2.desktop` is restored to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`; an existing desktop entry is moved into `$HOME/PreRestored` first. After `.ssh` is restored, modes are normalized to:
 
 ```text
 directories  700

@@ -297,6 +297,37 @@ restore_shared_firmware() {
   log "Restored shared firmware: $target_dir"
 }
 
+# Restore the Arduino IDE desktop entry stored in the shared BIG folder.
+restore_shared_arduino_desktop_entry() {
+  local device_root
+  local source_file
+  local target_file
+  local arduino_desktop_home_relative=".local/share/applications/cc.arduino.IDE2.desktop"
+  local big_arduino_desktop_relative="BIG/cc.arduino.IDE2.desktop"
+
+  if [[ -f "$MAIN_BACKUP_CONFIG" ]]; then
+    # shellcheck source=config/main.backup.conf
+    source "$MAIN_BACKUP_CONFIG"
+    arduino_desktop_home_relative="$ARDUINO_DESKTOP_HOME_RELATIVE"
+    big_arduino_desktop_relative="$BIG_ARDUINO_DESKTOP_RELATIVE"
+  fi
+
+  device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  source_file="$device_root/$big_arduino_desktop_relative"
+  target_file="$HOME/$arduino_desktop_home_relative"
+
+  if [[ ! -f "$source_file" ]]; then
+    log "Skipping missing shared Arduino desktop entry: $source_file"
+    return 0
+  fi
+
+  log "Restoring shared Arduino desktop entry: $source_file -> $target_file"
+  snapshot_existing_target "$target_file"
+  mkdir -p "$(dirname -- "$target_file")"
+  rsync_restore_copy "$source_file" "$target_file"
+  log "Restored shared Arduino desktop entry: $target_file"
+}
+
 # Block restore from incomplete backups while allowing older backup status formats.
 read_manifest_status() {
   local manifest_file="$1"
@@ -401,6 +432,7 @@ done
 
 # Restore shared BIG content after the main Documents folder is in place.
 restore_shared_firmware
+restore_shared_arduino_desktop_entry
 
 # Normalize SSH file modes only when this run restored .ssh.
 if [[ "$SSH_RESTORED" == "true" ]]; then

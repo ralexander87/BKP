@@ -108,6 +108,25 @@ rm -rf "$tmp"
 printf 'automatic pre-restore collection OK: restore-main.sh\n'
 
 tmp="$(mktemp -d)"
+mkdir -p "$tmp/device/MAIN/BKP-test/config" "$tmp/device/BIG" "$tmp/home/.local/share/applications"
+cp "$PROJECT_ROOT/restore-main.sh" "$tmp/device/MAIN/BKP-test/restore-main.sh"
+cp "$PROJECT_ROOT/config/main.backup.conf" "$tmp/device/MAIN/BKP-test/config/main.backup.conf"
+chmod +x "$tmp/device/MAIN/BKP-test/restore-main.sh"
+cat >"$tmp/device/MAIN/BKP-test/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
+printf 'new desktop entry\n' >"$tmp/device/BIG/cc.arduino.IDE2.desktop"
+printf 'old desktop entry\n' >"$tmp/home/.local/share/applications/cc.arduino.IDE2.desktop"
+printf 'Y\n' | HOME="$tmp/home" "$tmp/device/MAIN/BKP-test/restore-main.sh" >/dev/null
+grep -Fqx 'new desktop entry' "$tmp/home/.local/share/applications/cc.arduino.IDE2.desktop"
+find "$tmp/home/PreRestored" -maxdepth 1 -type f -name 'cc.arduino.IDE2.desktop-pre-restore-*' \
+  -exec grep -Fqx 'old desktop entry' '{}' \; -print -quit | grep -q .
+rm -rf "$tmp"
+printf 'shared Arduino desktop entry restore OK: restore-main.sh\n'
+
+tmp="$(mktemp -d)"
 mkdir -p "$tmp/backup" "$tmp/home" "$tmp/state"
 cp "$PROJECT_ROOT/restore-main.sh" "$tmp/backup/restore-main.sh"
 chmod +x "$tmp/backup/restore-main.sh"
@@ -878,6 +897,8 @@ grep -Fq "Skipping missing dotfiles root: \$DOTS_ROOT" "$PROJECT_ROOT/bkp-main.s
 grep -Fq 'BIG_WALLPAPERS_RELATIVE="BIG/wallpapers"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq 'FIRMWARE_HOME_RELATIVE="Documents/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq 'BIG_FIRMWARE_RELATIVE="BIG/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'BIG_ARDUINO_DESKTOP_RELATIVE="BIG/cc.arduino.IDE2.desktop"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'ARDUINO_DESKTOP_HOME_RELATIVE=".local/share/applications/cc.arduino.IDE2.desktop"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq 'BIG_HOME_FILES_RELATIVE="BIG"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".bash_history"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".zsh_history"' "$PROJECT_ROOT/config/main.backup.conf"
@@ -892,6 +913,7 @@ grep -Fq 'validate_tar_gz_archive' "$PROJECT_ROOT/bkp-serv.sh"
 grep -Fq '.in-progress' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq '.in-progress' "$PROJECT_ROOT/bkp-serv.sh"
 grep -Fq 'restore_shared_firmware' "$PROJECT_ROOT/restore-main.sh"
+grep -Fq 'restore_shared_arduino_desktop_entry' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq 'discover_restore_items' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq 'RESTORE_EXCLUDED_ITEMS' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq '"backup-manifest.json"' "$PROJECT_ROOT/restore-main.sh"
