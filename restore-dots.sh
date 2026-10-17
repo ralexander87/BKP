@@ -148,6 +148,9 @@ INSTALL_EXTRA_LOG="$(resolve_writable_output_path "$SCRIPT_DIR/install-extra.log
 LAST_SNAPSHOT_PATH=""
 SUDO_KEEPALIVE_PID=""
 SUDO_KEEPALIVE_INTERVAL_SECONDS="${SUDO_KEEPALIVE_INTERVAL_SECONDS:-60}"
+ARDUINO_IDE_FLATPAK_ID="cc.arduino.IDE2"
+MICRONUCLEUS_RULES_URL="https://raw.githubusercontent.com/micronucleus/micronucleus/master/commandline/49-micronucleus.rules"
+MICRONUCLEUS_RULES_TARGET="/etc/udev/rules.d/49-micronucleus.rules"
 
 # Load package and Flatpak choices bundled with this DOTS backup.
 load_dots_extra_config() {
@@ -635,6 +638,19 @@ ensure_yay_installed() {
   extra_log_message "INFO" "Done: Install yay"
 }
 
+# Install and activate Micronucleus device rules after installing Arduino IDE 2.
+install_micronucleus_udev_rules() {
+  require_extra_commands curl udevadm || return 1
+
+  run_extra_command "Install Micronucleus udev rules" \
+    sudo curl --fail --show-error --location --proto '=https' --tlsv1.2 \
+    --output "$MICRONUCLEUS_RULES_TARGET" "$MICRONUCLEUS_RULES_URL" || return 1
+  run_extra_command "Reload udev rules" \
+    sudo udevadm control --reload-rules || return 1
+  run_extra_command "Trigger udev devices" \
+    sudo udevadm trigger || return 1
+}
+
 # Install extra Arch/AUR packages and Flatpaks after showing what is missing.
 install_extra() {
   local app
@@ -721,6 +737,11 @@ install_extra() {
       stop_sudo_keepalive
       return 1
     }
+    if [[ "$app" == "$ARDUINO_IDE_FLATPAK_ID" ]] && ! install_micronucleus_udev_rules; then
+      finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
+      return 1
+    fi
   done
 
   if [[ "${#missing_packages[@]}" -gt 0 ]]; then

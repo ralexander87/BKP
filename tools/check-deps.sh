@@ -52,6 +52,7 @@ optional_action_commands=(
   sshd
   testparm
   timeshift
+  udevadm
   yay
 )
 

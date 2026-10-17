@@ -184,8 +184,9 @@ Actions ask for confirmation before changing local configuration. The default an
   - Installs `yay` and its build requirements when needed
   - Removes repository VLC when configured and installed
   - Installs configured Arch/AUR packages and Flatpaks noninteractively
-  - Current packages include `jefferson`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, `rambox-pro-bin`, `qrencode`, and `python-pywalfox`
-  - Current Flatpaks include `org.videolan.VLC` and `org.gnome.Calculator`
+  - Current packages include `jefferson-git`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, `rambox-pro-bin`, `qrencode`, and `python-pywalfox`
+  - Current Flatpaks include `org.videolan.VLC`, `org.gnome.Calculator`, and `cc.arduino.IDE2`
+  - After installing Arduino IDE 2, installs the Micronucleus udev rule and reloads and triggers udev
   - Writes package-manager details to `install-extra.log`
 - `5 - Set AutoLogin`
   - Snapshots `/usr/lib/sddm/sddm.conf.d/default.conf`

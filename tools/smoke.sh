@@ -330,6 +330,7 @@ grep -Fq '19 - Restore SWAYNC' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '20 - Restore WLOGOUT' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '21 - Restore QS' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '22 - Restore WALKER' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'jefferson-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -337,10 +338,23 @@ grep -Fq 'qrencode' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-pywalfox' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'cc.arduino.IDE2' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'sudo pacman -R --noconfirm vlc' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ensure_yay_installed' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'start_sudo_keepalive' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'sudo -n -v' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'https://raw.githubusercontent.com/micronucleus/micronucleus/master/commandline/49-micronucleus.rules' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '/etc/udev/rules.d/49-micronucleus.rules' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'sudo udevadm control --reload-rules' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'sudo udevadm trigger' "$PROJECT_ROOT/restore-dots.sh"
+awk '
+  /flatpak install --noninteractive -y/ { flatpak_install_seen = 1 }
+  /install_micronucleus_udev_rules/ && flatpak_install_seen { rules_after_flatpak = 1 }
+  END { exit(rules_after_flatpak ? 0 : 1) }
+' "$PROJECT_ROOT/restore-dots.sh" || {
+  printf 'Micronucleus udev setup should run after the Arduino Flatpak install\n' >&2
+  exit 1
+}
 awk '
   /^install_hyprmod\(\)/ { in_func = 1 }
   in_func && /ensure_yay_installed/ { yay_check_seen = 1 }
