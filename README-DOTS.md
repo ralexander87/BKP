@@ -8,8 +8,9 @@
 
 - `bash` and `rsync`
 - `pigz` and `tar` when creating compressed archives
-- `curl` for the ML4W installer
+- `curl` for the ML4W installer and Micronucleus rule download
 - `sudo`, `pacman`, `makepkg`, `git`, `flatpak`, and `yay` for package actions
+- `udevadm` for activating the Micronucleus device rule after Arduino IDE 2 installation
 - `fc-cache` for refreshing the font cache when available
 
 Run `make deps` from the project root for the complete dependency report.
@@ -86,7 +87,13 @@ date +%Y-%j-%d-%m-%H-%M-%S
   - `.zshrc`
   - `.wget-hsts`
 
-The backup-only files in shared `BIG/` are not restored by any restore script.
+The four backup-only hidden files listed above are not restored by any restore script.
+
+Some shared `BIG/` assets are restore-only inputs maintained separately on the backup device; `bkp-main.sh` does not create or update them:
+
+- `BIG/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
+- `BIG/fonts/install.sh` and `BIG/Steelfish Outline.ttf`, used by DOTS option `2`
+- `BIG/dracula.qbtheme`, used by DOTS option `99`
 
 `Downloads/*.iso` and `.ssh/agent/` are excluded. `Documents/030-Firmware/` is excluded from the per-run Documents copy, and `ml4w/wallpapers/` is excluded from the per-run DOTS copy.
 
@@ -108,7 +115,7 @@ Archives are written beside the backup folder:
 /path/to/device/MAIN/BKP-<timestamp>.tar.gz
 ```
 
-Shared `BIG/wallpapers/` and `BIG/030-Firmware/` content is excluded from each archive.
+Shared `BIG/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, the qBittorrent theme, and the Arduino desktop entry.
 
 MAIN backup safety behavior includes:
 
@@ -140,7 +147,7 @@ For each existing target, the script creates a `<name>-pre-restore-<timestamp>` 
 
 After restoration, it collects legacy `*-pre-restore-*` files and folders that older runs left under `$HOME` into `$HOME/PreRestored`.
 
-Shared `BIG/030-Firmware/` is restored to `$HOME/Documents/030-Firmware/` when present. Shared `BIG/cc.arduino.IDE2.desktop` is restored to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`; an existing desktop entry is moved into `$HOME/PreRestored` first. After `.ssh` is restored, modes are normalized to:
+Shared `BIG/030-Firmware/` is restored to `$HOME/Documents/030-Firmware/` when present. Shared `BIG/cc.arduino.IDE2.desktop` is restored to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`; an existing desktop entry is moved into `$HOME/PreRestored` first. Missing optional shared sources are skipped. After `.ssh` is restored, modes are normalized to:
 
 ```text
 directories  700

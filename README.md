@@ -135,6 +135,12 @@ The current version is stored in `VERSION`.
 
 ## Changelog
 
+### Unreleased
+
+- Added Arduino IDE 2 to DOTS Install Extra and installed the Micronucleus udev rule after a new Arduino IDE 2 installation
+- Switched the Jefferson AUR selection to the maintained `jefferson-git` package
+- Added MAIN restore support for the shared `BIG/cc.arduino.IDE2.desktop` launcher, including a safety snapshot of an existing launcher
+
 ### 0.5.0
 
 - Split SERVICE restore into focused sharing, boot, discovery, and smart-card profiles, plus a complete profile that includes SSH
