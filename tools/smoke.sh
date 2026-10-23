@@ -335,8 +335,11 @@ if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; t
   exit 1
 fi
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
+if grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh" || grep -Eq '^[[:space:]]*3\)' "$PROJECT_ROOT/restore-dots.sh"; then
+  printf 'Install HyprMod should only be available through Install Extra\n' >&2
+  exit 1
+fi
 grep -Fq '5 - Set AutoLogin' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '6 - Change SHELL' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '10 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
@@ -355,6 +358,8 @@ grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'qrencode' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-pywalfox' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'srec-git' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'minipro-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.gnome.Calculator' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'cc.arduino.IDE2' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -366,6 +371,7 @@ grep -Fq 'https://raw.githubusercontent.com/micronucleus/micronucleus/master/com
 grep -Fq '/etc/udev/rules.d/49-micronucleus.rules' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'sudo udevadm control --reload-rules' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'sudo udevadm trigger' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "bash -o pipefail -c 'curl -fsS https://dl.brave.com/install.sh | sh'" "$PROJECT_ROOT/restore-dots.sh"
 awk '
   /flatpak install --noninteractive -y/ { flatpak_install_seen = 1 }
   /install_micronucleus_udev_rules/ && flatpak_install_seen { rules_after_flatpak = 1 }
@@ -375,19 +381,27 @@ awk '
   exit 1
 }
 awk '
-  /^install_hyprmod\(\)/ { in_func = 1 }
+  /^install_extra\(\)/ { in_func = 1 }
   in_func && /ensure_yay_installed/ { yay_check_seen = 1 }
-  in_func && /bash "\$installer"/ {
-    installer_seen = 1
+  in_func && /install_brave_browser/ {
+    brave_seen = 1
     if (!yay_check_seen) {
       exit 1
     }
   }
-  in_func && /^}/ { exit(yay_check_seen && installer_seen ? 0 : 1) }
+  in_func && /install_hyprmod/ {
+    hyprmod_seen = 1
+    if (!yay_check_seen || !brave_seen) {
+      exit 1
+    }
+  }
+  in_func && /^}/ { exit(yay_check_seen && brave_seen && hyprmod_seen ? 0 : 1) }
 ' "$PROJECT_ROOT/restore-dots.sh" || {
-  printf 'Install HyprMod must ensure yay is installed before running its installer\n' >&2
+  printf 'Install Extra must ensure yay is installed before Brave and HyprMod\n' >&2
   exit 1
 }
+sed -n '/^install_hyprmod()/,/^}/p' "$PROJECT_ROOT/restore-dots.sh" |
+  grep -Fq "run_extra_command \"Install HyprMod\" bash \"\$installer\""
 grep -Fq 'sudo pacman -S --needed --noconfirm base-devel git' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'https://aur.archlinux.org/yay.git' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "makepkg -si --needed --noconfirm" "$PROJECT_ROOT/restore-dots.sh"
@@ -426,7 +440,6 @@ if grep -Fq 'customize_wlogout_glass_style' "$PROJECT_ROOT/restore-dots.sh"; the
 fi
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_dots
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 install_hyprmod
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_extra
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 5 set_autologin
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 6 change_shell

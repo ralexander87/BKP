@@ -182,18 +182,16 @@ Actions ask for confirmation before changing local configuration. The default an
   - Runs `BIG/fonts/install.sh` from the backup-device root, with a local fallback lookup
   - Copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
   - Refreshes the font cache when `fc-cache` is available
-- `3 - Install HyprMod`
-  - Requests root authentication once and keeps it valid until the action finishes
-  - Installs `yay` from its official AUR package when missing
-  - Runs the ML4W `ml4w-install-hyprmod` script after `yay` is available
 - `4 - Install Extra`
   - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` and its build requirements when needed
   - Removes repository VLC when configured and installed
   - Installs configured Arch/AUR packages and Flatpaks noninteractively
-  - Current packages include `jefferson-git`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, `rambox-pro-bin`, `qrencode`, and `python-pywalfox`
+  - Current packages include `jefferson-git`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, `rambox-pro-bin`, `qrencode`, `python-pywalfox`, `srec-git`, and `minipro-git`
   - Current Flatpaks include `org.videolan.VLC`, `org.gnome.Calculator`, and `cc.arduino.IDE2`
   - After installing Arduino IDE 2, installs the Micronucleus udev rule and reloads and triggers udev
+  - Installs or updates Brave Browser with Brave's official Linux installer
+  - Runs the ML4W `ml4w-install-hyprmod` script after packages and Flatpaks are ready
   - Writes package-manager details to `install-extra.log`
 - `5 - Set AutoLogin`
   - Snapshots `/usr/lib/sddm/sddm.conf.d/default.conf`

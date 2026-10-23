@@ -252,7 +252,6 @@ Select action:
 ============================
   1 - Install DOTS
   2 - Install FONTS
-  3 - Install HyprMod
   4 - Install Extra
   5 - Set AutoLogin
   6 - Change SHELL
@@ -460,39 +459,6 @@ restore_wallpapers() {
   log "Done: Restore Wallpapers"
 }
 
-# Run the ML4W HyprMod installer from the restored dotfiles tree.
-install_hyprmod() {
-  local installer="$ML4W_CONFIG_ROOT/ml4w/scripts/ml4w-install-hyprmod"
-
-  require_cmd bash
-  [[ -f "$installer" ]] || die "HyprMod installer not found: $installer"
-
-  confirm_action "Install HyprMod" || return 0
-  start_sudo_keepalive || return 1
-  if command -v yay >/dev/null 2>&1; then
-    log "Yay is already installed"
-  else
-    log "Yay is required for HyprMod and will be installed first"
-    init_install_extra_log
-    if ! ensure_yay_installed; then
-      finalize_install_extra_log "FAILED"
-      log_error "Cannot continue with HyprMod because yay installation failed"
-      stop_sudo_keepalive
-      return 1
-    fi
-    finalize_install_extra_log "COMPLETED"
-  fi
-  require_cmd yay
-  log "Running HyprMod installer: $installer"
-  if ! bash "$installer"; then
-    log_error "HyprMod installer failed"
-    stop_sudo_keepalive
-    return 1
-  fi
-  stop_sudo_keepalive
-  log "Done: Install HyprMod"
-}
-
 # Start a fresh detailed log for one Install Extra run.
 init_install_extra_log() {
   local install_extra_dir
@@ -533,6 +499,20 @@ run_extra_command() {
     extra_log_message "ERROR" "$label failed with exit status $status"
     return "$status"
   fi
+}
+
+# Run the ML4W HyprMod installer as part of Install Extra.
+install_hyprmod() {
+  local installer="$ML4W_CONFIG_ROOT/ml4w/scripts/ml4w-install-hyprmod"
+
+  if [[ ! -f "$installer" ]]; then
+    EXTRA_FAILED_ACTIONS+=("Locate HyprMod installer")
+    extra_log_message "ERROR" "HyprMod installer not found: $installer"
+    return 1
+  fi
+
+  require_extra_commands bash yay || return 1
+  run_extra_command "Install HyprMod" bash "$installer"
 }
 
 # Run one install command from a required directory without flooding the terminal.
@@ -651,6 +631,13 @@ install_micronucleus_udev_rules() {
     sudo udevadm trigger || return 1
 }
 
+# Install or update Brave Browser with Brave's official Linux installer.
+install_brave_browser() {
+  require_extra_commands curl sh || return 1
+  run_extra_command "Install Brave Browser" \
+    bash -o pipefail -c 'curl -fsS https://dl.brave.com/install.sh | sh'
+}
+
 # Install extra Arch/AUR packages and Flatpaks after showing what is missing.
 install_extra() {
   local app
@@ -715,10 +702,7 @@ install_extra() {
   done
 
   if [[ "$remove_repo_vlc" != "true" && "${#missing_packages[@]}" -eq 0 && "${#missing_flatpaks[@]}" -eq 0 ]]; then
-    extra_log_message "INFO" "Done: Install Extra (all items already installed)"
-    finalize_install_extra_log "COMPLETED"
-    stop_sudo_keepalive
-    return 0
+    extra_log_message "INFO" "All configured Extra packages and Flatpaks are already installed"
   fi
 
   if [[ "$remove_repo_vlc" == "true" ]]; then
@@ -751,6 +735,18 @@ install_extra() {
       stop_sudo_keepalive
       return 1
     }
+  fi
+
+  if ! install_brave_browser; then
+    finalize_install_extra_log "FAILED"
+    stop_sudo_keepalive
+    return 1
+  fi
+
+  if ! install_hyprmod; then
+    finalize_install_extra_log "FAILED"
+    stop_sudo_keepalive
+    return 1
   fi
 
   extra_log_message "INFO" "Done: Install Extra"
@@ -1150,9 +1146,6 @@ while true; do
     ;;
   2)
     install_fonts
-    ;;
-  3)
-    install_hyprmod
     ;;
   4)
     install_extra
