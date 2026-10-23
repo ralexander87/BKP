@@ -10,7 +10,7 @@
 - `pigz` and `tar` when creating compressed archives
 - `curl` for the ML4W installer and Micronucleus rule download
 - `sudo`, `pacman`, `makepkg`, `git`, `flatpak`, and `yay` for package actions
-- `udevadm` for activating the Micronucleus device rule after Arduino IDE 2 installation
+- `udevadm` for activating restored Arduino and Minipro device rules
 - `fc-cache` for refreshing the font cache when available
 
 Run `make deps` from the project root for the complete dependency report.
@@ -94,6 +94,7 @@ Some shared `BIG/` assets are restore-only inputs maintained separately on the b
 - `BIG/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
 - `BIG/fonts/install.sh` and `BIG/Steelfish Outline.ttf`, used by DOTS option `2`
 - `BIG/dracula.qbtheme`, used by DOTS option `99`
+- `BIG/algorithm.xml` and `BIG/60-minipro.rules`, installed into system locations by DOTS option `99`
 
 `Downloads/*.iso` and `.ssh/agent/` are excluded. `Documents/030-Firmware/` is excluded from the per-run Documents copy, and `ml4w/wallpapers/` is excluded from the per-run DOTS copy.
 
@@ -115,7 +116,7 @@ Archives are written beside the backup folder:
 /path/to/device/MAIN/BKP-<timestamp>.tar.gz
 ```
 
-Shared `BIG/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, the qBittorrent theme, and the Arduino desktop entry.
+Shared `BIG/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, the qBittorrent theme, the Arduino desktop entry, and the Minipro algorithm and udev files.
 
 MAIN backup safety behavior includes:
 
@@ -246,5 +247,8 @@ Actions ask for confirmation before changing local configuration. The default an
   - Copies `BIG/dracula.qbtheme` to `$HOME/.config/qBittorrent/dracula.qbtheme`
   - Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when present
   - Runs bundled `config/local/restore-dots-settings.sh` when present
+  - Copies `BIG/algorithm.xml` to `/usr/share/minipro/algorithm.xml`
+  - Copies `BIG/60-minipro.rules` to `/etc/udev/rules.d/60-minipro.rules`
+  - Reloads udev rules and triggers devices after both Minipro files are installed
 
-Existing files changed by HYPR, Quickshell, Matugen, Settings, Thunar, and qBittorrent actions receive timestamped safety snapshots first. Folder actions use compact summaries without rsync's per-file percentage stream.
+Existing files changed by HYPR, Quickshell, Matugen, Settings, Thunar, and qBittorrent actions receive timestamped safety snapshots first. Existing Minipro system targets are copied into `$HOME/PreRestored` before replacement. Folder actions use compact summaries without rsync's per-file percentage stream.

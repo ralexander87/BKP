@@ -336,10 +336,12 @@ if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; t
 fi
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '3 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- Jefferson, Yubi Auth, hashId, pyUbi Reader, Rambox Pro, QRencode, PywalFox, sRec, Minipro, Brave, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader, Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- FlatPak: VLC, Calc, ArduinoIDE' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- ZSH' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- Keybinds, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font), Screenshot, Terminal, Waybar (quicklink, workspace)' "$PROJECT_ROOT/restore-dots.sh"
 if grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"; then
   printf 'Install HyprMod should only be available through Install Extra\n' >&2
   exit 1
@@ -437,6 +439,12 @@ grep -Fq "Verify Extra Flatpak: \$app" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'BIG/algorithm.xml' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq 'BIG/60-minipro.rules' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "MINIPRO_ALGORITHM_TARGET=\"\${MINIPRO_ALGORITHM_TARGET:-/usr/share/minipro/algorithm.xml}\"" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "MINIPRO_UDEV_RULE_TARGET=\"\${MINIPRO_UDEV_RULE_TARGET:-/etc/udev/rules.d/60-minipro.rules}\"" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "sudo install -m 0644 \"\$algorithm_source\" \"\$MINIPRO_ALGORITHM_TARGET\"" "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq "sudo install -m 0644 \"\$rule_source\" \"\$MINIPRO_UDEV_RULE_TARGET\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "confirm_yes_no \"Start \$label?\" \"N\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
@@ -551,10 +559,18 @@ cat >"$dots_dir/quickshell/overview/config.json" <<'EOF'
 }
 EOF
 printf 'theme fixture\n' >"$tmp/device/BIG/dracula.qbtheme"
+printf 'new algorithm fixture\n' >"$tmp/device/BIG/algorithm.xml"
+printf 'new minipro rule fixture\n' >"$tmp/device/BIG/60-minipro.rules"
 cat >>"$dots_dir/restore-dots-partial.sh" <<'EOF'
 ML4W_CONFIG_ROOT="$HOME/ml4w-config"
 RESTORE_ID="functional-test"
 confirm_action() { return 0; }
+start_sudo_keepalive() { return 0; }
+stop_sudo_keepalive() { :; }
+sudo() { "$@"; }
+udevadm() { printf '%s\n' "$*" >>"$PWD/udevadm.calls"; }
+MINIPRO_ALGORITHM_TARGET="$PWD/system/usr/share/minipro/algorithm.xml"
+MINIPRO_UDEV_RULE_TARGET="$PWD/system/etc/udev/rules.d/60-minipro.rules"
 
 mkdir -p "$ML4W_CONFIG_ROOT/zshrc" "$ML4W_CONFIG_ROOT/bashrc"
 printf 'old zshrc fixture\n' >"$ML4W_CONFIG_ROOT/zshrc/config"
@@ -592,9 +608,22 @@ grep -Fqx 'walker fixture' "$ML4W_CONFIG_ROOT/walker/config.toml"
 find "$HOME/PreRestored" -maxdepth 1 -type d -name 'walker-pre-restore-*' \
   -exec grep -Fqx 'old walker fixture' '{}/config.toml' \; -print -quit | grep -q .
 
+mkdir -p "$(dirname -- "$MINIPRO_ALGORITHM_TARGET")" "$(dirname -- "$MINIPRO_UDEV_RULE_TARGET")"
+printf 'old algorithm fixture\n' >"$MINIPRO_ALGORITHM_TARGET"
+printf 'old minipro rule fixture\n' >"$MINIPRO_UDEV_RULE_TARGET"
 restore_settings
 [[ -f "$ML4W_CONFIG_ROOT/gtk-3.0/bookmarks" ]]
 [[ -f "$ML4W_CONFIG_ROOT/xsettingsd/xsettingsd.conf" ]]
+grep -Fqx 'new algorithm fixture' "$MINIPRO_ALGORITHM_TARGET"
+grep -Fqx 'new minipro rule fixture' "$MINIPRO_UDEV_RULE_TARGET"
+[[ "$(stat -c %a "$MINIPRO_ALGORITHM_TARGET")" == "644" ]]
+[[ "$(stat -c %a "$MINIPRO_UDEV_RULE_TARGET")" == "644" ]]
+find "$HOME/PreRestored" -maxdepth 1 -type f -name 'algorithm.xml-pre-restore-*' \
+  -exec grep -Fqx 'old algorithm fixture' '{}' \; -print -quit | grep -q .
+find "$HOME/PreRestored" -maxdepth 1 -type f -name '60-minipro.rules-pre-restore-*' \
+  -exec grep -Fqx 'old minipro rule fixture' '{}' \; -print -quit | grep -q .
+grep -Fqx 'control --reload-rules' "$PWD/udevadm.calls"
+grep -Fqx 'trigger' "$PWD/udevadm.calls"
 EOF
 (cd "$dots_dir" && HOME="$tmp/home" bash restore-dots-partial.sh >/dev/null)
 rm -rf "$tmp"

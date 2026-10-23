@@ -137,6 +137,7 @@ The current version is stored in `VERSION`.
 
 ### Unreleased
 
+- Added Minipro algorithm and udev-rule restoration to DOTS option `99 - Restore Settings`
 - Reordered DOTS Install Extra into validated package, Flatpak, integration, and HyprMod phases
 - Added the `srec-git` and `minipro-git` AUR packages to DOTS option `3 - Install Extra`
 - Added Brave Browser through the `brave-bin` AUR package in DOTS option `3 - Install Extra`

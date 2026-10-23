@@ -152,6 +152,8 @@ ARDUINO_IDE_FLATPAK_ID="cc.arduino.IDE2"
 VLC_FLATPAK_ID="org.videolan.VLC"
 MICRONUCLEUS_RULES_URL="https://raw.githubusercontent.com/micronucleus/micronucleus/master/commandline/49-micronucleus.rules"
 MICRONUCLEUS_RULES_TARGET="/etc/udev/rules.d/49-micronucleus.rules"
+MINIPRO_ALGORITHM_TARGET="${MINIPRO_ALGORITHM_TARGET:-/usr/share/minipro/algorithm.xml}"
+MINIPRO_UDEV_RULE_TARGET="${MINIPRO_UDEV_RULE_TARGET:-/etc/udev/rules.d/60-minipro.rules}"
 
 # Load package and Flatpak choices bundled with this DOTS backup.
 load_dots_extra_config() {
@@ -254,10 +256,11 @@ Select action:
   1 - Install DOTS
   2 - Install FONTS
   3 - Install Extra
-      -- Jefferson, Yubi Auth, hashId, pyUbi Reader, Rambox Pro, QRencode, PywalFox, sRec, Minipro, Brave, HyprMod
+      -- Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader, Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod
       -- FlatPak: VLC, Calc, ArduinoIDE
   4 - Set AutoLogin
   5 - Change SHELL
+      -- ZSH
 ============================
   10 - Restore Wallpapers
   11 - Restore ZSHRC, BASHRC
@@ -276,7 +279,8 @@ Select action:
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
-       -- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM
+       -- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro
+       -- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font), Screenshot, Terminal, Waybar (quicklink, workspace)
 EOF
 }
 
@@ -1057,8 +1061,54 @@ restore_qbittorrent_theme() {
   cp -a -- "$source_file" "$target_file"
 }
 
+# Preserve one privileged system file under the user's PreRestored folder.
+snapshot_system_file() {
+  local target_file="$1"
+  local collect_dir="$HOME/PreRestored"
+  local snapshot_hint="$target_file-pre-restore-$RESTORE_ID"
+  local collected_snapshot
+  local local_user
+  local local_uid
+  local local_gid
+
+  if ! sudo test -e "$target_file" && ! sudo test -L "$target_file"; then
+    return 0
+  fi
+
+  mkdir -p "$collect_dir"
+  collected_snapshot="$(unique_collect_target "$collect_dir" "$snapshot_hint")"
+  local_user="$(local_non_root_user)"
+  local_uid="$(id -u "$local_user")"
+  local_gid="$(id -g "$local_user")"
+  log "Copying system safety snapshot: $target_file -> $collected_snapshot"
+  sudo cp -a -- "$target_file" "$collected_snapshot"
+  sudo chown -h "$local_uid:$local_gid" "$collected_snapshot"
+}
+
+# Restore Minipro's algorithm database and udev rule from shared BIG assets.
+restore_minipro_system_files() {
+  local algorithm_source="$1"
+  local rule_source="$2"
+
+  snapshot_system_file "$MINIPRO_ALGORITHM_TARGET"
+  snapshot_system_file "$MINIPRO_UDEV_RULE_TARGET"
+
+  log "Restoring Minipro algorithm database: $algorithm_source -> $MINIPRO_ALGORITHM_TARGET"
+  sudo install -d -m 0755 "$(dirname -- "$MINIPRO_ALGORITHM_TARGET")"
+  sudo install -m 0644 "$algorithm_source" "$MINIPRO_ALGORITHM_TARGET"
+
+  log "Restoring Minipro udev rule: $rule_source -> $MINIPRO_UDEV_RULE_TARGET"
+  sudo install -d -m 0755 "$(dirname -- "$MINIPRO_UDEV_RULE_TARGET")"
+  sudo install -m 0644 "$rule_source" "$MINIPRO_UDEV_RULE_TARGET"
+  sudo udevadm control --reload-rules
+  sudo udevadm trigger
+}
+
 # Restore selected desktop settings and apply local post-restore customizations.
 restore_settings() {
+  local algorithm_source
+  local device_root
+  local minipro_rule_source
   local source_rel
   local -a source_files=(
     "gtk-3.0/bookmarks"
@@ -1084,7 +1134,17 @@ restore_settings() {
     [[ -f "$SCRIPT_DIR/$source_rel" ]] || die "Settings source file not found: $SCRIPT_DIR/$source_rel"
   done
   resolve_qbittorrent_theme_source >/dev/null
+  device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  algorithm_source="$device_root/BIG/algorithm.xml"
+  minipro_rule_source="$device_root/BIG/60-minipro.rules"
+  [[ -f "$algorithm_source" ]] || die "Minipro algorithm source file not found: $algorithm_source"
+  [[ -f "$minipro_rule_source" ]] || die "Minipro udev rule source file not found: $minipro_rule_source"
+  require_all_cmds sudo install udevadm id
   confirm_action "Restore Settings" || return 0
+  if ! start_sudo_keepalive; then
+    log_error "Cannot continue Restore Settings because root authentication failed"
+    return 1
+  fi
 
   # Toolkit theme settings.
   restore_config_file "Settings" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"
@@ -1111,6 +1171,8 @@ restore_settings() {
   restore_qbittorrent_theme
 
   run_restore_settings_local_hook
+  restore_minipro_system_files "$algorithm_source" "$minipro_rule_source"
+  stop_sudo_keepalive
   log "Done: Restore Settings"
 }
 
