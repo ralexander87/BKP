@@ -137,10 +137,11 @@ The current version is stored in `VERSION`.
 
 ### Unreleased
 
-- Added the `srec-git` and `minipro-git` AUR packages to DOTS option `4 - Install Extra`
-- Added Brave Browser installation to DOTS option `4 - Install Extra`
-- Merged the HyprMod installation into DOTS option `4 - Install Extra` and removed its separate menu action
-- Added Arduino IDE 2 to DOTS Install Extra and installed the Micronucleus udev rule after a new Arduino IDE 2 installation
+- Reordered DOTS Install Extra into validated package, Flatpak, integration, and HyprMod phases
+- Added the `srec-git` and `minipro-git` AUR packages to DOTS option `3 - Install Extra`
+- Added Brave Browser through the `brave-bin` AUR package in DOTS option `3 - Install Extra`
+- Merged the HyprMod installation into DOTS option `3 - Install Extra` and removed its separate menu action
+- Added Arduino IDE 2 to DOTS Install Extra and ensured its Micronucleus udev rule is present
 - Switched the Jefferson AUR selection to the maintained `jefferson-git` package
 - Added MAIN restore support for the shared `BIG/cc.arduino.IDE2.desktop` launcher, including a safety snapshot of an existing launcher
 

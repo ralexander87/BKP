@@ -149,6 +149,7 @@ LAST_SNAPSHOT_PATH=""
 SUDO_KEEPALIVE_PID=""
 SUDO_KEEPALIVE_INTERVAL_SECONDS="${SUDO_KEEPALIVE_INTERVAL_SECONDS:-60}"
 ARDUINO_IDE_FLATPAK_ID="cc.arduino.IDE2"
+VLC_FLATPAK_ID="org.videolan.VLC"
 MICRONUCLEUS_RULES_URL="https://raw.githubusercontent.com/micronucleus/micronucleus/master/commandline/49-micronucleus.rules"
 MICRONUCLEUS_RULES_TARGET="/etc/udev/rules.d/49-micronucleus.rules"
 
@@ -252,15 +253,18 @@ Select action:
 ============================
   1 - Install DOTS
   2 - Install FONTS
-  4 - Install Extra
-  5 - Set AutoLogin
-  6 - Change SHELL
+  3 - Install Extra
+      -- Jefferson, Yubi Auth, hashId, pyUbi Reader, Rambox Pro, QRencode, PywalFox, sRec, Minipro, Brave, HyprMod
+      -- FlatPak: VLC, Calc, ArduinoIDE
+  4 - Set AutoLogin
+  5 - Change SHELL
 ============================
   10 - Restore Wallpapers
   11 - Restore ZSHRC, BASHRC
   12 - Restore KITTY
   13 - Restore FASTFETCH
   14 - Restore HYPR
+       -- Keybinds, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO
   15 - Restore ROFI
   16 - Restore WAYBAR
   17 - Restore MATUGEN
@@ -272,6 +276,7 @@ Select action:
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
+       -- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM
 EOF
 }
 
@@ -618,24 +623,28 @@ ensure_yay_installed() {
   extra_log_message "INFO" "Done: Install yay"
 }
 
-# Install and activate Micronucleus device rules after installing Arduino IDE 2.
-install_micronucleus_udev_rules() {
-  require_extra_commands curl udevadm || return 1
+# Install and activate Micronucleus device rules when Arduino IDE 2 needs them.
+ensure_micronucleus_udev_rules() {
+  local rules_temp
 
+  if [[ -f "$MICRONUCLEUS_RULES_TARGET" ]]; then
+    extra_log_message "INFO" "Micronucleus udev rules are already installed"
+    return 0
+  fi
+
+  require_extra_commands curl install udevadm || return 1
+
+  rules_temp="$(mktemp)"
+  register_temp_path "$rules_temp"
+  run_extra_command "Download Micronucleus udev rules" \
+    curl --fail --show-error --location --proto '=https' --tlsv1.2 \
+    --output "$rules_temp" "$MICRONUCLEUS_RULES_URL" || return 1
   run_extra_command "Install Micronucleus udev rules" \
-    sudo curl --fail --show-error --location --proto '=https' --tlsv1.2 \
-    --output "$MICRONUCLEUS_RULES_TARGET" "$MICRONUCLEUS_RULES_URL" || return 1
+    sudo install -m 0644 "$rules_temp" "$MICRONUCLEUS_RULES_TARGET" || return 1
   run_extra_command "Reload udev rules" \
     sudo udevadm control --reload-rules || return 1
   run_extra_command "Trigger udev devices" \
     sudo udevadm trigger || return 1
-}
-
-# Install or update Brave Browser with Brave's official Linux installer.
-install_brave_browser() {
-  require_extra_commands curl sh || return 1
-  run_extra_command "Install Brave Browser" \
-    bash -o pipefail -c 'curl -fsS https://dl.brave.com/install.sh | sh'
 }
 
 # Install extra Arch/AUR packages and Flatpaks after showing what is missing.
@@ -655,6 +664,11 @@ install_extra() {
   fi
   load_dots_extra_config
 
+  if ! require_extra_commands pacman flatpak sudo; then
+    finalize_install_extra_log "FAILED"
+    return 1
+  fi
+
   if ! start_sudo_keepalive; then
     EXTRA_FAILED_ACTIONS+=("Authenticate sudo")
     extra_log_message "ERROR" "Cannot continue with Install Extra because root authentication failed"
@@ -667,7 +681,7 @@ install_extra() {
     stop_sudo_keepalive
     return 1
   fi
-  if ! require_extra_commands pacman yay flatpak sudo; then
+  if ! require_extra_commands yay; then
     finalize_install_extra_log "FAILED"
     stop_sudo_keepalive
     return 1
@@ -675,7 +689,7 @@ install_extra() {
 
   extra_log_message "INFO" "Checking Extra packages"
   if [[ "$REMOVE_REPOSITORY_VLC" == "true" ]] && pacman -Q vlc >/dev/null 2>&1; then
-    extra_log_message "INFO" "Repository VLC is installed and will be removed before Flatpak VLC install"
+    extra_log_message "INFO" "Repository VLC is installed and will be removed after Flatpak VLC is verified"
     remove_repo_vlc=true
   else
     extra_log_message "INFO" "Repository VLC is not installed"
@@ -705,29 +719,6 @@ install_extra() {
     extra_log_message "INFO" "All configured Extra packages and Flatpaks are already installed"
   fi
 
-  if [[ "$remove_repo_vlc" == "true" ]]; then
-    run_extra_command "Remove repository VLC package" \
-      sudo pacman -R --noconfirm vlc || {
-      finalize_install_extra_log "FAILED"
-      stop_sudo_keepalive
-      return 1
-    }
-  fi
-
-  for app in "${missing_flatpaks[@]}"; do
-    run_extra_command "Install Extra Flatpak: $app" \
-      flatpak install --noninteractive -y "$app" || {
-      finalize_install_extra_log "FAILED"
-      stop_sudo_keepalive
-      return 1
-    }
-    if [[ "$app" == "$ARDUINO_IDE_FLATPAK_ID" ]] && ! install_micronucleus_udev_rules; then
-      finalize_install_extra_log "FAILED"
-      stop_sudo_keepalive
-      return 1
-    fi
-  done
-
   if [[ "${#missing_packages[@]}" -gt 0 ]]; then
     run_extra_command "Install Extra packages: ${missing_packages[*]}" \
       yay -S --needed --noconfirm -- "${missing_packages[@]}" || {
@@ -737,10 +728,57 @@ install_extra() {
     }
   fi
 
-  if ! install_brave_browser; then
-    finalize_install_extra_log "FAILED"
-    stop_sudo_keepalive
-    return 1
+  for pkg in "${missing_packages[@]}"; do
+    if ! pacman -Q "$pkg" >/dev/null 2>&1; then
+      EXTRA_FAILED_ACTIONS+=("Verify Extra package: $pkg")
+      extra_log_message "ERROR" "Extra package was not installed successfully: $pkg"
+      finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
+      return 1
+    fi
+  done
+
+  for app in "${missing_flatpaks[@]}"; do
+    run_extra_command "Install Extra Flatpak: $app" \
+      flatpak install --noninteractive -y "$app" || {
+      finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
+      return 1
+    }
+  done
+
+  for app in "${missing_flatpaks[@]}"; do
+    if ! flatpak info "$app" >/dev/null 2>&1; then
+      EXTRA_FAILED_ACTIONS+=("Verify Extra Flatpak: $app")
+      extra_log_message "ERROR" "Extra Flatpak was not installed successfully: $app"
+      finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
+      return 1
+    fi
+  done
+
+  if [[ "$remove_repo_vlc" == "true" ]]; then
+    if ! flatpak info "$VLC_FLATPAK_ID" >/dev/null 2>&1; then
+      EXTRA_FAILED_ACTIONS+=("Verify Flatpak VLC before removing repository VLC")
+      extra_log_message "ERROR" "Flatpak VLC is not installed; keeping repository VLC"
+      finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
+      return 1
+    fi
+    run_extra_command "Remove repository VLC package" \
+      sudo pacman -R --noconfirm vlc || {
+      finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
+      return 1
+    }
+  fi
+
+  if flatpak info "$ARDUINO_IDE_FLATPAK_ID" >/dev/null 2>&1; then
+    if ! ensure_micronucleus_udev_rules; then
+      finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
+      return 1
+    fi
   fi
 
   if ! install_hyprmod; then
@@ -1147,13 +1185,13 @@ while true; do
   2)
     install_fonts
     ;;
-  4)
+  3)
     install_extra
     ;;
-  5)
+  4)
     set_autologin
     ;;
-  6)
+  5)
     change_shell
     ;;
   10)

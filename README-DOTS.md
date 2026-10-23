@@ -182,21 +182,21 @@ Actions ask for confirmation before changing local configuration. The default an
   - Runs `BIG/fonts/install.sh` from the backup-device root, with a local fallback lookup
   - Copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
   - Refreshes the font cache when `fc-cache` is available
-- `4 - Install Extra`
+- `3 - Install Extra`
   - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` and its build requirements when needed
-  - Removes repository VLC when configured and installed
-  - Installs configured Arch/AUR packages and Flatpaks noninteractively
-  - Current packages include `jefferson-git`, `yubico-authenticator-bin`, `hashid`, `python-ubi-reader-git`, `rambox-pro-bin`, `qrencode`, `python-pywalfox`, `srec-git`, and `minipro-git`
-  - Current Flatpaks include `org.videolan.VLC`, `org.gnome.Calculator`, and `cc.arduino.IDE2`
-  - After installing Arduino IDE 2, installs the Micronucleus udev rule and reloads and triggers udev
-  - Installs or updates Brave Browser with Brave's official Linux installer
-  - Runs the ML4W `ml4w-install-hyprmod` script after packages and Flatpaks are ready
+  - Installs configured Arch/AUR packages first, followed by Flatpaks
+  - Current packages include `brave-bin`, `hashid`, `jefferson-git`, `minipro-git`, `python-pywalfox`, `python-ubi-reader-git`, `qrencode`, `rambox-pro-bin`, `srec-git`, and `yubico-authenticator-bin`
+  - Current Flatpaks include `cc.arduino.IDE2`, `org.gnome.Calculator`, and `org.videolan.VLC`
+  - Verifies newly requested packages and Flatpaks after installation
+  - Verifies Flatpak VLC before removing an installed repository VLC package
+  - Ensures the Micronucleus udev rule exists whenever Arduino IDE 2 is installed
+  - Runs the ML4W `ml4w-install-hyprmod` script as the final installation step
   - Writes package-manager details to `install-extra.log`
-- `5 - Set AutoLogin`
+- `4 - Set AutoLogin`
   - Snapshots `/usr/lib/sddm/sddm.conf.d/default.conf`
   - Sets its `User=` line to the local non-root username using `sudo`
-- `6 - Change SHELL`
+- `5 - Change SHELL`
   - Runs the ML4W `ml4w-change-shell` script
 
 ### Restore Actions
