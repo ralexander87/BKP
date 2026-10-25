@@ -271,18 +271,18 @@ restore_shared_firmware() {
   local device_root
   local source_dir
   local firmware_home_relative="Documents/030-Firmware"
-  local big_firmware_relative="BIG/030-Firmware"
+  local lateralus_firmware_relative="15-LATERALUS/030-Firmware"
   local target_dir
 
   if [[ -f "$MAIN_BACKUP_CONFIG" ]]; then
     # shellcheck source=config/main.backup.conf
     source "$MAIN_BACKUP_CONFIG"
     firmware_home_relative="$FIRMWARE_HOME_RELATIVE"
-    big_firmware_relative="$BIG_FIRMWARE_RELATIVE"
+    lateralus_firmware_relative="$LATERALUS_FIRMWARE_RELATIVE"
   fi
 
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  source_dir="$device_root/$big_firmware_relative"
+  source_dir="$device_root/$lateralus_firmware_relative"
   target_dir="$HOME/$firmware_home_relative"
 
   if [[ ! -d "$source_dir" ]]; then
@@ -297,23 +297,23 @@ restore_shared_firmware() {
   log "Restored shared firmware: $target_dir"
 }
 
-# Restore the Arduino IDE desktop entry stored in the shared BIG folder.
+# Restore the Arduino IDE desktop entry stored in the shared 15-LATERALUS folder.
 restore_shared_arduino_desktop_entry() {
   local device_root
   local source_file
   local target_file
   local arduino_desktop_home_relative=".local/share/applications/cc.arduino.IDE2.desktop"
-  local big_arduino_desktop_relative="BIG/cc.arduino.IDE2.desktop"
+  local lateralus_arduino_desktop_relative="15-LATERALUS/cc.arduino.IDE2.desktop"
 
   if [[ -f "$MAIN_BACKUP_CONFIG" ]]; then
     # shellcheck source=config/main.backup.conf
     source "$MAIN_BACKUP_CONFIG"
     arduino_desktop_home_relative="$ARDUINO_DESKTOP_HOME_RELATIVE"
-    big_arduino_desktop_relative="$BIG_ARDUINO_DESKTOP_RELATIVE"
+    lateralus_arduino_desktop_relative="$LATERALUS_ARDUINO_DESKTOP_RELATIVE"
   fi
 
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  source_file="$device_root/$big_arduino_desktop_relative"
+  source_file="$device_root/$lateralus_arduino_desktop_relative"
   target_file="$HOME/$arduino_desktop_home_relative"
 
   if [[ ! -f "$source_file" ]]; then
@@ -430,7 +430,7 @@ for item in "${HOME_ITEMS[@]}"; do
   fi
 done
 
-# Restore shared BIG content after the main Documents folder is in place.
+# Restore shared 15-LATERALUS content after the main Documents folder is in place.
 restore_shared_firmware
 restore_shared_arduino_desktop_entry
 

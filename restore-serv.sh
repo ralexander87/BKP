@@ -162,7 +162,7 @@ set_service_restore_defaults() {
   GRUB_TERMINAL_OUTPUT_VALUE="gfxterm"
   GRUB_GFXMODE_VALUE="1440x1080x32"
   GRUB_THEME_VALUE="/boot/grub/themes/lateralus/theme.txt"
-  GRUB_THEME_SHARED_RELATIVE="BIG/lateralus"
+  GRUB_THEME_SHARED_RELATIVE="15-LATERALUS/lateralus"
 }
 
 # Return success when a mount target is retired and should be removed.

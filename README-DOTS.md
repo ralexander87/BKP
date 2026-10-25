@@ -36,7 +36,7 @@ The folder-selection prompt provides these actions:
 - Press Enter to back up all discovered folders
 - Enter one or more displayed folder numbers, separated by spaces or commas, to exclude them
 - `0 - EXIT` cancels the backup
-- `90 - Update Firmware and Wallpapers` updates only shared `BIG/030-Firmware/` and `BIG/wallpapers/`, then exits without creating a per-run backup
+- `90 - Update Firmware and Wallpapers` updates only shared `15-LATERALUS/030-Firmware/` and `15-LATERALUS/wallpapers/`, then exits without creating a per-run backup
 
 Each backup is written to:
 
@@ -79,9 +79,9 @@ date +%Y-%j-%d-%m-%H-%M-%S
   - `.ssh`
   - `.vscode-oss`
 - `$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config`, copied into `DOTS`
-- `$HOME/Documents/030-Firmware`, stored in shared `BIG/030-Firmware`
-- ML4W wallpapers, stored in shared `BIG/wallpapers`
-- Selected backup-only files, stored directly in shared `BIG/`
+- `$HOME/Documents/030-Firmware`, stored in shared `15-LATERALUS/030-Firmware`
+- ML4W wallpapers, stored in shared `15-LATERALUS/wallpapers`
+- Selected backup-only files, stored directly in shared `15-LATERALUS/`
   - `.bash_history`
   - `.zsh_history`
   - `.zshrc`
@@ -89,12 +89,12 @@ date +%Y-%j-%d-%m-%H-%M-%S
 
 The four backup-only hidden files listed above are not restored by any restore script.
 
-Some shared `BIG/` assets are restore-only inputs maintained separately on the backup device; `bkp-main.sh` does not create or update them:
+Some shared `15-LATERALUS/` assets are restore-only inputs maintained separately on the backup device; `bkp-main.sh` does not create or update them:
 
-- `BIG/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
-- `BIG/fonts/install.sh` and `BIG/Steelfish Outline.ttf`, used by DOTS option `2`
-- `BIG/dracula.qbtheme`, used by DOTS option `99`
-- `BIG/algorithm.xml` and `BIG/60-minipro.rules`, installed into system locations by DOTS option `99`
+- `15-LATERALUS/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
+- `15-LATERALUS/fonts/install.sh` and `15-LATERALUS/Steelfish Outline.ttf`, used by DOTS option `2`
+- `15-LATERALUS/dracula.qbtheme`, used by DOTS option `99`
+- `15-LATERALUS/algorithm.xml` and `15-LATERALUS/60-minipro.rules`, installed into system locations by DOTS option `99`
 
 `Downloads/*.iso` and `.ssh/agent/` are excluded. `Documents/030-Firmware/` is excluded from the per-run Documents copy, and `ml4w/wallpapers/` is excluded from the per-run DOTS copy.
 
@@ -116,7 +116,7 @@ Archives are written beside the backup folder:
 /path/to/device/MAIN/BKP-<timestamp>.tar.gz
 ```
 
-Shared `BIG/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, the qBittorrent theme, the Arduino desktop entry, and the Minipro algorithm and udev files.
+Shared `15-LATERALUS/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, the qBittorrent theme, the Arduino desktop entry, and the Minipro algorithm and udev files.
 
 MAIN backup safety behavior includes:
 
@@ -148,7 +148,7 @@ For each existing target, the script creates a `<name>-pre-restore-<timestamp>` 
 
 After restoration, it collects legacy `*-pre-restore-*` files and folders that older runs left under `$HOME` into `$HOME/PreRestored`.
 
-Shared `BIG/030-Firmware/` is restored to `$HOME/Documents/030-Firmware/` when present. Shared `BIG/cc.arduino.IDE2.desktop` is restored to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`; an existing desktop entry is moved into `$HOME/PreRestored` first. Missing optional shared sources are skipped. After `.ssh` is restored, modes are normalized to:
+Shared `15-LATERALUS/030-Firmware/` is restored to `$HOME/Documents/030-Firmware/` when present. Shared `15-LATERALUS/cc.arduino.IDE2.desktop` is restored to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`; an existing desktop entry is moved into `$HOME/PreRestored` first. Missing optional shared sources are skipped. After `.ssh` is restored, modes are normalized to:
 
 ```text
 directories  700
@@ -180,8 +180,8 @@ Actions ask for confirmation before changing local configuration. The default an
   - Displays the first 20 installer lines
   - Runs the downloaded installer with Bash only after a second confirmation, also defaulting to `N`
 - `2 - Install FONTS`
-  - Runs `BIG/fonts/install.sh` from the backup-device root, with a local fallback lookup
-  - Copies `BIG/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
+  - Runs `15-LATERALUS/fonts/install.sh` from the backup-device root, with a local fallback lookup
+  - Copies `15-LATERALUS/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
   - Refreshes the font cache when `fc-cache` is available
 - `3 - Install Extra`
   - Requests root authentication once and keeps it valid until the action finishes
@@ -204,7 +204,7 @@ Actions ask for confirmation before changing local configuration. The default an
 
 - `10 - Restore Wallpapers`
   - Snapshots the current wallpapers folder
-  - Copies shared `BIG/wallpapers/` into the ML4W wallpapers folder
+  - Copies shared `15-LATERALUS/wallpapers/` into the ML4W wallpapers folder
 - `11 - Restore ZSHRC, BASHRC`
   - Snapshots and restores the complete `zshrc` and `bashrc` folders
 - `12 - Restore KITTY`
@@ -244,11 +244,11 @@ Actions ask for confirmation before changing local configuration. The default an
   - Restores `qt6ct/qt6ct.conf`
   - Restores `xsettingsd/xsettingsd.conf`
   - Restores selected `ml4w/settings/` files
-  - Copies `BIG/dracula.qbtheme` to `$HOME/.config/qBittorrent/dracula.qbtheme`
+  - Copies `15-LATERALUS/dracula.qbtheme` to `$HOME/.config/qBittorrent/dracula.qbtheme`
   - Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when present
   - Runs bundled `config/local/restore-dots-settings.sh` when present
-  - Copies `BIG/algorithm.xml` to `/usr/share/minipro/algorithm.xml`
-  - Copies `BIG/60-minipro.rules` to `/etc/udev/rules.d/60-minipro.rules`
+  - Copies `15-LATERALUS/algorithm.xml` to `/usr/share/minipro/algorithm.xml`
+  - Copies `15-LATERALUS/60-minipro.rules` to `/etc/udev/rules.d/60-minipro.rules`
   - Reloads udev rules and triggers devices after both Minipro files are installed
 
 Existing files changed by HYPR, Quickshell, Matugen, Settings, Thunar, and qBittorrent actions receive timestamped safety snapshots first. Existing Minipro system targets are copied into `$HOME/PreRestored` before replacement. Folder actions use compact summaries without rsync's per-file percentage stream.

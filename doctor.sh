@@ -293,7 +293,7 @@ else
     target="$(decode_findmnt_path "$target")"
     source="$(decode_findmnt_path "$source")"
     ok "mounted backup candidate: $target ($source, $fstype)"
-    check_path "$target/BIG/lateralus"
+    check_path "$target/15-LATERALUS/lateralus"
     check_main_backup "$(latest_backup_dir "$target/MAIN")"
     check_serv_backup "$(latest_backup_dir "$target/SERV")"
   done

@@ -108,7 +108,7 @@ rm -rf "$tmp"
 printf 'automatic pre-restore collection OK: restore-main.sh\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/device/MAIN/BKP-test/config" "$tmp/device/BIG" "$tmp/home/.local/share/applications"
+mkdir -p "$tmp/device/MAIN/BKP-test/config" "$tmp/device/15-LATERALUS" "$tmp/home/.local/share/applications"
 cp "$PROJECT_ROOT/restore-main.sh" "$tmp/device/MAIN/BKP-test/restore-main.sh"
 cp "$PROJECT_ROOT/config/main.backup.conf" "$tmp/device/MAIN/BKP-test/config/main.backup.conf"
 chmod +x "$tmp/device/MAIN/BKP-test/restore-main.sh"
@@ -117,7 +117,7 @@ Manifest Version = 1
 Backup Type = [MAIN]
 Backup Status = [COMPLETED]
 EOF
-printf 'new desktop entry\n' >"$tmp/device/BIG/cc.arduino.IDE2.desktop"
+printf 'new desktop entry\n' >"$tmp/device/15-LATERALUS/cc.arduino.IDE2.desktop"
 printf 'old desktop entry\n' >"$tmp/home/.local/share/applications/cc.arduino.IDE2.desktop"
 printf 'Y\n' | HOME="$tmp/home" "$tmp/device/MAIN/BKP-test/restore-main.sh" >/dev/null
 grep -Fqx 'new desktop entry' "$tmp/home/.local/share/applications/cc.arduino.IDE2.desktop"
@@ -336,12 +336,14 @@ if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; t
 fi
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '3 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader, Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- FlatPak: VLC, Calc, ArduinoIDE' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- ZSH' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- Keybinds, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font), Screenshot, Terminal, Waybar (quicklink, workspace)' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font),' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- Screenshot, Terminal, Waybar (quicklink, workspace)' "$PROJECT_ROOT/restore-dots.sh"
 if grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"; then
   printf 'Install HyprMod should only be available through Install Extra\n' >&2
   exit 1
@@ -439,8 +441,8 @@ grep -Fq "Verify Extra Flatpak: \$app" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'BIG/algorithm.xml' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'BIG/60-minipro.rules' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '15-LATERALUS/algorithm.xml' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '15-LATERALUS/60-minipro.rules' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "MINIPRO_ALGORITHM_TARGET=\"\${MINIPRO_ALGORITHM_TARGET:-/usr/share/minipro/algorithm.xml}\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "MINIPRO_UDEV_RULE_TARGET=\"\${MINIPRO_UDEV_RULE_TARGET:-/etc/udev/rules.d/60-minipro.rules}\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "sudo install -m 0644 \"\$algorithm_source\" \"\$MINIPRO_ALGORITHM_TARGET\"" "$PROJECT_ROOT/restore-dots.sh"
@@ -448,7 +450,7 @@ grep -Fq "sudo install -m 0644 \"\$rule_source\" \"\$MINIPRO_UDEV_RULE_TARGET\""
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "confirm_yes_no \"Start \$label?\" \"N\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq 'BIG/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '15-LATERALUS/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 if sed -n '/^restore_hypr()/,/^}/p' "$PROJECT_ROOT/restore-dots.sh" | grep -Eq 'gtk-3.0/bookmarks|waybar/modules.json|quickshell|qs (kill|-d)'; then
   printf 'Restore HYPR should not restore Settings, Waybar, or Quickshell content\n' >&2
   exit 1
@@ -513,7 +515,7 @@ mkdir -p \
   "$dots_dir/qt6ct" \
   "$dots_dir/xsettingsd" \
   "$dots_dir/ml4w/settings" \
-  "$tmp/device/BIG" \
+  "$tmp/device/15-LATERALUS" \
   "$tmp/home"
 cp "$PROJECT_ROOT/lib/common.sh" "$dots_dir/lib/common.sh"
 awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$dots_dir/restore-dots-partial.sh"
@@ -558,9 +560,9 @@ cat >"$dots_dir/quickshell/overview/config.json" <<'EOF'
   "expressive": "Fira Sans Semibold"
 }
 EOF
-printf 'theme fixture\n' >"$tmp/device/BIG/dracula.qbtheme"
-printf 'new algorithm fixture\n' >"$tmp/device/BIG/algorithm.xml"
-printf 'new minipro rule fixture\n' >"$tmp/device/BIG/60-minipro.rules"
+printf 'theme fixture\n' >"$tmp/device/15-LATERALUS/dracula.qbtheme"
+printf 'new algorithm fixture\n' >"$tmp/device/15-LATERALUS/algorithm.xml"
+printf 'new minipro rule fixture\n' >"$tmp/device/15-LATERALUS/60-minipro.rules"
 cat >>"$dots_dir/restore-dots-partial.sh" <<'EOF'
 ML4W_CONFIG_ROOT="$HOME/ml4w-config"
 RESTORE_ID="functional-test"
@@ -631,7 +633,7 @@ printf 'restore-dots split action behavior OK\n'
 
 grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq 'GRUB_THEME_SHARED_RELATIVE="BIG/lateralus"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'GRUB_THEME_SHARED_RELATIVE="15-LATERALUS/lateralus"' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "source_dir=\"\$device_root/\$GRUB_THEME_SHARED_RELATIVE\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "restore_tree_to_system \"\$source_dir\" \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo rsync -rlt --no-perms --no-owner --no-group \"\$source_dir/\" \"\$target_dir/\"" "$PROJECT_ROOT/restore-serv.sh"
@@ -908,7 +910,7 @@ prompt_skip_home_items >/dev/null <<<'90'
 EOF
 (cd "$tmp" && bash bkp-main-partial.sh)
 rm -rf "$tmp"
-printf 'BIG-only menu selection OK: bkp-main.sh\n'
+printf '15-LATERALUS-only menu selection OK: bkp-main.sh\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/bin" "$tmp/lib" "$tmp/logs" "$tmp/home/Documents/030-Firmware" "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/wallpapers" "$tmp/netac"
@@ -924,20 +926,20 @@ HOME="$PWD/home"
 DEST_DEVICE="$PWD/netac"
 DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
-BIG_WALLPAPERS_DIR="$DEST_DEVICE/BIG/wallpapers"
+LATERALUS_WALLPAPERS_DIR="$DEST_DEVICE/15-LATERALUS/wallpapers"
 FIRMWARE_SOURCE="$HOME/Documents/030-Firmware"
-BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/030-Firmware"
+LATERALUS_FIRMWARE_DIR="$DEST_DEVICE/15-LATERALUS/030-Firmware"
 PATH="$PWD/bin:$PATH"
 update_shared_firmware_and_wallpapers
 EOF
-(cd "$tmp" && bash bkp-main-partial.sh >update-big.out)
-grep -Fq '[INFO] Running BIG-only firmware and wallpapers update' "$tmp/update-big.out"
-grep -Fq '[INFO] Updating shared wallpapers: /wallpapers -> /netac/BIG/wallpapers' "$tmp/update-big.out"
-grep -Fq '[INFO] Updating shared firmware: /Documents/030-Firmware -> /netac/BIG/030-Firmware' "$tmp/update-big.out"
-grep -Fq '[INFO] Done: BIG-only firmware and wallpapers update' "$tmp/update-big.out"
-grep -Fq -- '- Updated Firmware and Wallpapers in /netac/BIG' "$tmp/update-big.out"
+(cd "$tmp" && bash bkp-main-partial.sh >update-lateralus.out)
+grep -Fq '[INFO] Running 15-LATERALUS-only firmware and wallpapers update' "$tmp/update-lateralus.out"
+grep -Fq '[INFO] Updating shared wallpapers: /wallpapers -> /netac/15-LATERALUS/wallpapers' "$tmp/update-lateralus.out"
+grep -Fq '[INFO] Updating shared firmware: /Documents/030-Firmware -> /netac/15-LATERALUS/030-Firmware' "$tmp/update-lateralus.out"
+grep -Fq '[INFO] Done: 15-LATERALUS-only firmware and wallpapers update' "$tmp/update-lateralus.out"
+grep -Fq -- '- Updated Firmware and Wallpapers in /netac/15-LATERALUS' "$tmp/update-lateralus.out"
 rm -rf "$tmp"
-printf 'BIG-only update output OK: bkp-main.sh\n'
+printf '15-LATERALUS-only update output OK: bkp-main.sh\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/logs"
@@ -957,23 +959,23 @@ printf 'exit menu selection OK: bkp-main.sh\n'
 grep -Fq 'config/local/restore-dots-settings.sh' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'DOTS/config/local/restore-dots-settings.sh' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'discover_home_items' "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq 'big_update_info' "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq 'lateralus_update_info' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'update_shared_firmware_and_wallpapers' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq '90 - Update Firmware and Wallpapers' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'SKIPPABLE_HOME_ITEMS' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "[[ -d \"\$DOTS_ROOT\" && -d \"\$DOTS_SOURCE\" ]]" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "Skipping missing dotfiles root: \$DOTS_ROOT" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq 'BIG_WALLPAPERS_RELATIVE="BIG/wallpapers"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'LATERALUS_WALLPAPERS_RELATIVE="15-LATERALUS/wallpapers"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq 'FIRMWARE_HOME_RELATIVE="Documents/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
-grep -Fq 'BIG_FIRMWARE_RELATIVE="BIG/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
-grep -Fq 'BIG_ARDUINO_DESKTOP_RELATIVE="BIG/cc.arduino.IDE2.desktop"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'LATERALUS_FIRMWARE_RELATIVE="15-LATERALUS/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'LATERALUS_ARDUINO_DESKTOP_RELATIVE="15-LATERALUS/cc.arduino.IDE2.desktop"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq 'ARDUINO_DESKTOP_HOME_RELATIVE=".local/share/applications/cc.arduino.IDE2.desktop"' "$PROJECT_ROOT/config/main.backup.conf"
-grep -Fq 'BIG_HOME_FILES_RELATIVE="BIG"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'LATERALUS_HOME_FILES_RELATIVE="15-LATERALUS"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".bash_history"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".zsh_history"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".zshrc"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".wget-hsts"' "$PROJECT_ROOT/config/main.backup.conf"
-grep -Fq "run_rsync_main rsync_backup_copy \"\$source_path\" \"\$BIG_HOME_FILES_DIR/\"" "$PROJECT_ROOT/bkp-main.sh"
+grep -Fq "run_rsync_main rsync_backup_copy \"\$source_path\" \"\$LATERALUS_HOME_FILES_DIR/\"" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq -- "--ignore-existing" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'DOCUMENTS_EXCLUDES=("030-Firmware/")' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq -- "--exclude='ml4w/wallpapers/'" "$PROJECT_ROOT/bkp-main.sh"
@@ -987,7 +989,7 @@ grep -Fq 'discover_restore_items' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq 'RESTORE_EXCLUDED_ITEMS' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq '"backup-manifest.json"' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq '"config"' "$PROJECT_ROOT/restore-main.sh"
-grep -Fq 'BIG/030-Firmware' "$PROJECT_ROOT/restore-main.sh"
+grep -Fq '15-LATERALUS/030-Firmware' "$PROJECT_ROOT/restore-main.sh"
 if grep -Fq '".bash_history"' "$PROJECT_ROOT/restore-main.sh"; then
   printf 'backup-only hidden files should not be restored by restore-main.sh\n' >&2
   exit 1
@@ -1012,10 +1014,10 @@ RUN_RESULT="complete"
 DOTS_ROOT="/home/ralexander/.mydotfiles"
 DOTS_SOURCE="$DOTS_ROOT/com.ml4w.dotfiles.stable/.config"
 WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
-BIG_WALLPAPERS_DIR="$DEST_DEVICE/BIG/wallpapers"
+LATERALUS_WALLPAPERS_DIR="$DEST_DEVICE/15-LATERALUS/wallpapers"
 FIRMWARE_SOURCE="/home/ralexander/Documents/030-Firmware"
-BIG_FIRMWARE_DIR="$DEST_DEVICE/BIG/030-Firmware"
-BIG_HOME_FILES_DIR="$DEST_DEVICE/BIG"
+LATERALUS_FIRMWARE_DIR="$DEST_DEVICE/15-LATERALUS/030-Firmware"
+LATERALUS_HOME_FILES_DIR="$DEST_DEVICE/15-LATERALUS"
 HOME_HIDDEN_FILES=(.bash_history .zsh_history .zshrc .wget-hsts)
 HOME_ITEMS=(Code Desktop Documents .themes .icons .ssh .vscode-oss)
 write_manifest

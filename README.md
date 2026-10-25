@@ -60,7 +60,7 @@ Core backup and development commands are reported as failures when absent. Comma
 
 Public, version-controlled configuration is split by responsibility:
 
-- `config/main.backup.conf`: MAIN source paths, shared `BIG` destinations, hidden files, and rsync exclusions
+- `config/main.backup.conf`: MAIN source paths, shared `15-LATERALUS` destinations, hidden files, and rsync exclusions
 - `config/serv.backup.conf`: required SERVICE source paths and the Samba credentials pattern
 - `config/dots-extra.conf`: Arch/AUR packages, Flatpaks, and repository VLC removal behavior
 - `config/serv.restore.conf`: SMB directory and GRUB restore values
@@ -137,6 +137,7 @@ The current version is stored in `VERSION`.
 
 ### Unreleased
 
+- Renamed the shared external backup folder from `BIG` to `15-LATERALUS` across backup, restore, doctor, and catalog-related documentation
 - Added Minipro algorithm and udev-rule restoration to DOTS option `99 - Restore Settings`
 - Reordered DOTS Install Extra into validated package, Flatpak, integration, and HyprMod phases
 - Added the `srec-git` and `minipro-git` AUR packages to DOTS option `3 - Install Extra`
@@ -144,7 +145,7 @@ The current version is stored in `VERSION`.
 - Merged the HyprMod installation into DOTS option `3 - Install Extra` and removed its separate menu action
 - Added Arduino IDE 2 to DOTS Install Extra and ensured its Micronucleus udev rule is present
 - Switched the Jefferson AUR selection to the maintained `jefferson-git` package
-- Added MAIN restore support for the shared `BIG/cc.arduino.IDE2.desktop` launcher, including a safety snapshot of an existing launcher
+- Added MAIN restore support for the shared `15-LATERALUS/cc.arduino.IDE2.desktop` launcher, including a safety snapshot of an existing launcher
 
 ### 0.5.0
 

@@ -116,8 +116,8 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Validates the generated table with `findmnt --verify` when available
   - Atomically installs `/etc/fstab`
 - `5 - Restore grub theme`
-  - Restores shared `BIG/lateralus` from the backup device to `/boot/grub/themes/lateralus`
-  - Uses a restore-only shared source maintained separately on the backup device; `bkp-serv.sh` does not populate `BIG/lateralus`
+  - Restores shared `15-LATERALUS/lateralus` from the backup device to `/boot/grub/themes/lateralus`
+  - Uses a restore-only shared source maintained separately on the backup device; `bkp-serv.sh` does not populate `15-LATERALUS/lateralus`
   - Detects the target filesystem and avoids unsupported ownership, mode, ACL, and xattr preservation on FAT-family filesystems
 - `6 - Restore GRUB`
   - Updates configured splash, terminal input/output, graphics mode, and theme values in `/etc/default/grub`

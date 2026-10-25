@@ -256,7 +256,8 @@ Select action:
   1 - Install DOTS
   2 - Install FONTS
   3 - Install Extra
-      -- Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader, Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod
+      -- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,
+         -- Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod
       -- FlatPak: VLC, Calc, ArduinoIDE
   4 - Set AutoLogin
   5 - Change SHELL
@@ -267,7 +268,7 @@ Select action:
   12 - Restore KITTY
   13 - Restore FASTFETCH
   14 - Restore HYPR
-       -- Keybinds, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO
+      -- Keybinds, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO
   15 - Restore ROFI
   16 - Restore WAYBAR
   17 - Restore MATUGEN
@@ -279,8 +280,9 @@ Select action:
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
-       -- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro
-       -- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font), Screenshot, Terminal, Waybar (quicklink, workspace)
+      -- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro
+      -- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font),
+         -- Screenshot, Terminal, Waybar (quicklink, workspace)
 EOF
 }
 
@@ -438,24 +440,24 @@ resolve_backup_device_root() {
   cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd
 }
 
-# Replace the ML4W wallpapers folder from the shared BIG/wallpapers backup.
+# Replace the ML4W wallpapers folder from the shared 15-LATERALUS/wallpapers backup.
 restore_wallpapers() {
   local device_root
   local source_dir
-  local big_wallpapers_relative="BIG/wallpapers"
+  local lateralus_wallpapers_relative="15-LATERALUS/wallpapers"
   local wallpapers_dots_relative="ml4w/wallpapers"
   local target_dir
 
   if [[ -f "$MAIN_BACKUP_CONFIG" ]]; then
     # shellcheck source=config/main.backup.conf
     source "$MAIN_BACKUP_CONFIG"
-    big_wallpapers_relative="$BIG_WALLPAPERS_RELATIVE"
+    lateralus_wallpapers_relative="$LATERALUS_WALLPAPERS_RELATIVE"
     wallpapers_dots_relative="$WALLPAPERS_DOTS_RELATIVE"
   fi
 
   require_cmd rsync
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  source_dir="$device_root/$big_wallpapers_relative"
+  source_dir="$device_root/$lateralus_wallpapers_relative"
   target_dir="$ML4W_CONFIG_ROOT/$wallpapers_dots_relative"
   [[ -d "$source_dir" ]] || die "wallpapers source folder not found: $source_dir"
 
@@ -1037,18 +1039,18 @@ customize_thunar_custom_actions() {
   sed -i -E 's|^([[:space:]]*)<command>.*</command>[[:space:]]*$|\1<command>kitty</command>|' "$target_file"
 }
 
-# Resolve the qBittorrent Dracula theme stored in the backup device BIG folder.
+# Resolve the qBittorrent Dracula theme stored in the backup device 15-LATERALUS folder.
 resolve_qbittorrent_theme_source() {
   local device_root=""
   local source_file
 
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  source_file="$device_root/BIG/dracula.qbtheme"
+  source_file="$device_root/15-LATERALUS/dracula.qbtheme"
   [[ -f "$source_file" ]] || die "qBittorrent theme file not found: $source_file"
   printf '%s\n' "$source_file"
 }
 
-# Copy the qBittorrent Dracula theme from the backup device BIG folder.
+# Copy the qBittorrent Dracula theme from the backup device 15-LATERALUS folder.
 restore_qbittorrent_theme() {
   local source_file
   local target_file="$HOME/.config/qBittorrent/dracula.qbtheme"
@@ -1085,7 +1087,7 @@ snapshot_system_file() {
   sudo chown -h "$local_uid:$local_gid" "$collected_snapshot"
 }
 
-# Restore Minipro's algorithm database and udev rule from shared BIG assets.
+# Restore Minipro's algorithm database and udev rule from shared 15-LATERALUS assets.
 restore_minipro_system_files() {
   local algorithm_source="$1"
   local rule_source="$2"
@@ -1135,8 +1137,8 @@ restore_settings() {
   done
   resolve_qbittorrent_theme_source >/dev/null
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  algorithm_source="$device_root/BIG/algorithm.xml"
-  minipro_rule_source="$device_root/BIG/60-minipro.rules"
+  algorithm_source="$device_root/15-LATERALUS/algorithm.xml"
+  minipro_rule_source="$device_root/15-LATERALUS/60-minipro.rules"
   [[ -f "$algorithm_source" ]] || die "Minipro algorithm source file not found: $algorithm_source"
   [[ -f "$minipro_rule_source" ]] || die "Minipro udev rule source file not found: $minipro_rule_source"
   require_all_cmds sudo install udevadm id
@@ -1176,31 +1178,31 @@ restore_settings() {
   log "Done: Restore Settings"
 }
 
-# Run BIG/fonts/install.sh from the backup device root to install fonts.
+# Run 15-LATERALUS/fonts/install.sh from the backup device root to install fonts.
 install_fonts() {
   local device_root=""
-  local candidate_local="$SCRIPT_DIR/BIG/fonts/install.sh"
+  local candidate_local="$SCRIPT_DIR/15-LATERALUS/fonts/install.sh"
   local candidate_device=""
   local installer=""
-  local big_root=""
+  local lateralus_root=""
   local steelfish_font=""
   local target_font_dir="$HOME/.local/share/fonts"
 
   if device_root="$(resolve_backup_device_root)"; then
-    candidate_device="$device_root/BIG/fonts/install.sh"
+    candidate_device="$device_root/15-LATERALUS/fonts/install.sh"
   fi
 
   if [[ -f "$candidate_device" ]]; then
     installer="$candidate_device"
-    big_root="$device_root/BIG"
+    lateralus_root="$device_root/15-LATERALUS"
   elif [[ -f "$candidate_local" ]]; then
     installer="$candidate_local"
-    big_root="$SCRIPT_DIR/BIG"
+    lateralus_root="$SCRIPT_DIR/15-LATERALUS"
   else
-    die "fonts installer not found. Expected BIG/fonts/install.sh on backup device"
+    die "fonts installer not found. Expected 15-LATERALUS/fonts/install.sh on backup device"
   fi
 
-  steelfish_font="$big_root/Steelfish Outline.ttf"
+  steelfish_font="$lateralus_root/Steelfish Outline.ttf"
   [[ -f "$steelfish_font" ]] || die "Steelfish font file not found: $steelfish_font"
 
   require_cmd bash

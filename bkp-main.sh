@@ -49,8 +49,8 @@ print_prompt_separator() {
   printf '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
 }
 
-# Print clean terminal output for the BIG-only update path while still writing the log file.
-big_update_info() {
+# Print clean terminal output for the 15-LATERALUS-only update path while still writing the log file.
+lateralus_update_info() {
   local text="$*"
   local ts
 
@@ -61,8 +61,8 @@ big_update_info() {
   fi
 }
 
-# Shorten source paths for the BIG-only update prompt.
-display_big_update_source() {
+# Shorten source paths for the 15-LATERALUS-only update prompt.
+display_lateralus_update_source() {
   local path="$1"
 
   case "$path" in
@@ -73,8 +73,8 @@ display_big_update_source() {
   esac
 }
 
-# Shorten destination paths for the BIG-only update prompt.
-display_big_update_destination() {
+# Shorten destination paths for the 15-LATERALUS-only update prompt.
+display_lateralus_update_destination() {
   local path="$1"
 
   if [[ "$path" == "$DEST_DEVICE"* ]]; then
@@ -120,7 +120,7 @@ prompt_skip_home_items() {
     fi
     if [[ "$token" == "90" ]]; then
       UPDATE_SHARED_ONLY=true
-      big_update_info "Selected BIG-only firmware and wallpapers update"
+      lateralus_update_info "Selected 15-LATERALUS-only firmware and wallpapers update"
       return 0
     fi
     ((token >= 1 && token <= ${#SKIPPABLE_HOME_ITEMS[@]})) || die "skip selection out of range: $token"
@@ -141,37 +141,37 @@ prompt_skip_home_items() {
   fi
 }
 
-# Update only the shared BIG firmware and wallpaper folders on the mounted device.
+# Update only the shared 15-LATERALUS firmware and wallpaper folders on the mounted device.
 update_shared_firmware_and_wallpapers() {
   local source_display
   local dest_display
 
-  big_update_info "Running BIG-only firmware and wallpapers update"
+  lateralus_update_info "Running 15-LATERALUS-only firmware and wallpapers update"
 
   if [[ -d "$WALLPAPERS_SOURCE" ]]; then
-    source_display="$(display_big_update_source "$WALLPAPERS_SOURCE")"
-    dest_display="$(display_big_update_destination "$BIG_WALLPAPERS_DIR")"
-    big_update_info "Updating shared wallpapers: $source_display -> $dest_display"
-    mkdir -p "$BIG_WALLPAPERS_DIR"
-    run_rsync_main rsync_backup_copy --ignore-existing "$WALLPAPERS_SOURCE/" "$BIG_WALLPAPERS_DIR/"
+    source_display="$(display_lateralus_update_source "$WALLPAPERS_SOURCE")"
+    dest_display="$(display_lateralus_update_destination "$LATERALUS_WALLPAPERS_DIR")"
+    lateralus_update_info "Updating shared wallpapers: $source_display -> $dest_display"
+    mkdir -p "$LATERALUS_WALLPAPERS_DIR"
+    run_rsync_main rsync_backup_copy --ignore-existing "$WALLPAPERS_SOURCE/" "$LATERALUS_WALLPAPERS_DIR/"
   else
-    source_display="$(display_big_update_source "$WALLPAPERS_SOURCE")"
-    big_update_info "Skipping missing wallpapers folder: $source_display"
+    source_display="$(display_lateralus_update_source "$WALLPAPERS_SOURCE")"
+    lateralus_update_info "Skipping missing wallpapers folder: $source_display"
   fi
 
   if [[ -d "$FIRMWARE_SOURCE" ]]; then
-    source_display="$(display_big_update_source "$FIRMWARE_SOURCE")"
-    dest_display="$(display_big_update_destination "$BIG_FIRMWARE_DIR")"
-    big_update_info "Updating shared firmware: $source_display -> $dest_display"
-    mkdir -p "$BIG_FIRMWARE_DIR"
-    run_rsync_main rsync_backup_copy --ignore-existing "$FIRMWARE_SOURCE/" "$BIG_FIRMWARE_DIR/"
+    source_display="$(display_lateralus_update_source "$FIRMWARE_SOURCE")"
+    dest_display="$(display_lateralus_update_destination "$LATERALUS_FIRMWARE_DIR")"
+    lateralus_update_info "Updating shared firmware: $source_display -> $dest_display"
+    mkdir -p "$LATERALUS_FIRMWARE_DIR"
+    run_rsync_main rsync_backup_copy --ignore-existing "$FIRMWARE_SOURCE/" "$LATERALUS_FIRMWARE_DIR/"
   else
-    source_display="$(display_big_update_source "$FIRMWARE_SOURCE")"
-    big_update_info "Skipping missing firmware folder: $source_display"
+    source_display="$(display_lateralus_update_source "$FIRMWARE_SOURCE")"
+    lateralus_update_info "Skipping missing firmware folder: $source_display"
   fi
 
-  big_update_info "Done: BIG-only firmware and wallpapers update"
-  printf -- '- Updated Firmware and Wallpapers in %s/BIG\n' "$(display_mount_target "$DEST_DEVICE")"
+  lateralus_update_info "Done: 15-LATERALUS-only firmware and wallpapers update"
+  printf -- '- Updated Firmware and Wallpapers in %s/15-LATERALUS\n' "$(display_mount_target "$DEST_DEVICE")"
 }
 
 # Build the backup item list from every top-level non-hidden $HOME folder plus selected hidden folders.
@@ -227,10 +227,10 @@ write_manifest() {
     manifest_field "DOTS root" "$DOTS_ROOT"
     manifest_field "DOTS Source" "$DOTS_SOURCE"
     manifest_field "Wallpapers Source" "$WALLPAPERS_SOURCE"
-    manifest_field "Big Wallpapers Dir" "$BIG_WALLPAPERS_DIR"
+    manifest_field "Lateralus Wallpapers Dir" "$LATERALUS_WALLPAPERS_DIR"
     manifest_field "Firmware Source" "$FIRMWARE_SOURCE"
-    manifest_field "Big Firmware Dir" "$BIG_FIRMWARE_DIR"
-    manifest_field "Big Home Files Dir" "$BIG_HOME_FILES_DIR"
+    manifest_field "Lateralus Firmware Dir" "$LATERALUS_FIRMWARE_DIR"
+    manifest_field "Lateralus Home Files Dir" "$LATERALUS_HOME_FILES_DIR"
     manifest_field "Main Backup Config" "$MAIN_BACKUP_CONFIG"
     manifest_field "Home Hidden Files" "${HOME_HIDDEN_FILES[*]}"
     manifest_field "Local Restore Dots Settings Hook" "$(manifest_presence "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'present' || printf 'missing')")"
@@ -243,10 +243,10 @@ write_manifest() {
     json_string_field "dots_root" "$DOTS_ROOT"
     json_string_field "dots_source" "$DOTS_SOURCE"
     json_string_field "wallpapers_source" "$WALLPAPERS_SOURCE"
-    json_string_field "big_wallpapers_dir" "$BIG_WALLPAPERS_DIR"
+    json_string_field "lateralus_wallpapers_dir" "$LATERALUS_WALLPAPERS_DIR"
     json_string_field "firmware_source" "$FIRMWARE_SOURCE"
-    json_string_field "big_firmware_dir" "$BIG_FIRMWARE_DIR"
-    json_string_field "big_home_files_dir" "$BIG_HOME_FILES_DIR"
+    json_string_field "lateralus_firmware_dir" "$LATERALUS_FIRMWARE_DIR"
+    json_string_field "lateralus_home_files_dir" "$LATERALUS_HOME_FILES_DIR"
     json_string_field "main_backup_config" "$MAIN_BACKUP_CONFIG"
     json_raw_field "home_hidden_files" "$(json_string_array "${HOME_HIDDEN_FILES[@]}")"
     json_bool_field "local_restore_dots_settings_hook" "$([[ -f "$PROJECT_ROOT/config/local/restore-dots-settings.sh" ]] && printf 'true' || printf 'false')"
@@ -287,16 +287,16 @@ verify_backup_contents() {
   fi
 
   if [[ -d "$WALLPAPERS_SOURCE" ]]; then
-    [[ -d "$BIG_WALLPAPERS_DIR" ]] || die "missing expected shared wallpaper folder: $BIG_WALLPAPERS_DIR"
+    [[ -d "$LATERALUS_WALLPAPERS_DIR" ]] || die "missing expected shared wallpaper folder: $LATERALUS_WALLPAPERS_DIR"
   fi
 
   if [[ -d "$FIRMWARE_SOURCE" ]]; then
-    [[ -d "$BIG_FIRMWARE_DIR" ]] || die "missing expected shared firmware folder: $BIG_FIRMWARE_DIR"
+    [[ -d "$LATERALUS_FIRMWARE_DIR" ]] || die "missing expected shared firmware folder: $LATERALUS_FIRMWARE_DIR"
   fi
 
   for hidden_file in "${HOME_HIDDEN_FILES[@]}"; do
     if [[ -f "$HOME/$hidden_file" ]]; then
-      [[ -f "$BIG_HOME_FILES_DIR/$hidden_file" ]] || die "missing expected shared hidden file: $BIG_HOME_FILES_DIR/$hidden_file"
+      [[ -f "$LATERALUS_HOME_FILES_DIR/$hidden_file" ]] || die "missing expected shared hidden file: $LATERALUS_HOME_FILES_DIR/$hidden_file"
     fi
   done
 }
@@ -384,10 +384,10 @@ DOTS_ROOT="$HOME/$DOTS_ROOT_RELATIVE"
 DOTS_SOURCE="$HOME/$DOTS_CONFIG_RELATIVE"
 DOTS_DIR="$BACKUP_DIR/DOTS"
 WALLPAPERS_SOURCE="$DOTS_SOURCE/$WALLPAPERS_DOTS_RELATIVE"
-BIG_WALLPAPERS_DIR="$DEST_DEVICE/$BIG_WALLPAPERS_RELATIVE"
+LATERALUS_WALLPAPERS_DIR="$DEST_DEVICE/$LATERALUS_WALLPAPERS_RELATIVE"
 FIRMWARE_SOURCE="$HOME/$FIRMWARE_HOME_RELATIVE"
-BIG_FIRMWARE_DIR="$DEST_DEVICE/$BIG_FIRMWARE_RELATIVE"
-BIG_HOME_FILES_DIR="$DEST_DEVICE/$BIG_HOME_FILES_RELATIVE"
+LATERALUS_FIRMWARE_DIR="$DEST_DEVICE/$LATERALUS_FIRMWARE_RELATIVE"
+LATERALUS_HOME_FILES_DIR="$DEST_DEVICE/$LATERALUS_HOME_FILES_RELATIVE"
 
 # Ask for archive creation before copying starts so required tools fail early.
 if confirm_yes_no "- Create .tar.gz archive after backup?" "N"; then
@@ -551,13 +551,13 @@ else
   ui_render
 fi
 
-# Copy missing wallpapers into the shared BIG/wallpapers folder on the backup device.
+# Copy missing wallpapers into the shared 15-LATERALUS/wallpapers folder on the backup device.
 if [[ -d "$WALLPAPERS_SOURCE" ]]; then
-  log "Backing up missing wallpapers: $WALLPAPERS_SOURCE -> $BIG_WALLPAPERS_DIR"
+  log "Backing up missing wallpapers: $WALLPAPERS_SOURCE -> $LATERALUS_WALLPAPERS_DIR"
   ui_update_task "main-wallpapers" "RUNNING" "copying missing wallpapers"
   ui_render
-  mkdir -p "$BIG_WALLPAPERS_DIR"
-  ui_run_command "main-wallpapers" "copying missing wallpapers" run_rsync_main rsync_backup_copy --ignore-existing "$WALLPAPERS_SOURCE/" "$BIG_WALLPAPERS_DIR/"
+  mkdir -p "$LATERALUS_WALLPAPERS_DIR"
+  ui_run_command "main-wallpapers" "copying missing wallpapers" run_rsync_main rsync_backup_copy --ignore-existing "$WALLPAPERS_SOURCE/" "$LATERALUS_WALLPAPERS_DIR/"
   ui_update_task "main-wallpapers" "DONE" "UPDATED"
   ui_render
 else
@@ -566,13 +566,13 @@ else
   ui_render
 fi
 
-# Copy missing firmware files into the shared BIG/030-Firmware folder on the backup device.
+# Copy missing firmware files into the shared 15-LATERALUS/030-Firmware folder on the backup device.
 if [[ -d "$FIRMWARE_SOURCE" ]]; then
-  log "Backing up missing firmware: $FIRMWARE_SOURCE -> $BIG_FIRMWARE_DIR"
+  log "Backing up missing firmware: $FIRMWARE_SOURCE -> $LATERALUS_FIRMWARE_DIR"
   ui_update_task "main-firmware" "RUNNING" "copying missing firmware"
   ui_render
-  mkdir -p "$BIG_FIRMWARE_DIR"
-  ui_run_command "main-firmware" "copying missing firmware" run_rsync_main rsync_backup_copy --ignore-existing "$FIRMWARE_SOURCE/" "$BIG_FIRMWARE_DIR/"
+  mkdir -p "$LATERALUS_FIRMWARE_DIR"
+  ui_run_command "main-firmware" "copying missing firmware" run_rsync_main rsync_backup_copy --ignore-existing "$FIRMWARE_SOURCE/" "$LATERALUS_FIRMWARE_DIR/"
   ui_update_task "main-firmware" "DONE" "UPDATED"
   ui_render
 else
@@ -581,16 +581,16 @@ else
   ui_render
 fi
 
-# Copy selected backup-only hidden files into the shared BIG folder.
+# Copy selected backup-only hidden files into the shared 15-LATERALUS folder.
 hidden_files_copied=0
 ui_update_task "main-hidden-files" "RUNNING" "copying hidden files"
 ui_render
-mkdir -p "$BIG_HOME_FILES_DIR"
+mkdir -p "$LATERALUS_HOME_FILES_DIR"
 for hidden_file in "${HOME_HIDDEN_FILES[@]}"; do
   source_path="$HOME/$hidden_file"
   if [[ -f "$source_path" ]]; then
-    log "Backing up hidden file: $source_path -> $BIG_HOME_FILES_DIR/"
-    run_rsync_main rsync_backup_copy "$source_path" "$BIG_HOME_FILES_DIR/"
+    log "Backing up hidden file: $source_path -> $LATERALUS_HOME_FILES_DIR/"
+    run_rsync_main rsync_backup_copy "$source_path" "$LATERALUS_HOME_FILES_DIR/"
     hidden_files_copied=$((hidden_files_copied + 1))
   else
     log "Skipping missing hidden file: $source_path"
