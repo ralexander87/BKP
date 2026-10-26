@@ -145,7 +145,7 @@ set_service_restore_defaults() {
   SMB_DIRS=(
     "/SMB"
     "/SMB/euclid"
-    "/SMB/pneuma-kali"
+    "/SMB/pneuma-smb"
     "/SMB/lateralus"
     "/SMB/SCP"
     "/SMB/SCP/HDD-01"
