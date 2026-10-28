@@ -649,11 +649,13 @@ grep -Fq '94 - Restore complete profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/restore-serv.sh"
-if grep -Fq '"/SMB/pneuma-win"' "$PROJECT_ROOT/config/serv.restore.conf"; then
-  printf 'retired SMB directory should not be in public restore config\n' >&2
-  exit 1
-fi
+for retired_smb_path in /SMB/pneuma /SMB/pneuma-kali /SMB/pneuma-win; do
+  grep -Fq "\"$retired_smb_path\"" "$PROJECT_ROOT/restore-serv.sh"
+  if grep -Fq "\"$retired_smb_path\"" "$PROJECT_ROOT/config/serv.restore.conf"; then
+    printf 'retired SMB directory should not be in public restore config: %s\n' "$retired_smb_path" >&2
+    exit 1
+  fi
+done
 grep -Fq "validate_sshd_config_file \"\$SCRIPT_DIR/sshd_config\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'sudo ssh-keygen -A' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'enable_and_refresh_unit "sshd.service"' "$PROJECT_ROOT/restore-serv.sh"
@@ -756,7 +758,9 @@ findmnt() { printf 'vfat\n'; }
 restore_tree_to_system "$PWD/theme-source" "$PWD/theme-target-parent/theme"
 grep -Fqx 'theme fixture' "$PWD/theme-target-parent/theme/theme.txt"
 FSTAB_LINES=(
+  '# TEST SHARE'
   '//new/share   /SMB/test   cifs   _netdev,credentials=/etc/samba/creds-test,uid=1000,gid=1000   0 0'
+  ''
 )
 ROLLBACK_FILE="$PWD/restore-serv-rollback-test.sh"
 snapshot_target "$PWD/new-service-target"
@@ -781,7 +785,10 @@ EOF
 printf '%s\n' \
   '# test fstab' \
   'UUID=root / ext4 defaults 0 1' \
+  '# TEST SHARE' \
   '//old/share /SMB/test cifs old 0 0' \
+  '//old/share /SMB/pneuma cifs old 0 0' \
+  '//old/share /SMB/pneuma-kali cifs old 0 0' \
   '//old/share /SMB/pneuma-win cifs old 0 0' \
   '//keep/share /SMB/keep cifs keep 0 0' >"$tmp/fstab"
 printf '%s\n' \
@@ -806,14 +813,17 @@ grep -Fq 'event=action_failed action=Expected failure result=failed' "$tmp/audit
 grep -Fq 'Expected failure failed (exit 23); returning to menu' "$tmp/audit.log"
 grep -Fqx 'original' "$tmp/repeated-service-target"
 grep -Fq '//new/share   /SMB/test' "$tmp/fstab"
+[[ "$(grep -Fxc '# TEST SHARE' "$tmp/fstab")" -eq 1 ]]
 if grep -Fq '//old/share' "$tmp/fstab"; then
   printf 'stale managed fstab entry was not removed\n' >&2
   exit 1
 fi
-if grep -Fq '/SMB/pneuma-win' "$tmp/fstab"; then
-  printf 'retired fstab entry was not removed\n' >&2
-  exit 1
-fi
+for retired_smb_path in /SMB/pneuma /SMB/pneuma-kali /SMB/pneuma-win; do
+  if grep -Fq "$retired_smb_path" "$tmp/fstab"; then
+    printf 'retired fstab entry was not removed: %s\n' "$retired_smb_path" >&2
+    exit 1
+  fi
+done
 grep -Fq '//keep/share /SMB/keep' "$tmp/fstab"
 [[ "$(awk '$2 == "/SMB/test" { count++ } END { print count + 0 }' "$tmp/fstab")" -eq 1 ]]
 grep -Fq "$tmp/home/PreRestored/fstab-pre-restore-test" "$tmp/restore-serv-rollback-test.sh"

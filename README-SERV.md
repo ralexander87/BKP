@@ -159,7 +159,7 @@ project config/serv.restore.conf
 project config/local/serv.restore.conf
 ```
 
-Later files can override earlier values. Retired `/SMB/pneuma-win` data remains managed for cleanup so stale directories and fstab entries can be removed.
+Later files can override earlier values. Retired `/SMB/pneuma`, `/SMB/pneuma-kali`, and `/SMB/pneuma-win` paths are pruned from loaded overrides, and matching stale fstab entries are removed.
 
 ### Restore Safety and Rollback
 

@@ -155,6 +155,8 @@ set_service_restore_defaults() {
 
   FSTAB_LINES=()
   RETIRED_FSTAB_TARGETS=(
+    "/SMB/pneuma"
+    "/SMB/pneuma-kali"
     "/SMB/pneuma-win"
   )
 
@@ -191,6 +193,10 @@ prune_retired_service_restore_values() {
   SMB_DIRS=("${kept_smb_dirs[@]}")
 
   for line in "${FSTAB_LINES[@]}"; do
+    if [[ "$line" =~ ^[[:space:]]*(#|$) ]]; then
+      kept_fstab_lines+=("$line")
+      continue
+    fi
     read -r _ mount_target _ <<<"$line"
     [[ -n "$mount_target" ]] || die "invalid configured fstab line: $line"
     is_retired_fstab_target "$mount_target" || kept_fstab_lines+=("$line")
@@ -848,6 +854,7 @@ replace_managed_fstab_entries() {
   local line
   local mount_target
   local filtered_fstab
+  local -a managed_comments=()
   local -a managed_targets=()
 
   require_all_cmds awk mv mktemp
@@ -855,6 +862,11 @@ replace_managed_fstab_entries() {
   register_temp_path "$filtered_fstab"
 
   for line in "${FSTAB_LINES[@]}"; do
+    if [[ "$line" =~ ^[[:space:]]*# ]]; then
+      managed_comments+=("$line")
+      continue
+    fi
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
     read -r _ mount_target _ <<<"$line"
     [[ -n "$mount_target" ]] || die "invalid configured fstab line: $line"
     managed_targets+=("$mount_target")
@@ -865,6 +877,11 @@ replace_managed_fstab_entries() {
     awk -v target="$mount_target" '
       /^[[:space:]]*#/ || NF < 2 || $2 != target { print }
     ' "$fstab_file" >"$filtered_fstab"
+    mv -- "$filtered_fstab" "$fstab_file"
+  done
+
+  for line in "${managed_comments[@]}"; do
+    awk -v comment="$line" '$0 != comment { print }' "$fstab_file" >"$filtered_fstab"
     mv -- "$filtered_fstab" "$fstab_file"
   done
 
