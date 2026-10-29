@@ -146,6 +146,7 @@ set_service_restore_defaults() {
     "/SMB"
     "/SMB/euclid"
     "/SMB/pneuma-smb"
+    "/SMB/argus-smb"
     "/SMB/lateralus"
     "/SMB/SCP"
     "/SMB/SCP/HDD-01"

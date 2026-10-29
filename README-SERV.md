@@ -38,7 +38,7 @@ The script requests root authentication, uses the mounted-device selector, and w
 It backs up:
 
 - `/etc/samba/smb.conf`
-- `/etc/samba/creds-*`
+- `/etc/samba/creds-*`, including `creds-argus`
 - `/etc/ssh/sshd_config`
 - `/etc/ssh/sshd_config.d/` when present
 - `/etc/default/grub`
@@ -92,7 +92,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 
 - `0 - Exit`
 - `1 - Create SMB`
-  - Creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-smb`, and `/SMB/lateralus`
+  - Creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma-smb`, `/SMB/argus-smb`, and `/SMB/lateralus`
   - Creates `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, and `/SMB/SCP/HDD-03`
   - Sets ownership to the local non-root user and permissions to `750`
 - `2 - Restore samba`

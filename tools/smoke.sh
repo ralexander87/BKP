@@ -649,6 +649,9 @@ grep -Fq '94 - Restore complete profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '"/SMB/argus-smb"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '"/SMB/argus-smb"' "$PROJECT_ROOT/config/serv.restore.conf"
+grep -Fq 'SAMBA_CREDS_PATTERN="creds-*"' "$PROJECT_ROOT/config/serv.backup.conf"
 for retired_smb_path in /SMB/pneuma /SMB/pneuma-kali /SMB/pneuma-win; do
   grep -Fq "\"$retired_smb_path\"" "$PROJECT_ROOT/restore-serv.sh"
   if grep -Fq "\"$retired_smb_path\"" "$PROJECT_ROOT/config/serv.restore.conf"; then
