@@ -145,8 +145,8 @@ set_service_restore_defaults() {
   SMB_DIRS=(
     "/SMB"
     "/SMB/euclid"
-    "/SMB/pneuma-smb"
-    "/SMB/argus-smb"
+    "/SMB/pneuma"
+    "/SMB/argus"
     "/SMB/lateralus"
     "/SMB/SCP"
     "/SMB/SCP/HDD-01"
@@ -156,8 +156,9 @@ set_service_restore_defaults() {
 
   FSTAB_LINES=()
   RETIRED_FSTAB_TARGETS=(
-    "/SMB/pneuma"
+    "/SMB/argus-smb"
     "/SMB/pneuma-kali"
+    "/SMB/pneuma-smb"
     "/SMB/pneuma-win"
   )
 

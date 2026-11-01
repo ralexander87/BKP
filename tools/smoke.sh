@@ -649,10 +649,12 @@ grep -Fq '94 - Restore complete profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq '"/SMB/argus-smb"' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq '"/SMB/argus-smb"' "$PROJECT_ROOT/config/serv.restore.conf"
+grep -Fq '"/SMB/pneuma"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '"/SMB/pneuma"' "$PROJECT_ROOT/config/serv.restore.conf"
+grep -Fq '"/SMB/argus"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '"/SMB/argus"' "$PROJECT_ROOT/config/serv.restore.conf"
 grep -Fq 'SAMBA_CREDS_PATTERN="creds-*"' "$PROJECT_ROOT/config/serv.backup.conf"
-for retired_smb_path in /SMB/pneuma /SMB/pneuma-kali /SMB/pneuma-win; do
+for retired_smb_path in /SMB/argus-smb /SMB/pneuma-kali /SMB/pneuma-smb /SMB/pneuma-win; do
   grep -Fq "\"$retired_smb_path\"" "$PROJECT_ROOT/restore-serv.sh"
   if grep -Fq "\"$retired_smb_path\"" "$PROJECT_ROOT/config/serv.restore.conf"; then
     printf 'retired SMB directory should not be in public restore config: %s\n' "$retired_smb_path" >&2
@@ -790,8 +792,9 @@ printf '%s\n' \
   'UUID=root / ext4 defaults 0 1' \
   '# TEST SHARE' \
   '//old/share /SMB/test cifs old 0 0' \
-  '//old/share /SMB/pneuma cifs old 0 0' \
+  '//old/share /SMB/argus-smb cifs old 0 0' \
   '//old/share /SMB/pneuma-kali cifs old 0 0' \
+  '//old/share /SMB/pneuma-smb cifs old 0 0' \
   '//old/share /SMB/pneuma-win cifs old 0 0' \
   '//keep/share /SMB/keep cifs keep 0 0' >"$tmp/fstab"
 printf '%s\n' \
@@ -821,7 +824,7 @@ if grep -Fq '//old/share' "$tmp/fstab"; then
   printf 'stale managed fstab entry was not removed\n' >&2
   exit 1
 fi
-for retired_smb_path in /SMB/pneuma /SMB/pneuma-kali /SMB/pneuma-win; do
+for retired_smb_path in /SMB/argus-smb /SMB/pneuma-kali /SMB/pneuma-smb /SMB/pneuma-win; do
   if grep -Fq "$retired_smb_path" "$tmp/fstab"; then
     printf 'retired fstab entry was not removed: %s\n' "$retired_smb_path" >&2
     exit 1
