@@ -268,7 +268,7 @@ Select action:
   12 - Restore KITTY
   13 - Restore FASTFETCH
   14 - Restore HYPR
-      -- Keybinds, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO
+      -- Keybinds, NVIDIA, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO
   15 - Restore ROFI
   16 - Restore WAYBAR
   17 - Restore MATUGEN
@@ -306,11 +306,14 @@ snapshot_existing_target() {
   LAST_SNAPSHOT_PATH="$collected_snapshot"
 }
 
-# Confirm an action before it changes local configuration.
+# Confirm an action before it changes local configuration; restore actions default to yes.
 confirm_action() {
   local label="$1"
+  local default="N"
 
-  confirm_yes_no "Start $label?" "N" || {
+  [[ "$label" == "Restore "* ]] && default="Y"
+
+  confirm_yes_no "Start $label?" "$default" || {
     log "$label cancelled"
     return 1
   }
@@ -902,6 +905,7 @@ restore_hypr() {
   local source_rel
   local -a source_files=(
     "hypr/conf/keybindings/default.lua"
+    "hypr/conf/environments/nvidia.lua"
     "hypr/conf/monitor.lua"
     "hypr/conf/windowrules/default.lua"
     "hypr/hypridle.conf"
@@ -916,6 +920,7 @@ restore_hypr() {
   done
   confirm_action "Restore HYPR" || return 0
   restore_config_file "HYPR" "hypr/conf/keybindings/default.lua" "hypr/conf/keybindings/default.lua"
+  restore_config_file "HYPR" "hypr/conf/environments/nvidia.lua" "hypr/conf/environments/nvidia.lua"
   restore_config_file "HYPR" "hypr/conf/monitor.lua" "hypr/conf/monitor.lua"
   restore_config_file "HYPR" "hypr/conf/windowrules/default.lua" "hypr/conf/windowrules/default.lua"
   restore_config_file "HYPR" "hypr/hypridle.conf" "hypr/hypridle.conf"

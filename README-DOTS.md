@@ -71,7 +71,7 @@ date +%Y-%j-%d-%m-%H-%M-%S
 
 `bkp-main.sh` handles:
 
-- Every top-level non-hidden folder in `$HOME`
+- Every top-level non-hidden folder in `$HOME`, except `$HOME/PreRestored`
   - A numbered prompt allows any discovered folder to be excluded for that run
 - Selected hidden folders when present
   - `.themes`
@@ -169,7 +169,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 
 `restore-dots.sh` supports `--quiet`. It requires the parent MAIN manifest or legacy status marker to report a completed backup.
 
-Actions ask for confirmation before changing local configuration. The default answer is `N`; a cancelled action returns to the menu. Option 4 becomes unattended after selection and does not add package-manager confirmation prompts.
+Actions ask for confirmation before changing local configuration. Restore actions default to `Y`, so Enter starts the selected restore; answer `N` to skip it and return to the menu. Install and other configuration actions default to `N`. Option 4 becomes unattended after selection and does not add package-manager confirmation prompts.
 
 ### Install Actions
 
@@ -213,6 +213,7 @@ Actions ask for confirmation before changing local configuration. The default an
   - Snapshots and restores the complete `fastfetch` folder
 - `14 - Restore HYPR`
   - Restores `hypr/conf/keybindings/default.lua`
+  - Restores `hypr/conf/environments/nvidia.lua`
   - Restores `hypr/conf/monitor.lua`
   - Restores `hypr/conf/windowrules/default.lua`
   - Restores `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png`

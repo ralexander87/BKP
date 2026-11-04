@@ -340,7 +340,7 @@ grep -Fq -- '-- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,' "$PRO
 grep -Fq -- '-- Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- FlatPak: VLC, Calc, ArduinoIDE' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- ZSH' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- Keybinds, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- Keybinds, NVIDIA, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font),' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- Screenshot, Terminal, Waybar (quicklink, workspace)' "$PROJECT_ROOT/restore-dots.sh"
@@ -448,7 +448,22 @@ grep -Fq "MINIPRO_UDEV_RULE_TARGET=\"\${MINIPRO_UDEV_RULE_TARGET:-/etc/udev/rule
 grep -Fq "sudo install -m 0644 \"\$algorithm_source\" \"\$MINIPRO_ALGORITHM_TARGET\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "sudo install -m 0644 \"\$rule_source\" \"\$MINIPRO_UDEV_RULE_TARGET\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '99)' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq "confirm_yes_no \"Start \$label?\" \"N\"" "$PROJECT_ROOT/restore-dots.sh"
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$tmp/restore-dots-partial.sh"
+cat >>"$tmp/restore-dots-partial.sh" <<'EOF'
+confirm_action "Restore HYPR" <<<''
+if confirm_action "Restore HYPR" <<<'N'; then
+  exit 1
+fi
+if confirm_action "Install DOTS" <<<''; then
+  exit 1
+fi
+EOF
+(cd "$tmp" && bash restore-dots-partial.sh >/dev/null)
+rm -rf "$tmp"
+printf 'DOTS confirmation defaults OK\n'
 grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '15-LATERALUS/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 if sed -n '/^restore_hypr()/,/^}/p' "$PROJECT_ROOT/restore-dots.sh" | grep -Eq 'gtk-3.0/bookmarks|waybar/modules.json|quickshell|qs (kill|-d)'; then
@@ -502,6 +517,7 @@ dots_dir="$tmp/device/MAIN/BKP-test/DOTS"
 mkdir -p \
   "$dots_dir/lib" \
   "$dots_dir/hypr/conf/keybindings" \
+  "$dots_dir/hypr/conf/environments" \
   "$dots_dir/hypr/conf/windowrules" \
   "$dots_dir/hypr/scripts" \
   "$dots_dir/waybar/themes" \
@@ -521,6 +537,7 @@ cp "$PROJECT_ROOT/lib/common.sh" "$dots_dir/lib/common.sh"
 awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$dots_dir/restore-dots-partial.sh"
 for source_rel in \
   hypr/conf/keybindings/default.lua \
+  hypr/conf/environments/nvidia.lua \
   hypr/conf/monitor.lua \
   hypr/conf/windowrules/default.lua \
   hypr/hypridle.conf \
@@ -585,8 +602,13 @@ find "$HOME/PreRestored" -maxdepth 1 -type d -name 'zshrc-pre-restore-*' \
 find "$HOME/PreRestored" -maxdepth 1 -type d -name 'bashrc-pre-restore-*' \
   -exec grep -Fqx 'old bashrc fixture' '{}/config' \; -print -quit | grep -q .
 
+mkdir -p "$ML4W_CONFIG_ROOT/hypr/conf/environments"
+printf 'old nvidia fixture\n' >"$ML4W_CONFIG_ROOT/hypr/conf/environments/nvidia.lua"
 restore_hypr
 [[ -f "$ML4W_CONFIG_ROOT/hypr/conf/keybindings/default.lua" ]]
+grep -Fqx 'fixture: hypr/conf/environments/nvidia.lua' "$ML4W_CONFIG_ROOT/hypr/conf/environments/nvidia.lua"
+find "$HOME/PreRestored" -maxdepth 1 -type f -name 'nvidia.lua-pre-restore-*' \
+  -exec grep -Fqx 'old nvidia fixture' '{}' \; -print -quit | grep -q .
 [[ ! -e "$ML4W_CONFIG_ROOT/waybar/modules.json" ]]
 [[ ! -e "$ML4W_CONFIG_ROOT/quickshell" ]]
 
@@ -882,6 +904,21 @@ chmod +x "$tmp/bin/findmnt" "$tmp/bin/lsblk" "$tmp/bin/df"
 ')
 rm -rf "$tmp"
 printf 'external mount picker path decoding OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/home/Documents" "$tmp/home/PreRestored" "$tmp/home/Projects" "$tmp/home/.hidden"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+HOME="$PWD/home"
+HIDDEN_HOME_ITEMS=(.ssh)
+discover_home_items
+[[ "${SKIPPABLE_HOME_ITEMS[*]}" == "Documents Projects" ]]
+[[ "${HOME_ITEMS[*]}" == "Documents Projects .ssh" ]]
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh)
+rm -rf "$tmp"
+printf 'PreRestored excluded from MAIN discovery OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/logs"

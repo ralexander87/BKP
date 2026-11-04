@@ -137,6 +137,9 @@ The current version is stored in `VERSION`.
 
 ### Unreleased
 
+- Made DOTS restore action confirmations default to `Y`, with `N` available to skip an action
+- Added `hypr/conf/environments/nvidia.lua` to DOTS option `14 - Restore HYPR`
+- Excluded `$HOME/PreRestored` from MAIN backups, including folder selection and size estimates
 - Renamed the shared external backup folder from `BIG` to `15-LATERALUS` across backup, restore, doctor, and catalog-related documentation
 - Added Minipro algorithm and udev-rule restoration to DOTS option `99 - Restore Settings`
 - Reordered DOTS Install Extra into validated package, Flatpak, integration, and HyprMod phases

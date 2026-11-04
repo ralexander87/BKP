@@ -174,7 +174,7 @@ update_shared_firmware_and_wallpapers() {
   printf -- '- Updated Firmware and Wallpapers in %s/15-LATERALUS\n' "$(display_mount_target "$DEST_DEVICE")"
 }
 
-# Build the backup item list from every top-level non-hidden $HOME folder plus selected hidden folders.
+# Build the backup item list from top-level non-hidden $HOME folders, excluding PreRestored.
 discover_home_items() {
   local hidden_item
   local item
@@ -187,7 +187,7 @@ discover_home_items() {
     item="${path##*/}"
     SKIPPABLE_HOME_ITEMS+=("$item")
     HOME_ITEMS+=("$item")
-  done < <(find "$HOME" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print | sort)
+  done < <(find "$HOME" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'PreRestored' -print | sort)
 
   for hidden_item in "${HIDDEN_HOME_ITEMS[@]}"; do
     HOME_ITEMS+=("$hidden_item")
