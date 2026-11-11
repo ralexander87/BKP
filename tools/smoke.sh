@@ -62,6 +62,11 @@ if printf 'N\n' | (cd "$tmp" && ./restore-main.sh >/dev/null 2>&1); then
   printf 'restore-main.sh should reject an unmarked source folder\n' >&2
   exit 1
 fi
+grep -Fq '[ERROR] [restore-main.sh]' "$tmp/err.log"
+if grep -Eq '\[(INFO|WARN)\]' "$tmp/err.log"; then
+  printf 'standalone restore err.log should contain errors only\n' >&2
+  exit 1
+fi
 cat >"$tmp/backup-manifest.txt" <<'EOF'
 Manifest Version = 1
 Backup Type = [MAIN]
@@ -94,9 +99,12 @@ Manifest Version = 1
 Backup Status = [COMPLETED]
 EOF
 printf 'new\n' >"$tmp/backup/Documents/new.txt"
+printf 'old error\n' >"$tmp/backup/err.log"
+printf 'rotated error\n' >"$tmp/backup/err.log.1"
 printf 'old\n' >"$tmp/home/Documents/old.txt"
 printf 'Y\n' | (cd "$tmp/backup" && HOME="$tmp/home" ./restore-main.sh >"$tmp/restore-main.out")
 [[ -f "$tmp/home/Documents/new.txt" ]]
+[[ ! -e "$tmp/home/err.log" && ! -e "$tmp/home/err.log.1" ]]
 grep -Fq '[INFO] Restored: Documents' "$tmp/restore-main.out"
 if grep -Eq '[[:digit:]]+%' "$tmp/restore-main.out"; then
   printf 'restore-main.sh should not print rsync progress percentages\n' >&2
@@ -106,6 +114,29 @@ find "$tmp/home/PreRestored" -mindepth 1 -maxdepth 1 -type d -name 'Documents-pr
   -exec test -f '{}/old.txt' \; -print -quit | grep -q .
 rm -rf "$tmp"
 printf 'automatic pre-restore collection OK: restore-main.sh\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/backup" "$tmp/home" "$tmp/bin"
+cp "$PROJECT_ROOT/restore-main.sh" "$tmp/backup/restore-main.sh"
+chmod +x "$tmp/backup/restore-main.sh"
+cat >"$tmp/backup/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
+printf 'restore data\n' >"$tmp/backup/restore-item"
+cat >"$tmp/bin/rsync" <<'EOF'
+#!/usr/bin/env bash
+exit 9
+EOF
+chmod +x "$tmp/bin/rsync"
+if printf 'Y\n' | HOME="$tmp/home" PATH="$tmp/bin:$PATH" "$tmp/backup/restore-main.sh" >/dev/null 2>&1; then
+  printf 'restore-main.sh should fail when rsync fails\n' >&2
+  exit 1
+fi
+grep -Fq '[ERROR] [restore-main.sh] command failed at line' "$tmp/backup/err.log"
+rm -rf "$tmp"
+printf 'restore command failure error log OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/device/MAIN/BKP-test/config" "$tmp/device/15-LATERALUS" "$tmp/home/.local/share/applications"
@@ -1122,6 +1153,30 @@ rm -rf "$tmp"
 printf 'service manifest format OK\n'
 
 tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-serv.sh" >"$tmp/bkp-serv-partial.sh"
+cat >>"$tmp/bkp-serv-partial.sh" <<'EOF'
+findmnt() { printf '/dev/mapper/root[/@]\n'; }
+sudo() {
+  case "$1 $2" in
+  'cryptsetup isLuks') [[ "$3" == /dev/nvme0n1p2 || "$3" == /dev/sda1 ]] ;;
+  'cryptsetup status')
+    [[ "$3" == root ]] || return 1
+    printf '  device:  /dev/nvme0n1p2\n'
+    ;;
+  *) return 1 ;;
+  esac
+}
+[[ "$(detect_luks_device)" == /dev/nvme0n1p2 ]]
+LUKS_DEVICE=/dev/sda1
+[[ "$(detect_luks_device)" == /dev/sda1 ]]
+EOF
+(cd "$tmp" && bash bkp-serv-partial.sh)
+rm -rf "$tmp"
+printf 'Btrfs root LUKS detection and explicit source OK\n'
+
+tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
 (cd "$tmp" && bash -c '
   source common.sh
@@ -1129,6 +1184,7 @@ cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"
   LOG_FILE="$PWD/test.log"
   log "plain info"
   log_warn "plain warning"
+  [[ ! -e err.log ]]
   log_error "plain error"
 ' >log-cli.out)
 grep -Fq '[INFO] plain info' "$tmp/log-cli.out"
@@ -1139,8 +1195,10 @@ if grep -Eq '\[[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$tmp/log-cli.out"; then
   exit 1
 fi
 grep -Eq '\[[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$tmp/test.log"
+[[ "$(wc -l <"$tmp/err.log")" -eq 1 ]]
+grep -Fq '[ERROR] [common.sh] plain error' "$tmp/err.log"
 rm -rf "$tmp"
-printf 'clean CLI log output OK\n'
+printf 'clean CLI and error-only log output OK\n'
 
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/common.sh"

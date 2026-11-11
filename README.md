@@ -93,7 +93,9 @@ logs/bkp.log
 
 The shared log rotates at 5 MiB and retains five numbered copies by default. Override these values with `LOG_MAX_BYTES` and `LOG_ROTATE_COUNT`.
 
-Restore logs are stored inside the backup when it is writable. On read-only backup media, logs and generated rollback files use `${XDG_STATE_HOME:-$HOME/.local/state}/bkp/`.
+Errors from both backup scripts are also appended to `logs/err.log`. The file is created only when an error occurs and contains only timestamped `ERROR` entries. It uses the same rotation limits as `bkp.log`.
+
+Restore logs are stored inside the backup when it is writable. Restore errors are also appended to `err.log` beside `restore.log`. On read-only backup media, logs and generated rollback files use `${XDG_STATE_HOME:-$HOME/.local/state}/bkp/`, with `err.log` in that state directory.
 
 ## Development
 

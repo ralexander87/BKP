@@ -34,6 +34,9 @@ load_restore_helpers() {
     line="[$ts] [$level] [$SCRIPT_NAME] $*"
     cli_line="[$level] $*"
     [[ -n "${LOG_FILE:-}" ]] && printf '%s\n' "$line" >>"$LOG_FILE"
+    if [[ "$level" == "ERROR" && -n "${LOG_FILE:-}" ]]; then
+      printf '%s\n' "$line" >>"$(dirname -- "$LOG_FILE")/err.log"
+    fi
     [[ "$QUIET" == "true" && "$level" == "INFO" ]] || printf '%s\n' "$cli_line"
   }
   log() { log_message "INFO" "$*"; }
@@ -74,6 +77,8 @@ load_restore_helpers() {
     [[ -n "${LOG_FILE:-}" ]] || return 0
     mkdir -p "$(dirname -- "$LOG_FILE")"
     rotate_log_file "$LOG_FILE"
+    # Keep err.log absent until an error occurs.
+    rotate_log_file "$(dirname -- "$LOG_FILE")/err.log"
   }
   parse_common_args() {
     local arg
@@ -148,6 +153,7 @@ RESTORE_EXCLUDED_ITEMS=(
   "lib"
   "restore-main.sh"
   "restore.log"
+  "err.log"
 )
 
 # Print command usage for help requests.
@@ -168,6 +174,10 @@ preflight_checks() {
 is_restore_excluded_item() {
   local item="$1"
   local excluded_item
+
+  case "$item" in
+  err.log.*) return 0 ;;
+  esac
 
   for excluded_item in "${RESTORE_EXCLUDED_ITEMS[@]}"; do
     [[ "$item" == "$excluded_item" ]] && return 0
@@ -401,6 +411,7 @@ fi
 init_log_file
 preflight_checks
 setup_cleanup_trap
+trap 'log_error "command failed at line $LINENO: $BASH_COMMAND"' ERR
 
 # Show the restore source and target before asking for confirmation.
 log "Restore source: $SCRIPT_DIR"

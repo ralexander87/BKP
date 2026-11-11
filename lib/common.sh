@@ -62,6 +62,9 @@ log_message() {
 
   if [[ -n "${LOG_FILE:-}" ]]; then
     printf '%s\n' "$line" >>"$LOG_FILE"
+    if [[ "$level" == "ERROR" ]]; then
+      printf '%s\n' "$line" >>"$(dirname -- "$LOG_FILE")/err.log"
+    fi
   fi
 
   if [[ "$UI_ENABLED" == "true" ]]; then
@@ -154,6 +157,8 @@ init_log_file() {
   [[ -n "${LOG_FILE:-}" ]] || return 0
   mkdir -p "$(dirname -- "$LOG_FILE")"
   rotate_log_file "$LOG_FILE"
+  # Do not create err.log until the first error, but rotate earlier errors.
+  rotate_log_file "$(dirname -- "$LOG_FILE")/err.log"
 }
 
 # Generate the backup timestamp used in BKP folder names.

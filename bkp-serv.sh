@@ -161,6 +161,9 @@ detect_luks_device() {
 
   root_source="$(findmnt -rn -o SOURCE --target /)"
   [[ -n "$root_source" ]] || die "could not determine root source for LUKS detection"
+  # findmnt appends a Btrfs subvolume (for example /dev/mapper/root[/@]);
+  # cryptsetup and lsblk need the underlying device path without that suffix.
+  root_source="${root_source%%\[*}"
 
   if sudo cryptsetup isLuks "$root_source" >/dev/null 2>&1; then
     printf '%s\n' "$root_source"
@@ -213,7 +216,7 @@ backup_luks_header() {
     detected="$(detect_luks_device)" || die "LUKS_DEVICE is set but not usable: $LUKS_DEVICE"
   else
     detected="$(detect_luks_device)" || {
-      log_warn "skipping LUKS header backup (no LUKS source detected)"
+      log_warn "skipping LUKS header backup (source not uniquely identified)"
       return
     }
   fi
@@ -450,7 +453,7 @@ ui_render
 # Back up LUKS header into luks.bin in this backup folder.
 backup_luks_header
 if [[ "$LUKS_HEADER_CREATED" != "true" ]]; then
-  ui_update_task "serv-luks" "SKIPPED" "no luks source detected"
+  ui_update_task "serv-luks" "SKIPPED" "LUKS source not uniquely identified"
   ui_render
 fi
 

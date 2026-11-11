@@ -45,7 +45,7 @@ It backs up:
 - `/etc/mkinitcpio.conf`
 - A detected LUKS header as `luks.bin`
 
-Set `LUKS_DEVICE=/dev/...` to force a specific LUKS source device.
+Automatic detection prefers the encrypted device holding the system root. If that cannot be identified and multiple LUKS devices are present, the header step is skipped. Set `LUKS_DEVICE=/dev/...` to force a specific source. If the backup destination itself is encrypted, keep a copy of its header on a different device; a header backup stored only inside that encrypted destination cannot be used if the destination header is lost.
 
 Backup content is stored as standalone entries in the backup root, such as `smb.conf`, `sshd_config`, optional `sshd_config.d/`, `grub`, `mkinitcpio.conf`, `creds-*`, and `luks.bin`. Each backup also includes `restore-serv.sh`, `lib/common.sh`, and the restore configuration used for that run.
 
@@ -182,5 +182,6 @@ Additional safeguards include:
 - Atomic updates for `/etc/fstab` and `/etc/default/grub`
 - Post-restore validation where the relevant validation command is available
 - Audit entries and action results in `restore.log`
+- Error entries in `err.log` beside `restore.log`, created on the first error
 - A final `completed_with_errors` audit event with result `partial_failure` when any selected action failed
 - A user-state fallback for logs and rollback helpers when backup media is read-only

@@ -156,7 +156,7 @@ directories  700
 other files  600
 ```
 
-Output is written to `restore.log` in the MAIN backup, with a user-state fallback on read-only media. The bundled `lib/common.sh` is used when present; restore scripts retain a fallback for older backups without it.
+Output is written to `restore.log` in the MAIN backup. Errors are also appended to `err.log` in the same directory; `err.log` is created only when an error occurs and is excluded from restored home items. Both logs use a user-state fallback on read-only media. The bundled `lib/common.sh` is used when present; restore scripts retain a fallback for older backups without it.
 
 ## DOTS Restore
 
