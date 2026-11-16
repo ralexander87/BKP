@@ -443,9 +443,15 @@ restore_config_folder() {
   rsync_restore_copy "$source_dir/" "$target_dir/"
 }
 
-# Resolve the backup device root from a script running inside MAIN/BKP-*/DOTS.
+# Resolve the mount root from either MAIN/BKP-*/DOTS layout.
 resolve_backup_device_root() {
-  cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd
+  local root
+
+  root="$(cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)" || return 1
+  if [[ "${root##*/}" == "15-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
+    root="$(cd -- "$root/.." 2>/dev/null && pwd)" || return 1
+  fi
+  printf '%s\n' "$root"
 }
 
 # Replace the ML4W wallpapers folder from the shared 15-LATERALUS/wallpapers backup.

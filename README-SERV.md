@@ -17,6 +17,8 @@ Run `make deps` from the project root for the complete dependency report.
 
 ## SERVICE Backup
 
+On the `lateralus` host, SERVICE backup folders and archives are placed under `/path/to/device/15-LATERALUS/SERV/`. Other hosts use `/path/to/device/SERV/`.
+
 Run:
 
 ```bash
@@ -78,6 +80,8 @@ SERVICE backup safety behavior includes:
 - Failed status recording and temporary archive cleanup after interruption
 
 ## SERVICE Restore
+
+For backups created on `lateralus` with version 0.6.0 or later, use `/path/to/device/15-LATERALUS/SERV/BKP-<timestamp>` instead of the device-root `SERV` path shown below.
 
 Run from inside a completed SERVICE backup:
 

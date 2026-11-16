@@ -624,9 +624,15 @@ snapshot_kernel_module_state() {
   fi
 }
 
-# Resolve the backup device root from a script running inside SERV/BKP-*.
+# Resolve the mount root from either SERV/BKP-* layout.
 resolve_backup_device_root() {
-  cd -- "$SCRIPT_DIR/../.." 2>/dev/null && pwd
+  local root
+
+  root="$(cd -- "$SCRIPT_DIR/../.." 2>/dev/null && pwd)" || return 1
+  if [[ "${root##*/}" == "15-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
+    root="$(cd -- "$root/.." 2>/dev/null && pwd)" || return 1
+  fi
+  printf '%s\n' "$root"
 }
 
 # Restore the shared lateralus grub theme folder into /boot/grub/themes/.

@@ -271,9 +271,15 @@ collect_pre_restore() {
   log "Collected $count pre-restore snapshot(s) in: $collect_dir"
 }
 
-# Resolve the backup device root from a script running inside MAIN/BKP-*.
+# Resolve the mount root from either MAIN/BKP-* layout.
 resolve_backup_device_root() {
-  cd -- "$SCRIPT_DIR/../.." 2>/dev/null && pwd
+  local root
+
+  root="$(cd -- "$SCRIPT_DIR/../.." 2>/dev/null && pwd)" || return 1
+  if [[ "${root##*/}" == "15-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
+    root="$(cd -- "$root/.." 2>/dev/null && pwd)" || return 1
+  fi
+  printf '%s\n' "$root"
 }
 
 # Restore shared firmware stored outside the per-run MAIN/BKP-* folder.

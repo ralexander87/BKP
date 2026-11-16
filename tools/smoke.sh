@@ -1297,16 +1297,59 @@ bash -c 'source "$1"; [[ "$(timestamp)" =~ ^[0-9]{4}-[0-9]{3}- ]]' _ "$PROJECT_R
 printf 'year-safe timestamp OK\n'
 
 tmp="$(mktemp -d)"
+bash -c '
+  source "$1"
+  system_hostname() { printf "lateralus\n"; }
+  [[ "$(backup_storage_root "$2")" == "$2/15-LATERALUS" ]]
+  system_hostname() { printf "other-host\n"; }
+  [[ "$(backup_storage_root "$2")" == "$2" ]]
+' _ "$PROJECT_ROOT/lib/common.sh" "$tmp/device"
+rm -rf "$tmp"
+printf 'hostname-based backup layout OK\n'
+
+tmp="$(mktemp -d)"
+for script in restore-main.sh restore-serv.sh restore-dots.sh; do
+  case "$script" in
+  restore-main.sh)
+    backup_type=MAIN
+    suffix=""
+    ;;
+  restore-serv.sh)
+    backup_type=SERV
+    suffix=""
+    ;;
+  restore-dots.sh)
+    backup_type=MAIN
+    suffix="/DOTS"
+    ;;
+  esac
+  for storage_root in "$tmp/device" "$tmp/device/15-LATERALUS"; do
+    script_dir="$storage_root/$backup_type/BKP-test$suffix"
+    mkdir -p "$script_dir"
+    awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/$script" >"$script_dir/$script"
+    printf '%s\n' 'resolve_backup_device_root' >>"$script_dir/$script"
+    [[ "$(bash "$script_dir/$script")" == "$tmp/device" ]]
+  done
+done
+rm -rf "$tmp"
+printf 'legacy and nested restore device roots OK\n'
+
+tmp="$(mktemp -d)"
 mkdir -p "$tmp/backups/BKP-365-old" "$tmp/backups/BKP-001-new"
 touch -d '2025-12-31' "$tmp/backups/BKP-365-old"
 touch -d '2026-01-01' "$tmp/backups/BKP-001-new"
 awk '/^printf '\''BKP doctor/ { exit } { print }' "$PROJECT_ROOT/doctor.sh" >"$tmp/doctor-partial.sh"
 cat >>"$tmp/doctor-partial.sh" <<'EOF'
 [[ "$(latest_backup_dir "$1")" == "$1/BKP-001-new" ]]
+[[ "$(latest_backup_dir "$2/MAIN" "$2/15-LATERALUS/MAIN")" == "$2/15-LATERALUS/MAIN/BKP-new" ]]
+[[ "$(latest_backup_dir "$2/missing/MAIN" "$2/15-LATERALUS/MAIN")" == "$2/15-LATERALUS/MAIN/BKP-new" ]]
 EOF
-bash "$tmp/doctor-partial.sh" "$tmp/backups"
+mkdir -p "$tmp/legacy/MAIN/BKP-old" "$tmp/legacy/15-LATERALUS/MAIN/BKP-new"
+touch -d '2025-01-01' "$tmp/legacy/MAIN/BKP-old"
+touch -d '2026-01-01' "$tmp/legacy/15-LATERALUS/MAIN/BKP-new"
+bash "$tmp/doctor-partial.sh" "$tmp/backups" "$tmp/legacy"
 rm -rf "$tmp"
-printf 'cross-year latest backup selection OK\n'
+printf 'cross-year and nested latest backup selection OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/logs" "$tmp/MAIN/.BKP-test.in-progress"
@@ -1329,7 +1372,7 @@ rm -rf "$tmp"
 printf 'atomic backup publication OK\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-legacy"
+mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-legacy" "$tmp/15-LATERALUS/MAIN/BKP-nested" "$tmp/15-LATERALUS/SERV/BKP-nested"
 cat >"$tmp/MAIN/BKP-test/backup-manifest.txt" <<'EOF'
 Manifest Version = 1
 Created = 2026-08-20T12:00:00+02:00
@@ -1350,6 +1393,7 @@ grep -Fq 'BKP-test' "$tmp/catalog.out"
 grep -Fq 'COMPLETED' "$tmp/catalog.out"
 grep -Fq 'PASSED' "$tmp/catalog.out"
 grep -Fq 'BKP-legacy' "$tmp/catalog.out"
+[[ "$(grep -Fc 'BKP-nested' "$tmp/catalog.out")" -eq 2 ]]
 grep -Fq '2025-01-02T03:04:05+00:00' "$tmp/catalog.out"
 chmod 700 "$tmp/SERV/BKP-legacy/protected"
 rm -rf "$tmp"

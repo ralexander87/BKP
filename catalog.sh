@@ -88,7 +88,7 @@ catalog_backup_dir() {
 
 catalog_mount() {
   local mount_root="$1"
-  local backup_type backup_root backup_dir
+  local backup_type backup_root backup_dir storage_root
   local found=false
   local -a backup_dirs=()
 
@@ -98,16 +98,18 @@ catalog_mount() {
     "Type" "Backup" "Status" "Created" "Size" "Archive" "Archive Validation"
   printf '%s\n' "---------------------------------------------------------------------------------------------------------------"
 
-  for backup_type in MAIN SERV; do
-    backup_root="$mount_root/$backup_type"
-    [[ -d "$backup_root" ]] || continue
-    backup_dirs=()
-    while IFS= read -r -d '' backup_dir; do
-      backup_dirs+=("${backup_dir#* }")
-    done < <(find "$backup_root" -mindepth 1 -maxdepth 1 -type d \( -name 'BKP-*' -o -name '.BKP-*.in-progress' \) -printf '%T@ %p\0' | sort -z -n)
-    for backup_dir in "${backup_dirs[@]}"; do
-      found=true
-      catalog_backup_dir "$backup_type" "$backup_dir"
+  for storage_root in "$mount_root" "$mount_root/15-LATERALUS"; do
+    for backup_type in MAIN SERV; do
+      backup_root="$storage_root/$backup_type"
+      [[ -d "$backup_root" ]] || continue
+      backup_dirs=()
+      while IFS= read -r -d '' backup_dir; do
+        backup_dirs+=("${backup_dir#* }")
+      done < <(find "$backup_root" -mindepth 1 -maxdepth 1 -type d \( -name 'BKP-*' -o -name '.BKP-*.in-progress' \) -printf '%T@ %p\0' | sort -z -n)
+      for backup_dir in "${backup_dirs[@]}"; do
+        found=true
+        catalog_backup_dir "$backup_type" "$backup_dir"
+      done
     done
   done
 

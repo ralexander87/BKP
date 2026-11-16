@@ -67,6 +67,10 @@ Public, version-controlled configuration is split by responsibility:
 
 Machine-local values remain under ignored `config/local/`. Relevant local configuration is copied into new backups so restore behavior stays tied to the backup that created it without publishing private values.
 
+## Backup Layout
+
+When the current hostname is `lateralus`, new MAIN and SERVICE backups and their archives are stored under `<external device>/15-LATERALUS/MAIN/` and `<external device>/15-LATERALUS/SERV/`. Other hosts continue to use `<external device>/MAIN/` and `<external device>/SERV/`. Shared assets such as wallpapers and firmware remain directly under `<external device>/15-LATERALUS/` on every host. Restore scripts, the catalog, and the doctor recognize both backup layouts.
+
 ## Backup Catalog
 
 List backups on detected external mounts:
@@ -137,8 +141,9 @@ The current version is stored in `VERSION`.
 
 ## Changelog
 
-### Unreleased
+### 0.6.0 (in progress)
 
+- Store new MAIN and SERVICE backups under `15-LATERALUS/` when the hostname is `lateralus`, while recognizing both layouts during restore and inspection
 - Made DOTS restore action confirmations default to `Y`, with `N` available to skip an action
 - Added `hypr/conf/environments/nvidia.lua` to DOTS option `14 - Restore HYPR`
 - Excluded `$HOME/PreRestored` from MAIN backups, including folder selection and size estimates

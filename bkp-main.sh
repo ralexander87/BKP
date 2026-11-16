@@ -372,7 +372,7 @@ flock -n 9 || die "another bkp-main.sh run is already active"
 DEST_DEVICE="$(select_external_mount "Select backup destination device:")"
 
 # Build the backup folder names and archive path for this run.
-MAIN_DIR="$DEST_DEVICE/MAIN"
+MAIN_DIR="$(backup_storage_root "$DEST_DEVICE")/MAIN"
 RUN_ID="BKP-$(timestamp)"
 FINAL_BACKUP_DIR="$MAIN_DIR/$RUN_ID"
 BACKUP_DIR="$MAIN_DIR/.${RUN_ID}.in-progress"
@@ -426,7 +426,7 @@ set_backup_status "in_progress"
 # Start terminal dashboard for visual progress and selected options.
 ui_init
 skip_count="${#SKIP_HOME_ITEMS[@]}"
-ui_add_meta "Destination" "/MAIN/$RUN_ID"
+ui_add_meta "Destination" "${MAIN_DIR#"$DEST_DEVICE"}/$RUN_ID"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   ui_add_meta "Archive" "YES"
 else

@@ -38,13 +38,12 @@ check_file_in_backup() {
 
 # Return the newest BKP-* directory under a backup root.
 latest_backup_dir() {
-  local root="$1"
   local record
   local latest=""
 
   while IFS= read -r -d '' record; do
     latest="${record#* }"
-  done < <(find "$root" -maxdepth 1 -type d -name 'BKP-*' -printf '%T@ %p\0' 2>/dev/null | sort -z -n)
+  done < <(find "$@" -maxdepth 1 -type d -name 'BKP-*' -printf '%T@ %p\0' 2>/dev/null | sort -z -n)
   printf '%s\n' "$latest"
 }
 
@@ -294,8 +293,8 @@ else
     source="$(decode_findmnt_path "$source")"
     ok "mounted backup candidate: $target ($source, $fstype)"
     check_path "$target/15-LATERALUS/lateralus"
-    check_main_backup "$(latest_backup_dir "$target/MAIN")"
-    check_serv_backup "$(latest_backup_dir "$target/SERV")"
+    check_main_backup "$(latest_backup_dir "$target/MAIN" "$target/15-LATERALUS/MAIN")"
+    check_serv_backup "$(latest_backup_dir "$target/SERV" "$target/15-LATERALUS/SERV")"
   done
 fi
 

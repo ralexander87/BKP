@@ -345,7 +345,7 @@ sudo -v || die "sudo authentication failed"
 DEST_DEVICE="$(select_external_mount "Select backup destination device:")"
 
 # Build the backup folder names and archive path for this run.
-SERV_DIR="$DEST_DEVICE/SERV"
+SERV_DIR="$(backup_storage_root "$DEST_DEVICE")/SERV"
 RUN_ID="BKP-$(timestamp)"
 FINAL_BACKUP_DIR="$SERV_DIR/$RUN_ID"
 BACKUP_DIR="$SERV_DIR/.${RUN_ID}.in-progress"
@@ -376,7 +376,7 @@ audit_log "started"
 
 # Start terminal dashboard for visual progress and selected options.
 ui_init
-ui_add_meta "Destination" "/SERV/$RUN_ID"
+ui_add_meta "Destination" "${SERV_DIR#"$DEST_DEVICE"}/$RUN_ID"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   ui_add_meta "Archive" "YES"
 else

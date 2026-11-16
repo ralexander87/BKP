@@ -513,6 +513,17 @@ system_hostname() {
   printf '%s\n' "$name"
 }
 
+# Keep lateralus backup runs under its shared device folder.
+backup_storage_root() {
+  local mount_root="$1"
+
+  if [[ "$(system_hostname)" == "lateralus" ]]; then
+    printf '%s/15-LATERALUS\n' "$mount_root"
+  else
+    printf '%s\n' "$mount_root"
+  fi
+}
+
 # Decode findmnt's escaped path bytes, for example "\x20" in mount names.
 decode_findmnt_path() {
   printf '%b' "$1"

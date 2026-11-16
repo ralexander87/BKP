@@ -17,6 +17,8 @@ Run `make deps` from the project root for the complete dependency report.
 
 ## MAIN Backup
 
+On the `lateralus` host, MAIN backup folders and archives are placed under `/path/to/device/15-LATERALUS/MAIN/`. Other hosts use `/path/to/device/MAIN/`.
+
 Run:
 
 ```bash
@@ -133,6 +135,8 @@ MAIN backup safety behavior includes:
 
 ## MAIN Restore
 
+For backups created on `lateralus` with version 0.6.0 or later, use `/path/to/device/15-LATERALUS/MAIN/BKP-<timestamp>` instead of the device-root `MAIN` path shown below.
+
 Run from inside a completed backup:
 
 ```bash
@@ -159,6 +163,8 @@ other files  600
 Output is written to `restore.log` in the MAIN backup. Errors are also appended to `err.log` in the same directory; `err.log` is created only when an error occurs and is excluded from restored home items. Both logs use a user-state fallback on read-only media. The bundled `lib/common.sh` is used when present; restore scripts retain a fallback for older backups without it.
 
 ## DOTS Restore
+
+For backups created on `lateralus` with version 0.6.0 or later, the DOTS folder is under `/path/to/device/15-LATERALUS/MAIN/BKP-<timestamp>/DOTS`.
 
 Run from inside a completed backup's DOTS folder:
 
