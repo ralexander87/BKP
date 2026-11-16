@@ -10,6 +10,7 @@
 ## Scripts
 
 - `bkp-main.sh`: backs up discovered home folders and ML4W dotfiles
+- `ARGUS/argus-main.sh`: backs up discovered home folders and KDE configuration on `argus`
 - `restore-main.sh`: restores a completed MAIN backup into `$HOME`
 - `restore-dots.sh`: installs or restores selected dotfiles from a MAIN backup
 - `bkp-serv.sh`: backs up service and system configuration
@@ -61,6 +62,7 @@ Core backup and development commands are reported as failures when absent. Comma
 Public, version-controlled configuration is split by responsibility:
 
 - `config/main.backup.conf`: MAIN source paths, shared `15-LATERALUS` destinations, hidden files, and rsync exclusions
+- `ARGUS/main.backup.conf`: ARGUS MAIN hidden home folders, shell files, and rsync exclusions
 - `config/serv.backup.conf`: required SERVICE source paths and the Samba credentials pattern
 - `config/dots-extra.conf`: Arch/AUR packages, Flatpaks, and repository VLC removal behavior
 - `config/serv.restore.conf`: SMB directory and GRUB restore values
@@ -69,9 +71,9 @@ Machine-local values remain under ignored `config/local/`. Relevant local config
 
 ## Backup Layout
 
-When the current hostname is `lateralus`, new MAIN and SERVICE backups and their archives are stored under `<external device>/15-LATERALUS/MAIN/` and `<external device>/15-LATERALUS/SERV/`. Other hosts continue to use `<external device>/MAIN/` and `<external device>/SERV/`. Shared assets such as wallpapers and firmware remain directly under `<external device>/15-LATERALUS/` on every host. Restore scripts, the catalog, and the doctor recognize both backup layouts.
+When the current hostname is `lateralus`, new MAIN and SERVICE backups and their archives are stored under `<external device>/15-LATERALUS/MAIN/` and `<external device>/15-LATERALUS/SERV/`. On `argus`, MAIN backups and optional archives are stored under `<external device>/11-ARGUS/MAIN/`. Other hosts continue to use `<external device>/MAIN/` and `<external device>/SERV/`. Shared assets such as wallpapers and firmware remain directly under `<external device>/15-LATERALUS/` on every host. The catalog and doctor recognize the ARGUS MAIN layout.
 
-On a host named `argus`, the MAIN and SERVICE backup and restore entry points run the corresponding scripts under `ARGUS/`. Those scripts are placeholders until the ARGUS workflow is implemented. New backups include the ARGUS restore placeholders so the bundled restore entry points can dispatch there as well.
+On a host named `argus`, the MAIN and SERVICE backup and restore entry points run the corresponding scripts under `ARGUS/`. ARGUS MAIN backs up discovered home folders, configured hidden KDE folders, and selected shell files. It does not include Hyprland or DOTS steps. `ARGUS/argus-serv.sh` and both ARGUS restore scripts remain placeholders for the next changes. ARGUS MAIN backups currently bundle the restore placeholder.
 
 ## Backup Catalog
 
@@ -147,6 +149,7 @@ The current version is stored in `VERSION`.
 
 - Store new MAIN and SERVICE backups under `15-LATERALUS/` when the hostname is `lateralus`, while recognizing both layouts during restore and inspection
 - Route MAIN and SERVICE backup and restore entry points to `ARGUS/` on the `argus` host
+- Implement ARGUS MAIN backups under `11-ARGUS/MAIN/` with KDE home configuration and no DOTS steps
 - Made DOTS restore action confirmations default to `Y`, with `N` available to skip an action
 - Added `hypr/conf/environments/nvidia.lua` to DOTS option `14 - Restore HYPR`
 - Excluded `$HOME/PreRestored` from MAIN backups, including folder selection and size estimates

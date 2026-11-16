@@ -98,7 +98,7 @@ catalog_mount() {
     "Type" "Backup" "Status" "Created" "Size" "Archive" "Archive Validation"
   printf '%s\n' "---------------------------------------------------------------------------------------------------------------"
 
-  for storage_root in "$mount_root" "$mount_root/15-LATERALUS"; do
+  for storage_root in "$mount_root" "$mount_root/15-LATERALUS" "$mount_root/11-ARGUS"; do
     for backup_type in MAIN SERV; do
       backup_root="$storage_root/$backup_type"
       [[ -d "$backup_root" ]] || continue

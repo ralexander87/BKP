@@ -62,6 +62,11 @@ cp "$PROJECT_ROOT"/ARGUS/*.sh "$tmp/ARGUS/"
 cp "$PROJECT_ROOT"/ARGUS/restore-*.sh "$tmp/standalone/ARGUS/"
 cp "$PROJECT_ROOT"/{bkp-main,bkp-serv,restore-main,restore-serv}.sh "$tmp/"
 cp "$PROJECT_ROOT"/{restore-main,restore-serv}.sh "$tmp/standalone/"
+cat >"$tmp/ARGUS/argus-main.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'ARGUS MAIN HANDOFF\n'
+exit 17
+EOF
 cat >"$tmp/bin/hostnamectl" <<'EOF'
 #!/usr/bin/env bash
 printf 'argus\n'
@@ -69,11 +74,12 @@ EOF
 chmod +x "$tmp/bin/hostnamectl"
 for script in bkp-main.sh bkp-serv.sh restore-main.sh restore-serv.sh; do
   case "$script" in
-  bkp-main.sh | restore-main.sh) expected='ARGUS MAIN' ;;
+  bkp-main.sh) expected='ARGUS MAIN HANDOFF' ;;
+  restore-main.sh) expected='ARGUS MAIN' ;;
   bkp-serv.sh | restore-serv.sh) expected='ARGUS SERVICE' ;;
   esac
   if PATH="$tmp/bin:$PATH" "$tmp/$script" >"$tmp/dispatch.out" 2>&1; then
-    printf '%s should dispatch to its ARGUS placeholder\n' "$script" >&2
+    printf '%s should dispatch to its ARGUS script\n' "$script" >&2
     exit 1
   fi
   grep -Fq "$expected" "$tmp/dispatch.out"
@@ -88,6 +94,29 @@ done
 [[ ! -e "$tmp/logs/bkp.log" && ! -e "$tmp/restore.log" ]]
 rm -rf "$tmp"
 printf 'ARGUS hostname dispatch OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/project/ARGUS" "$tmp/project/lib" "$tmp/home/Documents" "$tmp/home/.config" "$tmp/device"
+cp "$PROJECT_ROOT/ARGUS/argus-main.sh" "$tmp/project/ARGUS/argus-main.sh"
+cp "$PROJECT_ROOT/ARGUS/restore-main.sh" "$tmp/project/ARGUS/restore-main.sh"
+cp "$PROJECT_ROOT/ARGUS/main.backup.conf" "$tmp/project/ARGUS/main.backup.conf"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/project/lib/common.sh"
+cat >>"$tmp/project/lib/common.sh" <<'EOF'
+select_external_mount() { printf '%s\n' "$ARGUS_TEST_DEVICE"; }
+EOF
+printf 'document\n' >"$tmp/home/Documents/example.txt"
+printf 'kde setting\n' >"$tmp/home/.config/kde.conf"
+printf 'shell setting\n' >"$tmp/home/.bashrc"
+printf 'N\n\n' | HOME="$tmp/home" ARGUS_TEST_DEVICE="$tmp/device" \
+  "$tmp/project/ARGUS/argus-main.sh" --quiet >"$tmp/argus-main.out"
+argus_backup="$(find "$tmp/device/11-ARGUS/MAIN" -mindepth 1 -maxdepth 1 -type d -name 'BKP-*' -print -quit)"
+[[ -n "$argus_backup" ]]
+[[ -f "$argus_backup/Documents/example.txt" && -f "$argus_backup/.config/kde.conf" ]]
+[[ -f "$argus_backup/.bashrc" && -f "$argus_backup/config/main.backup.conf" ]]
+[[ ! -e "$argus_backup/DOTS" ]]
+grep -Fq 'Backup Status = [COMPLETED]' "$argus_backup/backup-manifest.txt"
+rm -rf "$tmp"
+printf 'ARGUS MAIN backup layout OK\n'
 
 tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/restore-main.sh" "$tmp/restore-main.sh"
@@ -1408,7 +1437,7 @@ rm -rf "$tmp"
 printf 'atomic backup publication OK\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-legacy" "$tmp/15-LATERALUS/MAIN/BKP-nested" "$tmp/15-LATERALUS/SERV/BKP-nested"
+mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-legacy" "$tmp/15-LATERALUS/MAIN/BKP-nested" "$tmp/15-LATERALUS/SERV/BKP-nested" "$tmp/11-ARGUS/MAIN/BKP-argus"
 cat >"$tmp/MAIN/BKP-test/backup-manifest.txt" <<'EOF'
 Manifest Version = 1
 Created = 2026-08-20T12:00:00+02:00
@@ -1429,6 +1458,7 @@ grep -Fq 'BKP-test' "$tmp/catalog.out"
 grep -Fq 'COMPLETED' "$tmp/catalog.out"
 grep -Fq 'PASSED' "$tmp/catalog.out"
 grep -Fq 'BKP-legacy' "$tmp/catalog.out"
+grep -Fq 'BKP-argus' "$tmp/catalog.out"
 [[ "$(grep -Fc 'BKP-nested' "$tmp/catalog.out")" -eq 2 ]]
 grep -Fq '2025-01-02T03:04:05+00:00' "$tmp/catalog.out"
 chmod 700 "$tmp/SERV/BKP-legacy/protected"
