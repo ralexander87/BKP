@@ -53,6 +53,16 @@ load_restore_helpers() {
       require_cmd "$cmd"
     done
   }
+  system_hostname() {
+    local name=""
+
+    if command -v hostnamectl >/dev/null 2>&1; then
+      name="$(hostnamectl --static 2>/dev/null || true)"
+      [[ -n "$name" ]] || name="$(hostnamectl --transient 2>/dev/null || true)"
+    fi
+    [[ -n "$name" ]] || name="${HOSTNAME:-unknown}"
+    printf '%s\n' "$name"
+  }
   rotate_log_file() {
     local log_file="$1"
     local max_bytes="${2:-$LOG_MAX_BYTES}"
@@ -146,6 +156,7 @@ SSH_RESTORED=false
 # Top-level backup internals that should never be restored into $HOME.
 RESTORE_EXCLUDED_ITEMS=(
   "DOTS"
+  "ARGUS"
   "backup-manifest.txt"
   "backup-manifest.json"
   "backup.status"
@@ -412,6 +423,10 @@ parse_common_args "$@"
 if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
   exit 0
+fi
+
+if [[ "$(system_hostname)" == "argus" ]]; then
+  exec "$SCRIPT_DIR/ARGUS/restore-main.sh" "$@"
 fi
 
 init_log_file

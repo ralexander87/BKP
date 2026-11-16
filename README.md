@@ -71,6 +71,8 @@ Machine-local values remain under ignored `config/local/`. Relevant local config
 
 When the current hostname is `lateralus`, new MAIN and SERVICE backups and their archives are stored under `<external device>/15-LATERALUS/MAIN/` and `<external device>/15-LATERALUS/SERV/`. Other hosts continue to use `<external device>/MAIN/` and `<external device>/SERV/`. Shared assets such as wallpapers and firmware remain directly under `<external device>/15-LATERALUS/` on every host. Restore scripts, the catalog, and the doctor recognize both backup layouts.
 
+On a host named `argus`, the MAIN and SERVICE backup and restore entry points run the corresponding scripts under `ARGUS/`. Those scripts are placeholders until the ARGUS workflow is implemented. New backups include the ARGUS restore placeholders so the bundled restore entry points can dispatch there as well.
+
 ## Backup Catalog
 
 List backups on detected external mounts:
@@ -144,6 +146,7 @@ The current version is stored in `VERSION`.
 ### 0.6.0 (in progress)
 
 - Store new MAIN and SERVICE backups under `15-LATERALUS/` when the hostname is `lateralus`, while recognizing both layouts during restore and inspection
+- Route MAIN and SERVICE backup and restore entry points to `ARGUS/` on the `argus` host
 - Made DOTS restore action confirmations default to `Y`, with `N` available to skip an action
 - Added `hypr/conf/environments/nvidia.lua` to DOTS option `14 - Restore HYPR`
 - Excluded `$HOME/PreRestored` from MAIN backups, including folder selection and size estimates

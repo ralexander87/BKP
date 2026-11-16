@@ -56,6 +56,40 @@ for script in restore-main.sh restore-serv.sh restore-dots.sh; do
 done
 
 tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/ARGUS" "$tmp/bin" "$tmp/standalone/ARGUS"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+cp "$PROJECT_ROOT"/ARGUS/*.sh "$tmp/ARGUS/"
+cp "$PROJECT_ROOT"/ARGUS/restore-*.sh "$tmp/standalone/ARGUS/"
+cp "$PROJECT_ROOT"/{bkp-main,bkp-serv,restore-main,restore-serv}.sh "$tmp/"
+cp "$PROJECT_ROOT"/{restore-main,restore-serv}.sh "$tmp/standalone/"
+cat >"$tmp/bin/hostnamectl" <<'EOF'
+#!/usr/bin/env bash
+printf 'argus\n'
+EOF
+chmod +x "$tmp/bin/hostnamectl"
+for script in bkp-main.sh bkp-serv.sh restore-main.sh restore-serv.sh; do
+  case "$script" in
+  bkp-main.sh | restore-main.sh) expected='ARGUS MAIN' ;;
+  bkp-serv.sh | restore-serv.sh) expected='ARGUS SERVICE' ;;
+  esac
+  if PATH="$tmp/bin:$PATH" "$tmp/$script" >"$tmp/dispatch.out" 2>&1; then
+    printf '%s should dispatch to its ARGUS placeholder\n' "$script" >&2
+    exit 1
+  fi
+  grep -Fq "$expected" "$tmp/dispatch.out"
+done
+for script in restore-main.sh restore-serv.sh; do
+  if PATH="$tmp/bin:$PATH" "$tmp/standalone/$script" >"$tmp/dispatch.out" 2>&1; then
+    printf 'standalone %s should dispatch to its ARGUS placeholder\n' "$script" >&2
+    exit 1
+  fi
+  grep -Fq 'not implemented yet' "$tmp/dispatch.out"
+done
+[[ ! -e "$tmp/logs/bkp.log" && ! -e "$tmp/restore.log" ]]
+rm -rf "$tmp"
+printf 'ARGUS hostname dispatch OK\n'
+
+tmp="$(mktemp -d)"
 cp "$PROJECT_ROOT/restore-main.sh" "$tmp/restore-main.sh"
 chmod +x "$tmp/restore-main.sh"
 if printf 'N\n' | (cd "$tmp" && ./restore-main.sh >/dev/null 2>&1); then
@@ -99,12 +133,14 @@ Manifest Version = 1
 Backup Status = [COMPLETED]
 EOF
 printf 'new\n' >"$tmp/backup/Documents/new.txt"
+mkdir -p "$tmp/backup/ARGUS"
+printf 'helper\n' >"$tmp/backup/ARGUS/restore-main.sh"
 printf 'old error\n' >"$tmp/backup/err.log"
 printf 'rotated error\n' >"$tmp/backup/err.log.1"
 printf 'old\n' >"$tmp/home/Documents/old.txt"
 printf 'Y\n' | (cd "$tmp/backup" && HOME="$tmp/home" ./restore-main.sh >"$tmp/restore-main.out")
 [[ -f "$tmp/home/Documents/new.txt" ]]
-[[ ! -e "$tmp/home/err.log" && ! -e "$tmp/home/err.log.1" ]]
+[[ ! -e "$tmp/home/ARGUS" && ! -e "$tmp/home/err.log" && ! -e "$tmp/home/err.log.1" ]]
 grep -Fq '[INFO] Restored: Documents' "$tmp/restore-main.out"
 if grep -Eq '[[:digit:]]+%' "$tmp/restore-main.out"; then
   printf 'restore-main.sh should not print rsync progress percentages\n' >&2

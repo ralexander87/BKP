@@ -266,6 +266,7 @@ verify_backup_contents() {
   local required_item
   local -a required_items=(
     "restore-main.sh"
+    "ARGUS/restore-main.sh"
     "lib/common.sh"
     "config/main.backup.conf"
     "backup-manifest.txt"
@@ -353,6 +354,10 @@ parse_common_args "$@"
 if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
   exit 0
+fi
+
+if [[ "$(system_hostname)" == "argus" ]]; then
+  exec "$PROJECT_ROOT/ARGUS/argus-main.sh" "$@"
 fi
 
 # Prepare local runtime folders and verify required tools exist.
@@ -508,6 +513,8 @@ done
 ui_update_task "main-restore-script" "RUNNING" "copying restore-main.sh"
 ui_render
 install -m 0755 "$PROJECT_ROOT/restore-main.sh" "$BACKUP_DIR/restore-main.sh"
+mkdir -p "$BACKUP_DIR/ARGUS"
+install -m 0755 "$PROJECT_ROOT/ARGUS/restore-main.sh" "$BACKUP_DIR/ARGUS/restore-main.sh"
 mkdir -p "$BACKUP_DIR/lib"
 install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$BACKUP_DIR/lib/common.sh"
 mkdir -p "$BACKUP_DIR/config"

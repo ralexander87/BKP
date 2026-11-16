@@ -1,6 +1,6 @@
 SHELL := bash
 
-SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh restore-dots.sh catalog.sh lib/common.sh lib/restore-bootstrap.sh doctor.sh tools/check-deps.sh tools/sync-restore-bootstrap.sh tools/smoke.sh
+SCRIPTS := bkp-main.sh restore-main.sh bkp-serv.sh restore-serv.sh restore-dots.sh ARGUS/argus-main.sh ARGUS/argus-serv.sh ARGUS/restore-main.sh ARGUS/restore-serv.sh catalog.sh lib/common.sh lib/restore-bootstrap.sh doctor.sh tools/check-deps.sh tools/sync-restore-bootstrap.sh tools/smoke.sh
 CONFIGS := config/main.backup.conf config/serv.backup.conf config/dots-extra.conf config/serv.restore.conf
 
 .PHONY: check deps list syntax fmt-check ci-check bootstrap-check smoke doctor catalog

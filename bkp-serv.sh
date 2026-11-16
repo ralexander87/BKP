@@ -247,6 +247,7 @@ verify_backup_contents() {
     "grub"
     "mkinitcpio.conf"
     "restore-serv.sh"
+    "ARGUS/restore-serv.sh"
     "lib/common.sh"
     "config/serv.restore.conf"
     "config/serv.backup.conf"
@@ -323,6 +324,10 @@ parse_common_args "$@"
 if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
   exit 0
+fi
+
+if [[ "$(system_hostname)" == "argus" ]]; then
+  exec "$PROJECT_ROOT/ARGUS/argus-serv.sh" "$@"
 fi
 
 # Prepare runtime folders and required commands.
@@ -436,6 +441,8 @@ fi
 ui_update_task "serv-restore-script" "RUNNING" "copying restore-serv.sh"
 ui_render
 install -m 0755 "$PROJECT_ROOT/restore-serv.sh" "$BACKUP_DIR/restore-serv.sh"
+mkdir -p "$BACKUP_DIR/ARGUS"
+install -m 0755 "$PROJECT_ROOT/ARGUS/restore-serv.sh" "$BACKUP_DIR/ARGUS/restore-serv.sh"
 mkdir -p "$BACKUP_DIR/lib"
 install -m 0644 "$PROJECT_ROOT/lib/common.sh" "$BACKUP_DIR/lib/common.sh"
 mkdir -p "$BACKUP_DIR/config"
