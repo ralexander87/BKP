@@ -89,10 +89,10 @@ date +%Y-%j-%d-%m-%H-%M-%S
 
 The four backup-only hidden files listed above are not restored by any restore script.
 
-Some shared `15-LATERALUS/` assets are restore-only inputs maintained separately on the backup device; `bkp-main.sh` does not create or update them:
+Some shared assets are restore-only inputs maintained separately on the backup device; `bkp-main.sh` does not create or update them:
 
 - `15-LATERALUS/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
-- `15-LATERALUS/fonts/install.sh` and `15-LATERALUS/Steelfish Outline.ttf`, used by DOTS option `2`
+- `STATIC/fonts/install.sh` and `STATIC/Steelfish Outline.ttf`, used by DOTS option `2`
 - `15-LATERALUS/dracula.qbtheme`, used by DOTS option `99`
 - `15-LATERALUS/algorithm.xml` and `15-LATERALUS/60-minipro.rules`, installed into system locations by DOTS option `99`
 
@@ -116,7 +116,7 @@ Archives are written beside the backup folder:
 /path/to/device/MAIN/BKP-<timestamp>.tar.gz
 ```
 
-Shared `15-LATERALUS/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, the qBittorrent theme, the Arduino desktop entry, and the Minipro algorithm and udev files.
+Shared `15-LATERALUS/` and `STATIC/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, the qBittorrent theme, the Arduino desktop entry, and the Minipro algorithm and udev files.
 
 MAIN backup safety behavior includes:
 
@@ -180,8 +180,8 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Displays the first 20 installer lines
   - Runs the downloaded installer with Bash only after a second confirmation, also defaulting to `N`
 - `2 - Install FONTS`
-  - Runs `15-LATERALUS/fonts/install.sh` from the backup-device root, with a local fallback lookup
-  - Copies `15-LATERALUS/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
+  - Runs `STATIC/fonts/install.sh` from the backup-device root, with a local fallback lookup at `DOTS/STATIC/fonts/install.sh`
+  - Copies `STATIC/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
   - Refreshes the font cache when `fc-cache` is available
 - `3 - Install Extra`
   - Requests root authentication once and keeps it valid until the action finishes

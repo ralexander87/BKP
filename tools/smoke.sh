@@ -233,6 +233,41 @@ rm -rf "$tmp"
 printf 'parent status guard and exit path OK: restore-dots.sh\n'
 
 tmp="$(mktemp -d)"
+mkdir -p "$tmp/device/MAIN/BKP-test/DOTS" "$tmp/device/STATIC/fonts" \
+  "$tmp/home" "$tmp/bin"
+cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/device/MAIN/BKP-test/DOTS/restore-dots.sh"
+cat >"$tmp/device/MAIN/BKP-test/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
+cat >"$tmp/device/STATIC/fonts/install.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'device\n' >"$FONT_TEST_MARKER"
+EOF
+cat >"$tmp/bin/fc-cache" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$tmp/bin/fc-cache"
+printf 'font data\n' >"$tmp/device/STATIC/Steelfish Outline.ttf"
+printf '2\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
+  bash "$tmp/device/MAIN/BKP-test/DOTS/restore-dots.sh" >/dev/null
+grep -Fqx 'device' "$tmp/installer-used"
+grep -Fqx 'font data' "$tmp/home/.local/share/fonts/Steelfish Outline.ttf"
+
+mkdir -p "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts"
+mv "$tmp/device/STATIC/fonts/install.sh" "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts/install.sh"
+sed -i 's/device/local/' "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts/install.sh"
+printf 'local font data\n' >"$tmp/device/MAIN/BKP-test/DOTS/STATIC/Steelfish Outline.ttf"
+printf '2\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
+  bash "$tmp/device/MAIN/BKP-test/DOTS/restore-dots.sh" >/dev/null
+grep -Fqx 'local' "$tmp/installer-used"
+grep -Fqx 'local font data' "$tmp/home/.local/share/fonts/Steelfish Outline.ttf"
+rm -rf "$tmp"
+printf 'STATIC fonts installer device and local lookup OK\n'
+
+tmp="$(mktemp -d)"
 mkdir -p "$tmp/bin" "$tmp/BKP/DOTS" "$tmp/home/.config/hypr"
 cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/BKP/DOTS/restore-dots.sh"
 chmod +x "$tmp/BKP/DOTS/restore-dots.sh"

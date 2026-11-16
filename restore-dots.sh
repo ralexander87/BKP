@@ -1188,31 +1188,31 @@ restore_settings() {
   log "Done: Restore Settings"
 }
 
-# Run 15-LATERALUS/fonts/install.sh from the backup device root to install fonts.
+# Run STATIC/fonts/install.sh from the backup device root to install fonts.
 install_fonts() {
   local device_root=""
-  local candidate_local="$SCRIPT_DIR/15-LATERALUS/fonts/install.sh"
+  local candidate_local="$SCRIPT_DIR/STATIC/fonts/install.sh"
   local candidate_device=""
   local installer=""
-  local lateralus_root=""
+  local static_root=""
   local steelfish_font=""
   local target_font_dir="$HOME/.local/share/fonts"
 
   if device_root="$(resolve_backup_device_root)"; then
-    candidate_device="$device_root/15-LATERALUS/fonts/install.sh"
+    candidate_device="$device_root/STATIC/fonts/install.sh"
   fi
 
   if [[ -f "$candidate_device" ]]; then
     installer="$candidate_device"
-    lateralus_root="$device_root/15-LATERALUS"
+    static_root="$device_root/STATIC"
   elif [[ -f "$candidate_local" ]]; then
     installer="$candidate_local"
-    lateralus_root="$SCRIPT_DIR/15-LATERALUS"
+    static_root="$SCRIPT_DIR/STATIC"
   else
-    die "fonts installer not found. Expected 15-LATERALUS/fonts/install.sh on backup device"
+    die "fonts installer not found. Expected STATIC/fonts/install.sh on backup device"
   fi
 
-  steelfish_font="$lateralus_root/Steelfish Outline.ttf"
+  steelfish_font="$static_root/Steelfish Outline.ttf"
   [[ -f "$steelfish_font" ]] || die "Steelfish font file not found: $steelfish_font"
 
   require_cmd bash
