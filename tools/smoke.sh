@@ -862,6 +862,7 @@ grep -Fq '92 - Restore discovery services' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '93 - Restore smart-card service' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '94 - Restore complete profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '8 - Restore Plymouth' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
 for host_dir in /SMB/020-EUCLID /SMB/010-PNEUMA /SMB/011-ARGUS /SMB/015-LATERALUS; do
@@ -913,6 +914,7 @@ assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 4 restore_fstab
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 5 restore_grub_theme
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 6 restore_grub_defaults
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 7 restore_rambox
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 8 restore_plymouth
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 90 restore_sharing_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 91 restore_boot_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 92 restore_discovery_profile
@@ -934,6 +936,25 @@ awk '
   exit 1
 }
 printf 'restore-serv menu OK\n'
+
+tmp="$(mktemp -d)"
+installer="$tmp/device/015-LATERALUS/daedric-morrowind-plymouth/install.sh"
+backup_dir="$tmp/device/015-LATERALUS/SERV/BKP-test"
+mkdir -p "$(dirname -- "$installer")" "$backup_dir"
+printf '#!/usr/bin/env bash\n' >"$installer"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-serv.sh" >"$backup_dir/restore-serv-partial.sh"
+cat >>"$backup_dir/restore-serv-partial.sh" <<'EOF'
+sudo() {
+  [[ "$1" == bash && "$2" == "$EXPECTED_INSTALLER" ]] || return 1
+  printf 'called\n' >"$PLYMOUTH_TEST_MARKER"
+}
+restore_plymouth
+EOF
+EXPECTED_INSTALLER="$installer" PLYMOUTH_TEST_MARKER="$tmp/plymouth-called" \
+  bash "$backup_dir/restore-serv-partial.sh" >/dev/null
+grep -Fqx called "$tmp/plymouth-called"
+rm -rf "$tmp"
+printf 'shared Plymouth installer dispatch OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/sshd_config.d"

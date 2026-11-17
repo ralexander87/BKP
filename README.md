@@ -155,6 +155,7 @@ The current version is stored in `VERSION`.
 
 ### 0.6.0 (in progress)
 
+- Add SERVICE option `8 - Restore Plymouth` to run the shared Daedric Morrowind installer as root
 - Keep bundled SERVICE restore settings authoritative when the project configuration has changed
 - Validate backup type, version, creation time, and status across text and JSON manifests in doctor
 - Add an on-host WiFi profile check and checkpointed reconnect test for `FeedMe-6+`

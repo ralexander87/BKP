@@ -130,6 +130,9 @@ cd /path/to/device/SERV/BKP-<timestamp>
 - `7 - Restore RAMBOX`
   - Records the previous `/opt/rambox` mode in the rollback helper
   - Sets `/opt/rambox` to mode `755`
+- `8 - Restore Plymouth`
+  - Runs `015-LATERALUS/daedric-morrowind-plymouth/install.sh` from the backup device with `sudo bash`
+  - The installer selects the Plymouth theme and rebuilds the initramfs; this action is not included in the complete profile
 - `90 - Restore sharing profile`
   - Creates the configured SMB directory tree
   - Restores Samba configuration and credentials
@@ -193,3 +196,5 @@ Additional safeguards include:
 - Error entries in `err.log` beside `restore.log`, created on the first error
 - A final `completed_with_errors` audit event with result `partial_failure` when any selected action failed
 - A user-state fallback for logs and rollback helpers when backup media is read-only
+
+Plymouth option `8` uses the external installer's own system changes. The SERVICE rollback helper does not reverse them; use the optional Timeshift snapshot if you need a system rollback.

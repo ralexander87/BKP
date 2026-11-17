@@ -399,6 +399,7 @@ Select action:
   5 - Restore grub theme
   6 - Restore GRUB
   7 - Restore RAMBOX
+  8 - Restore Plymouth
 ============================
   90 - Restore sharing profile
   91 - Restore boot profile
@@ -649,6 +650,20 @@ restore_grub_theme() {
   snapshot_target "$target_dir"
   log "Restoring grub theme: $source_dir -> /boot/grub/themes/"
   restore_tree_to_system "$source_dir" "$target_dir"
+}
+
+# Run the shared Plymouth theme installer from the backup device as root.
+restore_plymouth() {
+  local device_root
+  local installer
+
+  require_all_cmds sudo bash
+  device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  installer="$device_root/015-LATERALUS/daedric-morrowind-plymouth/install.sh"
+  [[ -f "$installer" && -r "$installer" ]] || die "Plymouth installer not found or unreadable: $installer"
+
+  log "Running Plymouth installer: $installer"
+  sudo bash "$installer"
 }
 
 # Restore samba smb.conf and creds-* files into /etc/samba/.
@@ -1174,6 +1189,9 @@ while true; do
     ;;
   7)
     run_menu_action "Restore RAMBOX" restore_rambox
+    ;;
+  8)
+    run_menu_action "Restore Plymouth" restore_plymouth
     ;;
   90)
     run_menu_action "Restore sharing profile" restore_sharing_profile
