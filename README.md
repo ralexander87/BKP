@@ -137,7 +137,15 @@ Run the post-reinstall readiness report:
 make doctor
 ```
 
-`doctor.sh` checks required commands, configured source paths, latest mounted backup structure, backup status markers, local restore files when present, SSH client parsing, SSH directory mode, `sshd.service` state, server configuration when noninteractive sudo is available, GitHub SSH authentication, Git state, and smoke-check prerequisites. Its SSH checks are read-only.
+On `lateralus`, inspect the active `FeedMe-6+` profile, IPv4 settings, and saved password without printing the password:
+
+```bash
+make wifi-live-check
+```
+
+To test an actual password-free reconnect, run `./tools/check-wifi-live.sh --reconnect`. NetworkManager takes a 60-second checkpoint and asks you to confirm the result; without confirmation it rolls back the connection.
+
+`doctor.sh` checks required commands, configured source paths, latest mounted backup structure, text and JSON manifest agreement, backup status markers, local restore files when present, SSH client parsing, SSH directory mode, `sshd.service` state, server configuration when noninteractive sudo is available, GitHub SSH authentication, Git state, and smoke-check prerequisites. Its SSH checks are read-only.
 
 ## Versioning
 
@@ -147,6 +155,9 @@ The current version is stored in `VERSION`.
 
 ### 0.6.0 (in progress)
 
+- Keep bundled SERVICE restore settings authoritative when the project configuration has changed
+- Validate backup type, version, creation time, and status across text and JSON manifests in doctor
+- Add an on-host WiFi profile check and checkpointed reconnect test for `FeedMe-6+`
 - Removed restore, catalog, and doctor support for pre-0.4 status files and key/value manifests; version 1 manifests remain supported in both device layouts
 - Removed duplicate `Run Result` fields from new text and JSON backup manifests
 - Added DOTS option `50 - Connect WiFi` for the `FeedMe-6+` network with a manual IPv4 address, gateway DNS, and IPv6 disabled

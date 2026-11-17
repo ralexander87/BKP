@@ -153,17 +153,21 @@ Use option `3` for an SSH-only restore or option `94` for the complete system-co
 
 Public restore values are stored in `config/serv.restore.conf`, including SMB directories and GRUB values. Machine-specific fstab lines can be stored in ignored `config/local/serv.restore.conf`.
 
-A SERVICE backup carries these values so its restore behavior stays tied to the backup that created it. Restore starts with built-in defaults and loads available configuration in this order:
+A SERVICE backup carries these values so its restore behavior stays tied to the backup that created it. Restore starts with built-in defaults, then loads bundled configuration in this order when present:
 
 ```text
 config/serv.restore.conf
 config/local/serv.restore.conf
-serv.restore.conf
+```
+
+For backups with the older root-level `serv.restore.conf`, that file takes the place of the bundled public configuration. When no bundled configuration exists and the project helper is available, the fallback order is:
+
+```text
 project config/serv.restore.conf
 project config/local/serv.restore.conf
 ```
 
-Later files can override earlier values. Retired `/SMB/argus-smb`, `/SMB/pneuma-kali`, `/SMB/pneuma-smb`, `/SMB/pneuma-win`, and the former unnumbered host paths are pruned from loaded overrides, and matching stale fstab entries are removed.
+Within each source, the local file overrides the public file. Retired `/SMB/argus-smb`, `/SMB/pneuma-kali`, `/SMB/pneuma-smb`, `/SMB/pneuma-win`, and the former unnumbered host paths are pruned from loaded overrides, and matching stale fstab entries are removed.
 
 ### Restore Safety and Rollback
 

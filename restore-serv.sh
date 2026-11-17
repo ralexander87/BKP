@@ -224,21 +224,28 @@ prune_retired_service_restore_values() {
   FSTAB_LINES=("${kept_fstab_lines[@]}")
 }
 
-# Load service restore config files from the backup first, then project-local fallbacks.
+# Keep bundled restore values authoritative; use project config only when no bundle exists.
 load_service_restore_config() {
   local candidate
   local -a loaded_configs=()
-  local -a candidates=(
-    "$SCRIPT_DIR/config/serv.restore.conf"
-    "$SCRIPT_DIR/config/local/serv.restore.conf"
-    "$SCRIPT_DIR/serv.restore.conf"
-  )
+  local -a candidates=()
 
   set_service_restore_defaults
 
-  if [[ -n "${PROJECT_ROOT:-}" ]]; then
-    candidates+=("$PROJECT_ROOT/config/serv.restore.conf")
-    candidates+=("$PROJECT_ROOT/config/local/serv.restore.conf")
+  if [[ -f "$SCRIPT_DIR/config/serv.restore.conf" ||
+    -f "$SCRIPT_DIR/config/local/serv.restore.conf" ||
+    -f "$SCRIPT_DIR/serv.restore.conf" ]]; then
+    if [[ -f "$SCRIPT_DIR/config/serv.restore.conf" ]]; then
+      candidates+=("$SCRIPT_DIR/config/serv.restore.conf")
+    else
+      candidates+=("$SCRIPT_DIR/serv.restore.conf")
+    fi
+    candidates+=("$SCRIPT_DIR/config/local/serv.restore.conf")
+  elif [[ -n "${PROJECT_ROOT:-}" ]]; then
+    candidates=(
+      "$PROJECT_ROOT/config/serv.restore.conf"
+      "$PROJECT_ROOT/config/local/serv.restore.conf"
+    )
   fi
 
   for candidate in "${candidates[@]}"; do

@@ -62,12 +62,67 @@ read_manifest_status() {
   printf '%s\n' "$status"
 }
 
+# Parse JSON and compare its core fields with the human-readable manifest.
+check_manifest_consistency() {
+  local backup_dir="$1"
+  local expected_type="$2"
+  local text_manifest="$backup_dir/backup-manifest.txt"
+  local json_manifest="$backup_dir/backup-manifest.json"
+  local error
+
+  check_file_in_backup "$text_manifest"
+  check_file_in_backup "$json_manifest"
+  [[ -f "$text_manifest" && -f "$json_manifest" ]] || return 0
+  if ! command -v python3 >/dev/null 2>&1; then
+    fail "cannot validate manifests without python3: $backup_dir"
+    return 0
+  fi
+
+  if error="$(
+    python3 - "$text_manifest" "$json_manifest" "$expected_type" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+text_path, json_path, expected_type = sys.argv[1:]
+try:
+    fields = {}
+    for line in Path(text_path).read_text(encoding="utf-8").splitlines():
+        if " = " in line:
+            key, value = line.split(" = ", 1)
+            fields[key] = value
+    data = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("JSON root must be an object")
+
+    def marker(name):
+        value = fields.get(name, "")
+        return value[1:-1] if value.startswith("[") and value.endswith("]") else value
+
+    if fields.get("Manifest Version") != "1" or type(data.get("manifest_version")) is not int or data["manifest_version"] != 1:
+        raise ValueError("manifest version is missing, unsupported, or inconsistent")
+    if marker("Backup Type") != expected_type or data.get("backup_type") != expected_type:
+        raise ValueError(f"backup type differs from {expected_type}")
+    if not fields.get("Created") or data.get("created") != fields["Created"]:
+        raise ValueError("creation time is missing or inconsistent")
+    if not marker("Backup Status") or data.get("backup_status") != marker("Backup Status"):
+        raise ValueError("backup status is missing or inconsistent")
+except (OSError, UnicodeError, ValueError, TypeError) as exc:
+    print(f"manifest validation failed: {exc}")
+    sys.exit(1)
+PY
+  )"; then
+    ok "text and JSON manifests agree: $backup_dir"
+  else
+    fail "$error: $backup_dir"
+  fi
+}
+
 # Validate the latest MAIN backup layout and status markers.
 check_main_backup() {
   local backup_dir="$1"
   local manifest_file="$backup_dir/backup-manifest.txt"
   local status=""
-  local manifest_version=""
 
   [[ -n "$backup_dir" ]] || return 0
   ok "latest MAIN backup: $backup_dir"
@@ -76,13 +131,8 @@ check_main_backup() {
   if [[ "$backup_dir" == */011-ARGUS/MAIN/* ]]; then
     check_file_in_backup "$backup_dir/config/main.backup.conf"
   fi
-  check_file_in_backup "$manifest_file"
-  check_file_in_backup "$backup_dir/backup-manifest.json"
+  check_manifest_consistency "$backup_dir" MAIN
   if [[ -f "$manifest_file" ]]; then
-    manifest_version="$(awk -F' = ' '$1 == "Manifest Version" { print $2; exit }' "$manifest_file")"
-    if [[ "$manifest_version" != "1" ]]; then
-      fail "unsupported MAIN manifest version: ${manifest_version:-missing}"
-    fi
     status="$(read_manifest_status "$manifest_file")"
   fi
   if [[ "$status" == "COMPLETED" ]]; then
@@ -109,7 +159,6 @@ check_serv_backup() {
   local backup_dir="$1"
   local manifest_file="$backup_dir/backup-manifest.txt"
   local status=""
-  local manifest_version=""
   local source_path
 
   [[ -n "$backup_dir" ]] || return 0
@@ -130,13 +179,8 @@ check_serv_backup() {
   if [[ -f "$PROJECT_ROOT/config/local/serv.restore.conf" ]]; then
     check_file_in_backup "$backup_dir/config/local/serv.restore.conf"
   fi
-  check_file_in_backup "$manifest_file"
-  check_file_in_backup "$backup_dir/backup-manifest.json"
+  check_manifest_consistency "$backup_dir" SERVICE
   if [[ -f "$manifest_file" ]]; then
-    manifest_version="$(awk -F' = ' '$1 == "Manifest Version" { print $2; exit }' "$manifest_file")"
-    if [[ "$manifest_version" != "1" ]]; then
-      fail "unsupported SERVICE manifest version: ${manifest_version:-missing}"
-    fi
     status="$(read_manifest_status "$manifest_file")"
   fi
   if [[ "$status" == "COMPLETED" ]]; then

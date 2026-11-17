@@ -825,6 +825,27 @@ EOF
 rm -rf "$tmp"
 printf 'restore-dots split action behavior OK\n'
 
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/backup/config/local" "$tmp/project/config/local"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-serv.sh" >"$tmp/backup/restore-serv-partial.sh"
+cat >>"$tmp/backup/restore-serv-partial.sh" <<'EOF'
+[[ "$GRUB_GFXMODE_VALUE" == "$EXPECTED_GFXMODE" ]]
+EOF
+printf 'GRUB_GFXMODE_VALUE=bundled-public\n' >"$tmp/backup/config/serv.restore.conf"
+printf 'GRUB_GFXMODE_VALUE=bundled-local\n' >"$tmp/backup/config/local/serv.restore.conf"
+printf 'GRUB_GFXMODE_VALUE=project-public\n' >"$tmp/project/config/serv.restore.conf"
+printf 'GRUB_GFXMODE_VALUE=project-local\n' >"$tmp/project/config/local/serv.restore.conf"
+PROJECT_ROOT="$tmp/project" EXPECTED_GFXMODE=bundled-local \
+  bash "$tmp/backup/restore-serv-partial.sh"
+rm "$tmp/backup/config/local/serv.restore.conf"
+PROJECT_ROOT="$tmp/project" EXPECTED_GFXMODE=bundled-public \
+  bash "$tmp/backup/restore-serv-partial.sh"
+rm "$tmp/backup/config/serv.restore.conf"
+PROJECT_ROOT="$tmp/project" EXPECTED_GFXMODE=project-local \
+  bash "$tmp/backup/restore-serv-partial.sh"
+rm -rf "$tmp"
+printf 'bundled SERVICE restore config precedence OK\n'
+
 grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq 'GRUB_THEME_SHARED_RELATIVE="015-LATERALUS/lateralus"' "$PROJECT_ROOT/restore-serv.sh"
@@ -1465,6 +1486,29 @@ touch -d '2026-01-01' "$tmp/legacy/015-LATERALUS/MAIN/BKP-new"
 bash "$tmp/doctor-partial.sh" "$tmp/backups" "$tmp/legacy"
 rm -rf "$tmp"
 printf 'cross-year and nested latest backup selection OK\n'
+
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/backup"
+awk '/^printf '\''BKP doctor/ { exit } { print }' "$PROJECT_ROOT/doctor.sh" >"$tmp/doctor-partial.sh"
+cat >"$tmp/backup/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Created = 2026-11-17T12:00:00+01:00
+Backup Status = [COMPLETED]
+EOF
+cat >"$tmp/backup/backup-manifest.json" <<'EOF'
+{"manifest_version":1,"backup_type":"MAIN","created":"2026-11-17T12:00:00+01:00","backup_status":"COMPLETED"}
+EOF
+bash -c 'source "$1"; check_manifest_consistency "$2" MAIN; [[ "$EXIT_CODE" -eq 0 ]]' \
+  _ "$tmp/doctor-partial.sh" "$tmp/backup" >/dev/null
+sed -i 's/"backup_type":"MAIN"/"backup_type":"SERVICE"/' "$tmp/backup/backup-manifest.json"
+bash -c 'source "$1"; check_manifest_consistency "$2" MAIN; [[ "$EXIT_CODE" -eq 1 ]]' \
+  _ "$tmp/doctor-partial.sh" "$tmp/backup" >/dev/null
+printf '{invalid json\n' >"$tmp/backup/backup-manifest.json"
+bash -c 'source "$1"; check_manifest_consistency "$2" MAIN; [[ "$EXIT_CODE" -eq 1 ]]' \
+  _ "$tmp/doctor-partial.sh" "$tmp/backup" >/dev/null
+rm -rf "$tmp"
+printf 'doctor text and JSON manifest validation OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/logs" "$tmp/MAIN/.BKP-test.in-progress"
