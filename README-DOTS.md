@@ -245,9 +245,10 @@ Actions ask for confirmation before changing local configuration. Restore action
 - `22 - Restore WALKER`
   - Snapshots and restores the complete `walker` folder
 - `50 - Connect WiFi`
-  - Scans NetworkManager WiFi devices for `FeedMe-6+` and asks for its password
-  - Creates or updates the `BKPv3 FeedMe-6+` connection profile with `192.168.8.15/24`, gateway and DNS `192.168.8.1`, and IPv6 disabled
-  - Requests the password each time the connection is activated; the profile does not reconnect automatically
+  - Scans NetworkManager WiFi devices for `FeedMe-6+` and asks for its password when needed
+  - Creates or updates the `FeedMe-6+` connection profile with `192.168.8.15/24`, gateway and DNS `192.168.8.1`, and IPv6 disabled
+  - Enables autoconnect and lets NetworkManager store the password for future connections
+  - Uses infrastructure mode, no specified device MAC or cloned MAC, automatic MTU, and no proxy
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items under `$HOME` into `$HOME/PreRestored`
 - `99 - Restore Settings`

@@ -655,7 +655,7 @@ nmcli() {
   case "$*" in
   '-t -f DEVICE,TYPE device status') printf 'wlan0:wifi\n' ;;
   '-t -f SSID device wifi list ifname wlan0 --rescan yes') printf 'Other\nFeedMe-6+\n' ;;
-  'connection show BKPv3 FeedMe-6+') [[ -e "$NMCLI_TEST_PROFILE" ]] ;;
+  'connection show FeedMe-6+') [[ -e "$NMCLI_TEST_PROFILE" ]] ;;
   '--ask connection add '*) touch "$NMCLI_TEST_PROFILE" ;;
   '--ask connection modify '* | '--ask connection up '*) : ;;
   *) return 1 ;;
@@ -666,9 +666,9 @@ connect_wifi
 EOF
 NMCLI_TEST_LOG="$tmp/nmcli.log" NMCLI_TEST_PROFILE="$tmp/profile" HOME="$tmp" \
   bash "$tmp/restore-dots-partial.sh" >/dev/null
-grep -Fq -- '--ask|connection|add|type|wifi|ifname|wlan0|con-name|BKPv3 FeedMe-6+|ssid|FeedMe-6+|autoconnect|no|--|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|2|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|' "$tmp/nmcli.log"
-grep -Fq -- '--ask|connection|modify|BKPv3 FeedMe-6+|connection.interface-name|wlan0|connection.autoconnect|no|802-11-wireless.ssid|FeedMe-6+|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|2|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|' "$tmp/nmcli.log"
-grep -Fq -- '--ask|connection|up|BKPv3 FeedMe-6+|ifname|wlan0|' "$tmp/nmcli.log"
+grep -Fq -- '--ask|connection|add|type|wifi|ifname|wlan0|con-name|FeedMe-6+|ssid|FeedMe-6+|autoconnect|yes|--|802-11-wireless.mode|infrastructure|802-11-wireless.mac-address||802-11-wireless.cloned-mac-address||802-11-wireless.mtu|0|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|0|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|proxy.method|none|' "$tmp/nmcli.log"
+grep -Fq -- '--ask|connection|modify|FeedMe-6+|connection.interface-name|wlan0|connection.autoconnect|yes|802-11-wireless.ssid|FeedMe-6+|802-11-wireless.mode|infrastructure|802-11-wireless.mac-address||802-11-wireless.cloned-mac-address||802-11-wireless.mtu|0|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|0|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|proxy.method|none|' "$tmp/nmcli.log"
+grep -Fq -- '--ask|connection|up|FeedMe-6+|ifname|wlan0|' "$tmp/nmcli.log"
 rm -rf "$tmp"
 printf 'Connect WiFi profile and activation OK\n'
 

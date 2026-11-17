@@ -1013,7 +1013,7 @@ unique_collect_target() {
 # Find FeedMe-6+ on an available WiFi device and activate a static IPv4 profile.
 connect_wifi() {
   local ssid="FeedMe-6+"
-  local profile="BKPv3 FeedMe-6+"
+  local profile="FeedMe-6+"
   local address="192.168.8.15/24"
   local gateway="192.168.8.1"
   local devices device type visible_ssids visible_ssid wifi_device=""
@@ -1052,27 +1052,36 @@ connect_wifi() {
   if nmcli connection show "$profile" >/dev/null 2>&1; then
     if ! nmcli --ask connection modify "$profile" \
       connection.interface-name "$wifi_device" \
-      connection.autoconnect no \
+      connection.autoconnect yes \
       802-11-wireless.ssid "$ssid" \
+      802-11-wireless.mode infrastructure \
+      802-11-wireless.mac-address "" \
+      802-11-wireless.cloned-mac-address "" \
+      802-11-wireless.mtu 0 \
       802-11-wireless-security.key-mgmt wpa-psk \
-      802-11-wireless-security.psk-flags 2 \
+      802-11-wireless-security.psk-flags 0 \
       ipv4.method manual ipv4.addresses "$address" \
       ipv4.gateway "$gateway" ipv4.dns "$gateway" \
-      ipv6.method disabled; then
+      ipv6.method disabled proxy.method none; then
       log_error "Could not update WiFi profile $profile"
       return 1
     fi
   elif ! nmcli --ask connection add type wifi ifname "$wifi_device" \
-    con-name "$profile" ssid "$ssid" autoconnect no -- \
+    con-name "$profile" ssid "$ssid" autoconnect yes -- \
+    802-11-wireless.mode infrastructure \
+    802-11-wireless.mac-address "" \
+    802-11-wireless.cloned-mac-address "" \
+    802-11-wireless.mtu 0 \
     802-11-wireless-security.key-mgmt wpa-psk \
-    802-11-wireless-security.psk-flags 2 \
+    802-11-wireless-security.psk-flags 0 \
     ipv4.method manual ipv4.addresses "$address" \
-    ipv4.gateway "$gateway" ipv4.dns "$gateway" ipv6.method disabled; then
+    ipv4.gateway "$gateway" ipv4.dns "$gateway" \
+    ipv6.method disabled proxy.method none; then
     log_error "Could not create WiFi profile $profile"
     return 1
   fi
 
-  log "Connecting to $ssid on $wifi_device; NetworkManager will ask for the WiFi password"
+  log "Connecting to $ssid on $wifi_device; NetworkManager will ask for the WiFi password if needed"
   if ! nmcli --ask connection up "$profile" ifname "$wifi_device"; then
     log_error "Could not connect to WiFi network $ssid"
     return 1
