@@ -40,16 +40,6 @@ normalize_catalog_status() {
   esac
 }
 
-legacy_manifest_value() {
-  local manifest_file="$1"
-  shift
-  local key
-
-  for key in "$@"; do
-    awk -F= -v key="$key" '$1 == key { print $2; exit }' "$manifest_file"
-  done | awk 'NF { print; exit }'
-}
-
 catalog_backup_dir() {
   local backup_type="$1"
   local backup_dir="$2"
@@ -64,10 +54,8 @@ catalog_backup_dir() {
   validation="UNKNOWN"
   if [[ -f "$manifest_file" ]]; then
     status="$(manifest_value "$manifest_file" "Backup Status")"
-    [[ -n "$status" ]] || status="$(legacy_manifest_value "$manifest_file" backup_status run_result)"
     status="$(normalize_catalog_status "$status")"
     created="$(manifest_value "$manifest_file" "Created")"
-    [[ -n "$created" ]] || created="$(legacy_manifest_value "$manifest_file" created created_at timestamp)"
     [[ -n "$created" ]] || created="UNKNOWN"
     validation="$(clean_manifest_marker "$(manifest_value "$manifest_file" "Archive Validation")")"
   elif [[ "$backup_name" == .*in-progress ]]; then

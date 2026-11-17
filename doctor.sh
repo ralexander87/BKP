@@ -52,25 +52,14 @@ decode_findmnt_path() {
   printf '%b' "$1"
 }
 
-# Read backup status from both current human-readable and legacy key=value manifests.
+# Read backup status from the versioned human-readable manifest.
 read_manifest_status() {
-  local manifest_file="$1"
   local status
 
-  status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
-  status="${status:-$(awk -F= '$1 == "run_result" { print $2; exit }' "$manifest_file")}"
-  status="${status:-$(awk -F' = ' '$1 == "Backup Status" { print $2; exit }' "$manifest_file")}"
-  status="${status:-$(awk -F' = ' '$1 == "Run Result" { print $2; exit }' "$manifest_file")}"
+  status="$(awk -F' = ' '$1 == "Backup Status" { print $2; exit }' "$1")"
   status="${status#[}"
   status="${status%]}"
-  status="${status,,}"
-  status="${status// /_}"
-
-  case "$status" in
-  completed) printf 'complete\n' ;;
-  successful) printf 'success\n' ;;
-  *) printf '%s\n' "$status" ;;
-  esac
+  printf '%s\n' "$status"
 }
 
 # Validate the latest MAIN backup layout and status markers.
@@ -88,28 +77,18 @@ check_main_backup() {
     check_file_in_backup "$backup_dir/config/main.backup.conf"
   fi
   check_file_in_backup "$manifest_file"
-  if [[ -f "$manifest_file" ]] && grep -Fq 'Manifest Version = 1' "$manifest_file"; then
-    check_file_in_backup "$backup_dir/backup-manifest.json"
-  else
-    warn "JSON manifest not required for legacy MAIN backup"
-  fi
+  check_file_in_backup "$backup_dir/backup-manifest.json"
   if [[ -f "$manifest_file" ]]; then
     manifest_version="$(awk -F' = ' '$1 == "Manifest Version" { print $2; exit }' "$manifest_file")"
-    if [[ -n "$manifest_version" && "$manifest_version" != "1" ]]; then
-      fail "unsupported MAIN manifest version: $manifest_version"
+    if [[ "$manifest_version" != "1" ]]; then
+      fail "unsupported MAIN manifest version: ${manifest_version:-missing}"
     fi
     status="$(read_manifest_status "$manifest_file")"
   fi
-  if [[ "$status" == "complete" ]]; then
+  if [[ "$status" == "COMPLETED" ]]; then
     ok "main backup status complete: $manifest_file"
-  elif [[ -f "$backup_dir/backup.status" ]]; then
-    if [[ "$(cat "$backup_dir/backup.status")" == "complete" ]]; then
-      ok "main backup status complete: $backup_dir/backup.status (legacy)"
-    else
-      fail "main backup status is not complete: $(cat "$backup_dir/backup.status")"
-    fi
   else
-    warn "main backup status missing from manifest; older backup format"
+    fail "main backup status is not complete: ${status:-missing}"
   fi
   if [[ "$backup_dir" == */011-ARGUS/MAIN/* ]]; then
     return 0
@@ -128,7 +107,6 @@ check_main_backup() {
 # Validate the latest SERV backup layout and status markers.
 check_serv_backup() {
   local backup_dir="$1"
-  local status_file="$backup_dir/backup.status"
   local manifest_file="$backup_dir/backup-manifest.txt"
   local status=""
   local manifest_version=""
@@ -153,28 +131,18 @@ check_serv_backup() {
     check_file_in_backup "$backup_dir/config/local/serv.restore.conf"
   fi
   check_file_in_backup "$manifest_file"
-  if [[ -f "$manifest_file" ]] && grep -Fq 'Manifest Version = 1' "$manifest_file"; then
-    check_file_in_backup "$backup_dir/backup-manifest.json"
-  else
-    warn "JSON manifest not required for legacy SERVICE backup"
-  fi
+  check_file_in_backup "$backup_dir/backup-manifest.json"
   if [[ -f "$manifest_file" ]]; then
     manifest_version="$(awk -F' = ' '$1 == "Manifest Version" { print $2; exit }' "$manifest_file")"
-    if [[ -n "$manifest_version" && "$manifest_version" != "1" ]]; then
-      fail "unsupported SERVICE manifest version: $manifest_version"
+    if [[ "$manifest_version" != "1" ]]; then
+      fail "unsupported SERVICE manifest version: ${manifest_version:-missing}"
     fi
     status="$(read_manifest_status "$manifest_file")"
   fi
-  if [[ "$status" == "complete" ]]; then
+  if [[ "$status" == "COMPLETED" ]]; then
     ok "service backup status complete: $manifest_file"
-  elif [[ -f "$status_file" ]]; then
-    if [[ "$(cat "$status_file")" == "complete" ]]; then
-      ok "service backup status complete: $status_file (legacy)"
-    else
-      fail "service backup status is not complete: $(cat "$status_file")"
-    fi
   else
-    fail "service backup status missing from manifest and legacy file"
+    fail "service backup status is not complete: ${status:-missing}"
   fi
 }
 

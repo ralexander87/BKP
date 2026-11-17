@@ -154,11 +154,23 @@ rm -rf "$tmp"
 printf 'manifest version guard OK: restore-main.sh\n'
 
 tmp="$(mktemp -d)"
+cp "$PROJECT_ROOT/restore-main.sh" "$tmp/restore-main.sh"
+printf 'backup_status=complete\n' >"$tmp/backup-manifest.txt"
+printf 'complete\n' >"$tmp/backup.status"
+if printf 'N\n' | (cd "$tmp" && ./restore-main.sh >/dev/null 2>&1); then
+  printf 'pre-0.4 status markers should not authorize restore-main.sh\n' >&2
+  exit 1
+fi
+rm -rf "$tmp"
+printf 'pre-0.4 backup status rejected OK: restore-main.sh\n'
+
+tmp="$(mktemp -d)"
 mkdir -p "$tmp/backup/Documents" "$tmp/home/Documents"
 cp "$PROJECT_ROOT/restore-main.sh" "$tmp/backup/restore-main.sh"
 chmod +x "$tmp/backup/restore-main.sh"
 cat >"$tmp/backup/backup-manifest.txt" <<'EOF'
 Manifest Version = 1
+Backup Type = [MAIN]
 Backup Status = [COMPLETED]
 EOF
 printf 'new\n' >"$tmp/backup/Documents/new.txt"
@@ -1249,6 +1261,10 @@ grep -Fq 'DOTS root = /home/ralexander/.mydotfiles' "$tmp/BKP/backup-manifest.tx
 grep -Fq 'Home Hidden Files = .bash_history .zsh_history .zshrc .wget-hsts' "$tmp/BKP/backup-manifest.txt"
 python3 -m json.tool "$tmp/BKP/backup-manifest.json" >/dev/null
 grep -Fq '"manifest_version": 1' "$tmp/BKP/backup-manifest.json"
+if grep -Fq 'Run Result' "$tmp/BKP/backup-manifest.txt" || grep -Fq '"run_result"' "$tmp/BKP/backup-manifest.json"; then
+  printf 'new manifests should not contain duplicate run result fields\n' >&2
+  exit 1
+fi
 rm -rf "$tmp"
 printf 'main manifest format OK\n'
 
@@ -1471,7 +1487,7 @@ rm -rf "$tmp"
 printf 'atomic backup publication OK\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-legacy" "$tmp/015-LATERALUS/MAIN/BKP-nested" "$tmp/015-LATERALUS/SERV/BKP-nested" "$tmp/011-ARGUS/MAIN/BKP-argus"
+mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-service" "$tmp/015-LATERALUS/MAIN/BKP-nested" "$tmp/015-LATERALUS/SERV/BKP-nested" "$tmp/011-ARGUS/MAIN/BKP-argus"
 cat >"$tmp/MAIN/BKP-test/backup-manifest.txt" <<'EOF'
 Manifest Version = 1
 Created = 2026-08-20T12:00:00+02:00
@@ -1479,23 +1495,25 @@ Backup Status = [COMPLETED]
 Archive Validation = [PASSED]
 EOF
 touch "$tmp/MAIN/BKP-test.tar.gz"
-cat >"$tmp/SERV/BKP-legacy/backup-manifest.txt" <<'EOF'
-created_at=2025-01-02T03:04:05+00:00
-backup_status=complete
+cat >"$tmp/SERV/BKP-service/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [SERVICE]
+Created = 2025-01-02T03:04:05+00:00
+Backup Status = [COMPLETED]
 EOF
-mkdir -p "$tmp/SERV/BKP-legacy/protected"
-printf 'protected fixture\n' >"$tmp/SERV/BKP-legacy/protected/data"
-chmod 000 "$tmp/SERV/BKP-legacy/protected"
+mkdir -p "$tmp/SERV/BKP-service/protected"
+printf 'protected fixture\n' >"$tmp/SERV/BKP-service/protected/data"
+chmod 000 "$tmp/SERV/BKP-service/protected"
 "$PROJECT_ROOT/catalog.sh" "$tmp" >"$tmp/catalog.out"
 grep -Fq 'MAIN' "$tmp/catalog.out"
 grep -Fq 'BKP-test' "$tmp/catalog.out"
 grep -Fq 'COMPLETED' "$tmp/catalog.out"
 grep -Fq 'PASSED' "$tmp/catalog.out"
-grep -Fq 'BKP-legacy' "$tmp/catalog.out"
+grep -Fq 'BKP-service' "$tmp/catalog.out"
 grep -Fq 'BKP-argus' "$tmp/catalog.out"
 [[ "$(grep -Fc 'BKP-nested' "$tmp/catalog.out")" -eq 2 ]]
 grep -Fq '2025-01-02T03:04:05+00:00' "$tmp/catalog.out"
-chmod 700 "$tmp/SERV/BKP-legacy/protected"
+chmod 700 "$tmp/SERV/BKP-service/protected"
 rm -rf "$tmp"
 printf 'backup catalog OK\n'
 

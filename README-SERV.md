@@ -167,7 +167,7 @@ Later files can override earlier values. Retired `/SMB/argus-smb`, `/SMB/pneuma-
 
 ### Restore Safety and Rollback
 
-Restore is blocked unless the human-readable manifest reports `[COMPLETED]`, or a supported legacy status file reports completion.
+Restore is blocked unless a version 1 SERVICE manifest reports `[COMPLETED]`.
 
 Before modifying an existing target, the script creates a timestamped snapshot and moves it into `$HOME/PreRestored`. It records reverse operations in:
 

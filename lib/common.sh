@@ -380,7 +380,6 @@ write_common_manifest_fields() {
   manifest_field "Archive Path" "$ARCHIVE_NAME"
   manifest_field "Archive Validation" "$(manifest_status "${ARCHIVE_VALIDATION:-not_requested}")"
   manifest_field "Backup Status" "$(manifest_status "$RUN_RESULT")"
-  manifest_field "Run Result" "$(manifest_status "$RUN_RESULT")"
 }
 
 # Print JSON fields shared by MAIN and SERVICE manifests.
@@ -408,7 +407,6 @@ write_common_manifest_json_fields() {
   json_string_field "archive_path" "$ARCHIVE_NAME"
   json_string_field "archive_validation" "$(manifest_status_value "${ARCHIVE_VALIDATION:-not_requested}")"
   json_string_field "backup_status" "$(manifest_status_value "$RUN_RESULT")"
-  json_string_field "run_result" "$(manifest_status_value "$RUN_RESULT")"
 }
 
 # Update a backup run status and persist it through the script's manifest writer.

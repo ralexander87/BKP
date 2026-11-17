@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load shared helpers when bundled, but keep this restore script usable by itself.
 # BEGIN RESTORE BOOTSTRAP
-# Load bundled shared helpers, or define a minimal fallback for old backups.
+# Load bundled shared helpers, or define a minimal fallback for standalone use.
 load_restore_helpers() {
   local helper
 
@@ -152,7 +152,6 @@ if [[ -f "$SCRIPT_DIR/../backup-manifest.txt" ]]; then
 fi
 RESTORE_STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/bkp"
 LOG_FILE="${LOG_FILE:-$(resolve_writable_output_path "$RESTORE_LOG_ROOT/restore.log" "$RESTORE_STATE_ROOT/restore-dots-$RESTORE_ID.log")}"
-STATUS_FILE="$SCRIPT_DIR/../backup.status"
 MANIFEST_FILE="$SCRIPT_DIR/../backup-manifest.txt"
 ML4W_CONFIG_ROOT="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 RESTORE_SETTINGS_LOCAL_HOOK="$SCRIPT_DIR/config/local/restore-dots-settings.sh"
@@ -191,25 +190,14 @@ preflight_checks() {
   require_all_cmds rsync cp mv mkdir mktemp sed find cat awk
 }
 
-# Read completion state from current and legacy MAIN manifests.
+# Read completion state from the versioned MAIN manifest.
 read_manifest_status() {
-  local manifest_file="$1"
   local status
 
-  status="$(awk -F= '$1 == "backup_status" { print $2; exit }' "$manifest_file")"
-  status="${status:-$(awk -F= '$1 == "run_result" { print $2; exit }' "$manifest_file")}"
-  status="${status:-$(awk -F' = ' '$1 == "Backup Status" { print $2; exit }' "$manifest_file")}"
-  status="${status:-$(awk -F' = ' '$1 == "Run Result" { print $2; exit }' "$manifest_file")}"
+  status="$(awk -F' = ' '$1 == "Backup Status" { print $2; exit }' "$1")"
   status="${status#[}"
   status="${status%]}"
-  status="${status,,}"
-  status="${status// /_}"
-
-  case "$status" in
-  completed) printf 'complete\n' ;;
-  successful) printf 'success\n' ;;
-  *) printf '%s\n' "$status" ;;
-  esac
+  printf '%s\n' "$status"
 }
 
 read_manifest_version() {
@@ -219,8 +207,7 @@ read_manifest_version() {
 read_manifest_type() {
   local backup_type
 
-  backup_type="$(awk -F= '$1 == "backup_type" { print $2; exit }' "$1")"
-  backup_type="${backup_type:-$(awk -F' = ' '$1 == "Backup Type" { print $2; exit }' "$1")}"
+  backup_type="$(awk -F' = ' '$1 == "Backup Type" { print $2; exit }' "$1")"
   backup_type="${backup_type#[}"
   backup_type="${backup_type%]}"
   printf '%s\n' "${backup_type,,}"
@@ -228,28 +215,15 @@ read_manifest_type() {
 
 # Refuse DOTS actions when the parent MAIN backup is incomplete or unrecognized.
 verify_backup_status() {
-  local manifest_status=""
-  local manifest_version=""
-  local manifest_type=""
+  local manifest_version manifest_type manifest_status
 
-  if [[ -f "$MANIFEST_FILE" ]]; then
-    manifest_version="$(read_manifest_version "$MANIFEST_FILE")"
-    [[ -z "$manifest_version" || "$manifest_version" == "1" ]] || die "unsupported manifest version: $manifest_version"
-    manifest_type="$(read_manifest_type "$MANIFEST_FILE")"
-    [[ -z "$manifest_type" || "$manifest_type" == "main" ]] || die "backup type is not MAIN: $manifest_type"
-    manifest_status="$(read_manifest_status "$MANIFEST_FILE")"
-    if [[ -n "$manifest_status" ]]; then
-      [[ "$manifest_status" == "complete" || "$manifest_status" == "success" ]] || die "backup status is not complete: $manifest_status"
-      return 0
-    fi
-  fi
-
-  if [[ -f "$STATUS_FILE" ]]; then
-    [[ "$(cat "$STATUS_FILE")" == "complete" ]] || die "backup status is not complete: $(cat "$STATUS_FILE")"
-    return 0
-  fi
-
-  die "parent MAIN backup completion status not found; refusing DOTS actions"
+  [[ -f "$MANIFEST_FILE" ]] || die "parent MAIN backup manifest not found: $MANIFEST_FILE"
+  manifest_version="$(read_manifest_version "$MANIFEST_FILE")"
+  [[ "$manifest_version" == "1" ]] || die "unsupported manifest version: ${manifest_version:-missing}"
+  manifest_type="$(read_manifest_type "$MANIFEST_FILE")"
+  [[ "$manifest_type" == "main" ]] || die "backup type is not MAIN: ${manifest_type:-missing}"
+  manifest_status="$(read_manifest_status "$MANIFEST_FILE")"
+  [[ "$manifest_status" == "COMPLETED" ]] || die "backup status is not complete: ${manifest_status:-missing}"
 }
 
 # Resolve the non-root desktop user for local system configuration.

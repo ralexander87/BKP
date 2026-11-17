@@ -147,7 +147,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>
 
 `restore-main.sh` supports `--quiet` and requires confirmation before restoring into `$HOME`. The confirmation defaults to `N`.
 
-It discovers restorable top-level items and skips helper content such as `DOTS`, `config`, `lib`, restore scripts, manifests, and logs. A new restore requires `[COMPLETED]` status in the human-readable manifest; legacy key/value manifests and `backup.status` remain supported.
+It discovers restorable top-level items and skips helper content such as `DOTS`, `config`, `lib`, restore scripts, manifests, and logs. Restore requires a version 1 MAIN manifest with `[COMPLETED]` status.
 
 For each existing target, the script creates a `<name>-pre-restore-<timestamp>` snapshot and moves it into `$HOME/PreRestored` with a collision-safe name before restoration continues. Rsync preserves permissions, ownership, ACLs, extended attributes, hard links, and numeric IDs.
 
@@ -161,7 +161,7 @@ directories  700
 other files  600
 ```
 
-Output is written to `restore.log` in the MAIN backup. Errors are also appended to `err.log` in the same directory; `err.log` is created only when an error occurs and is excluded from restored home items. Both logs use a user-state fallback on read-only media. The bundled `lib/common.sh` is used when present; restore scripts retain a fallback for older backups without it.
+Output is written to `restore.log` in the MAIN backup. Errors are also appended to `err.log` in the same directory; `err.log` is created only when an error occurs and is excluded from restored home items. Both logs use a user-state fallback on read-only media. The bundled `lib/common.sh` is used when present; restore scripts retain a helper fallback so a standalone copy can still run.
 
 ## DOTS Restore
 
@@ -174,7 +174,7 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 ./restore-dots.sh
 ```
 
-`restore-dots.sh` supports `--quiet`. It requires the parent MAIN manifest or legacy status marker to report a completed backup.
+`restore-dots.sh` supports `--quiet`. It requires the parent version 1 MAIN manifest to report a completed backup.
 
 Actions ask for confirmation before changing local configuration. Restore actions default to `Y`, so Enter starts the selected restore; answer `N` to skip it and return to the menu. Install and other configuration actions default to `N`. Option 4 becomes unattended after selection and does not add package-manager confirmation prompts.
 
