@@ -147,6 +147,7 @@ The current version is stored in `VERSION`.
 
 ### 0.6.0 (in progress)
 
+- Added DOTS option `50 - Connect WiFi` for the `FeedMe-6+` network with a manual IPv4 address, gateway DNS, and IPv6 disabled
 - Use zero-padded `015-LATERALUS/` and `011-ARGUS/` folder names on the external device throughout backup, restore, catalog, and doctor workflows
 - Store new MAIN and SERVICE backups under `015-LATERALUS/` when the hostname is `lateralus`, while recognizing both layouts during restore and inspection
 - Route MAIN and SERVICE backup and restore entry points to `ARGUS/` on the `argus` host

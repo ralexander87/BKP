@@ -293,6 +293,8 @@ Select action:
   21 - Restore QS
   22 - Restore WALKER
 ============================
+  50 - Connect WiFi
+============================
   98 - Collect pre-restore
   99 - Restore Settings
       -- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro
@@ -1008,6 +1010,76 @@ unique_collect_target() {
   printf '%s\n' "$candidate"
 }
 
+# Find FeedMe-6+ on an available WiFi device and activate a static IPv4 profile.
+connect_wifi() {
+  local ssid="FeedMe-6+"
+  local profile="BKPv3 FeedMe-6+"
+  local address="192.168.8.15/24"
+  local gateway="192.168.8.1"
+  local devices device type visible_ssids visible_ssid wifi_device=""
+
+  confirm_action "Connect WiFi" || return 0
+  if ! command -v nmcli >/dev/null 2>&1; then
+    log_error "NetworkManager nmcli is required to connect WiFi"
+    return 1
+  fi
+
+  if ! devices="$(nmcli -t -f DEVICE,TYPE device status)"; then
+    log_error "Could not list NetworkManager devices"
+    return 1
+  fi
+
+  while IFS=: read -r device type; do
+    [[ "$type" == "wifi" ]] || continue
+    if ! visible_ssids="$(nmcli -t -f SSID device wifi list ifname "$device" --rescan yes)"; then
+      log_warn "Could not scan WiFi networks on $device"
+      continue
+    fi
+    while IFS= read -r visible_ssid; do
+      if [[ "$visible_ssid" == "$ssid" ]]; then
+        wifi_device="$device"
+        break
+      fi
+    done <<<"$visible_ssids"
+    [[ -z "$wifi_device" ]] || break
+  done <<<"$devices"
+
+  if [[ -z "$wifi_device" ]]; then
+    log_error "WiFi network $ssid was not found on any NetworkManager WiFi device"
+    return 1
+  fi
+
+  if nmcli connection show "$profile" >/dev/null 2>&1; then
+    if ! nmcli --ask connection modify "$profile" \
+      connection.interface-name "$wifi_device" \
+      connection.autoconnect no \
+      802-11-wireless.ssid "$ssid" \
+      802-11-wireless-security.key-mgmt wpa-psk \
+      802-11-wireless-security.psk-flags 2 \
+      ipv4.method manual ipv4.addresses "$address" \
+      ipv4.gateway "$gateway" ipv4.dns "$gateway" \
+      ipv6.method disabled; then
+      log_error "Could not update WiFi profile $profile"
+      return 1
+    fi
+  elif ! nmcli --ask connection add type wifi ifname "$wifi_device" \
+    con-name "$profile" ssid "$ssid" autoconnect no -- \
+    802-11-wireless-security.key-mgmt wpa-psk \
+    802-11-wireless-security.psk-flags 2 \
+    ipv4.method manual ipv4.addresses "$address" \
+    ipv4.gateway "$gateway" ipv4.dns "$gateway" ipv6.method disabled; then
+    log_error "Could not create WiFi profile $profile"
+    return 1
+  fi
+
+  log "Connecting to $ssid on $wifi_device; NetworkManager will ask for the WiFi password"
+  if ! nmcli --ask connection up "$profile" ifname "$wifi_device"; then
+    log_error "Could not connect to WiFi network $ssid"
+    return 1
+  fi
+  log "Connected to $ssid with $address, gateway and DNS $gateway, and IPv6 disabled"
+}
+
 # Collect legacy or externally created home pre-restore snapshots.
 collect_pre_restore() {
   local collect_dir="$HOME/PreRestored"
@@ -1323,6 +1395,9 @@ while true; do
     ;;
   22)
     restore_walker
+    ;;
+  50)
+    connect_wifi || log_error "Connect WiFi failed"
     ;;
   98)
     collect_pre_restore

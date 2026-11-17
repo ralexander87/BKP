@@ -491,6 +491,7 @@ grep -Fq '19 - Restore SWAYNC' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '20 - Restore WLOGOUT' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '21 - Restore QS' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '22 - Restore WALKER' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '50 - Connect WiFi' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'brave-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'jefferson-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -639,9 +640,37 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 19 restore_swaync
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 20 restore_wlogout
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 21 restore_qs
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 22 restore_walker
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 50 connect_wifi
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'
+
+tmp="$(mktemp -d)"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$tmp/restore-dots-partial.sh"
+cat >>"$tmp/restore-dots-partial.sh" <<'EOF'
+confirm_action() { :; }
+nmcli() {
+  printf '%s|' "$@" >>"$NMCLI_TEST_LOG"
+  printf '\n' >>"$NMCLI_TEST_LOG"
+  case "$*" in
+  '-t -f DEVICE,TYPE device status') printf 'wlan0:wifi\n' ;;
+  '-t -f SSID device wifi list ifname wlan0 --rescan yes') printf 'Other\nFeedMe-6+\n' ;;
+  'connection show BKPv3 FeedMe-6+') [[ -e "$NMCLI_TEST_PROFILE" ]] ;;
+  '--ask connection add '*) touch "$NMCLI_TEST_PROFILE" ;;
+  '--ask connection modify '* | '--ask connection up '*) : ;;
+  *) return 1 ;;
+  esac
+}
+connect_wifi
+connect_wifi
+EOF
+NMCLI_TEST_LOG="$tmp/nmcli.log" NMCLI_TEST_PROFILE="$tmp/profile" HOME="$tmp" \
+  bash "$tmp/restore-dots-partial.sh" >/dev/null
+grep -Fq -- '--ask|connection|add|type|wifi|ifname|wlan0|con-name|BKPv3 FeedMe-6+|ssid|FeedMe-6+|autoconnect|no|--|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|2|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|' "$tmp/nmcli.log"
+grep -Fq -- '--ask|connection|modify|BKPv3 FeedMe-6+|connection.interface-name|wlan0|connection.autoconnect|no|802-11-wireless.ssid|FeedMe-6+|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|2|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|' "$tmp/nmcli.log"
+grep -Fq -- '--ask|connection|up|BKPv3 FeedMe-6+|ifname|wlan0|' "$tmp/nmcli.log"
+rm -rf "$tmp"
+printf 'Connect WiFi profile and activation OK\n'
 
 tmp="$(mktemp -d)"
 dots_dir="$tmp/device/MAIN/BKP-test/DOTS"

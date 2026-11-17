@@ -11,6 +11,7 @@
 - `curl` for the ML4W installer and Micronucleus rule download
 - `sudo`, `pacman`, `makepkg`, `git`, `flatpak`, and `yay` for package actions
 - `udevadm` for activating restored Arduino and Minipro device rules
+- `nmcli` and NetworkManager for option `50 - Connect WiFi`
 - `fc-cache` for refreshing the font cache when available
 
 Run `make deps` from the project root for the complete dependency report.
@@ -243,6 +244,10 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Snapshots and restores the complete `quickshell` folder
 - `22 - Restore WALKER`
   - Snapshots and restores the complete `walker` folder
+- `50 - Connect WiFi`
+  - Scans NetworkManager WiFi devices for `FeedMe-6+` and asks for its password
+  - Creates or updates the `BKPv3 FeedMe-6+` connection profile with `192.168.8.15/24`, gateway and DNS `192.168.8.1`, and IPv6 disabled
+  - Requests the password each time the connection is activated; the profile does not reconnect automatically
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items under `$HOME` into `$HOME/PreRestored`
 - `99 - Restore Settings`

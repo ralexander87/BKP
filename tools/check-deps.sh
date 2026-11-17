@@ -45,6 +45,7 @@ optional_action_commands=(
   flatpak
   grub-mkconfig
   makepkg
+  nmcli
   pacman
   smbpasswd
   ssh
