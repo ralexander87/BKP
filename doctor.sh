@@ -84,7 +84,7 @@ check_main_backup() {
   ok "latest MAIN backup: $backup_dir"
   check_file_in_backup "$backup_dir/restore-main.sh"
   check_file_in_backup "$backup_dir/lib/common.sh"
-  if [[ "$backup_dir" == */11-ARGUS/MAIN/* ]]; then
+  if [[ "$backup_dir" == */011-ARGUS/MAIN/* ]]; then
     check_file_in_backup "$backup_dir/config/main.backup.conf"
   fi
   check_file_in_backup "$manifest_file"
@@ -111,7 +111,7 @@ check_main_backup() {
   else
     warn "main backup status missing from manifest; older backup format"
   fi
-  if [[ "$backup_dir" == */11-ARGUS/MAIN/* ]]; then
+  if [[ "$backup_dir" == */011-ARGUS/MAIN/* ]]; then
     return 0
   fi
   if [[ -d "$backup_dir/DOTS" ]]; then
@@ -298,9 +298,9 @@ else
     target="$(decode_findmnt_path "$target")"
     source="$(decode_findmnt_path "$source")"
     ok "mounted backup candidate: $target ($source, $fstype)"
-    check_path "$target/15-LATERALUS/lateralus"
-    check_main_backup "$(latest_backup_dir "$target/MAIN" "$target/15-LATERALUS/MAIN" "$target/11-ARGUS/MAIN")"
-    check_serv_backup "$(latest_backup_dir "$target/SERV" "$target/15-LATERALUS/SERV")"
+    check_path "$target/015-LATERALUS/lateralus"
+    check_main_backup "$(latest_backup_dir "$target/MAIN" "$target/015-LATERALUS/MAIN" "$target/011-ARGUS/MAIN")"
+    check_serv_backup "$(latest_backup_dir "$target/SERV" "$target/015-LATERALUS/SERV")"
   done
 fi
 

@@ -246,7 +246,7 @@ flock -n 9 || die "another argus-main.sh run is already active"
 DEST_DEVICE="$(select_external_mount "Select backup destination device:")"
 
 # Build the backup folder names and archive path for this run.
-MAIN_DIR="$DEST_DEVICE/11-ARGUS/MAIN"
+MAIN_DIR="$DEST_DEVICE/011-ARGUS/MAIN"
 RUN_ID="BKP-$(timestamp)"
 FINAL_BACKUP_DIR="$MAIN_DIR/$RUN_ID"
 BACKUP_DIR="$MAIN_DIR/.${RUN_ID}.in-progress"

@@ -518,7 +518,7 @@ backup_storage_root() {
   local mount_root="$1"
 
   if [[ "$(system_hostname)" == "lateralus" ]]; then
-    printf '%s/15-LATERALUS\n' "$mount_root"
+    printf '%s/015-LATERALUS\n' "$mount_root"
   else
     printf '%s\n' "$mount_root"
   fi

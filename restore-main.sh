@@ -287,7 +287,7 @@ resolve_backup_device_root() {
   local root
 
   root="$(cd -- "$SCRIPT_DIR/../.." 2>/dev/null && pwd)" || return 1
-  if [[ "${root##*/}" == "15-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
+  if [[ "${root##*/}" == "015-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
     root="$(cd -- "$root/.." 2>/dev/null && pwd)" || return 1
   fi
   printf '%s\n' "$root"
@@ -298,7 +298,7 @@ restore_shared_firmware() {
   local device_root
   local source_dir
   local firmware_home_relative="Documents/030-Firmware"
-  local lateralus_firmware_relative="15-LATERALUS/030-Firmware"
+  local lateralus_firmware_relative="015-LATERALUS/030-Firmware"
   local target_dir
 
   if [[ -f "$MAIN_BACKUP_CONFIG" ]]; then
@@ -324,13 +324,13 @@ restore_shared_firmware() {
   log "Restored shared firmware: $target_dir"
 }
 
-# Restore the Arduino IDE desktop entry stored in the shared 15-LATERALUS folder.
+# Restore the Arduino IDE desktop entry stored in the shared 015-LATERALUS folder.
 restore_shared_arduino_desktop_entry() {
   local device_root
   local source_file
   local target_file
   local arduino_desktop_home_relative=".local/share/applications/cc.arduino.IDE2.desktop"
-  local lateralus_arduino_desktop_relative="15-LATERALUS/cc.arduino.IDE2.desktop"
+  local lateralus_arduino_desktop_relative="015-LATERALUS/cc.arduino.IDE2.desktop"
 
   if [[ -f "$MAIN_BACKUP_CONFIG" ]]; then
     # shellcheck source=config/main.backup.conf
@@ -462,7 +462,7 @@ for item in "${HOME_ITEMS[@]}"; do
   fi
 done
 
-# Restore shared 15-LATERALUS content after the main Documents folder is in place.
+# Restore shared 015-LATERALUS content after the main Documents folder is in place.
 restore_shared_firmware
 restore_shared_arduino_desktop_entry
 

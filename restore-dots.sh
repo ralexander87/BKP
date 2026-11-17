@@ -458,17 +458,17 @@ resolve_backup_device_root() {
   local root
 
   root="$(cd -- "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)" || return 1
-  if [[ "${root##*/}" == "15-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
+  if [[ "${root##*/}" == "015-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
     root="$(cd -- "$root/.." 2>/dev/null && pwd)" || return 1
   fi
   printf '%s\n' "$root"
 }
 
-# Replace the ML4W wallpapers folder from the shared 15-LATERALUS/wallpapers backup.
+# Replace the ML4W wallpapers folder from the shared 015-LATERALUS/wallpapers backup.
 restore_wallpapers() {
   local device_root
   local source_dir
-  local lateralus_wallpapers_relative="15-LATERALUS/wallpapers"
+  local lateralus_wallpapers_relative="015-LATERALUS/wallpapers"
   local wallpapers_dots_relative="ml4w/wallpapers"
   local target_dir
 
@@ -1065,18 +1065,18 @@ customize_thunar_custom_actions() {
   sed -i -E 's|^([[:space:]]*)<command>.*</command>[[:space:]]*$|\1<command>kitty</command>|' "$target_file"
 }
 
-# Resolve the qBittorrent Dracula theme stored in the backup device 15-LATERALUS folder.
+# Resolve the qBittorrent Dracula theme stored in the backup device 015-LATERALUS folder.
 resolve_qbittorrent_theme_source() {
   local device_root=""
   local source_file
 
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  source_file="$device_root/15-LATERALUS/dracula.qbtheme"
+  source_file="$device_root/015-LATERALUS/dracula.qbtheme"
   [[ -f "$source_file" ]] || die "qBittorrent theme file not found: $source_file"
   printf '%s\n' "$source_file"
 }
 
-# Copy the qBittorrent Dracula theme from the backup device 15-LATERALUS folder.
+# Copy the qBittorrent Dracula theme from the backup device 015-LATERALUS folder.
 restore_qbittorrent_theme() {
   local source_file
   local target_file="$HOME/.config/qBittorrent/dracula.qbtheme"
@@ -1113,7 +1113,7 @@ snapshot_system_file() {
   sudo chown -h "$local_uid:$local_gid" "$collected_snapshot"
 }
 
-# Restore Minipro's algorithm database and udev rule from shared 15-LATERALUS assets.
+# Restore Minipro's algorithm database and udev rule from shared 015-LATERALUS assets.
 restore_minipro_system_files() {
   local algorithm_source="$1"
   local rule_source="$2"
@@ -1163,8 +1163,8 @@ restore_settings() {
   done
   resolve_qbittorrent_theme_source >/dev/null
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
-  algorithm_source="$device_root/15-LATERALUS/algorithm.xml"
-  minipro_rule_source="$device_root/15-LATERALUS/60-minipro.rules"
+  algorithm_source="$device_root/015-LATERALUS/algorithm.xml"
+  minipro_rule_source="$device_root/015-LATERALUS/60-minipro.rules"
   [[ -f "$algorithm_source" ]] || die "Minipro algorithm source file not found: $algorithm_source"
   [[ -f "$minipro_rule_source" ]] || die "Minipro udev rule source file not found: $minipro_rule_source"
   require_all_cmds sudo install udevadm id

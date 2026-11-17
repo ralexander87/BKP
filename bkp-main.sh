@@ -49,7 +49,7 @@ print_prompt_separator() {
   printf '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
 }
 
-# Print clean terminal output for the 15-LATERALUS-only update path while still writing the log file.
+# Print clean terminal output for the 015-LATERALUS-only update path while still writing the log file.
 lateralus_update_info() {
   local text="$*"
   local ts
@@ -61,7 +61,7 @@ lateralus_update_info() {
   fi
 }
 
-# Shorten source paths for the 15-LATERALUS-only update prompt.
+# Shorten source paths for the 015-LATERALUS-only update prompt.
 display_lateralus_update_source() {
   local path="$1"
 
@@ -73,7 +73,7 @@ display_lateralus_update_source() {
   esac
 }
 
-# Shorten destination paths for the 15-LATERALUS-only update prompt.
+# Shorten destination paths for the 015-LATERALUS-only update prompt.
 display_lateralus_update_destination() {
   local path="$1"
 
@@ -120,7 +120,7 @@ prompt_skip_home_items() {
     fi
     if [[ "$token" == "90" ]]; then
       UPDATE_SHARED_ONLY=true
-      lateralus_update_info "Selected 15-LATERALUS-only firmware and wallpapers update"
+      lateralus_update_info "Selected 015-LATERALUS-only firmware and wallpapers update"
       return 0
     fi
     ((token >= 1 && token <= ${#SKIPPABLE_HOME_ITEMS[@]})) || die "skip selection out of range: $token"
@@ -141,12 +141,12 @@ prompt_skip_home_items() {
   fi
 }
 
-# Update only the shared 15-LATERALUS firmware and wallpaper folders on the mounted device.
+# Update only the shared 015-LATERALUS firmware and wallpaper folders on the mounted device.
 update_shared_firmware_and_wallpapers() {
   local source_display
   local dest_display
 
-  lateralus_update_info "Running 15-LATERALUS-only firmware and wallpapers update"
+  lateralus_update_info "Running 015-LATERALUS-only firmware and wallpapers update"
 
   if [[ -d "$WALLPAPERS_SOURCE" ]]; then
     source_display="$(display_lateralus_update_source "$WALLPAPERS_SOURCE")"
@@ -170,8 +170,8 @@ update_shared_firmware_and_wallpapers() {
     lateralus_update_info "Skipping missing firmware folder: $source_display"
   fi
 
-  lateralus_update_info "Done: 15-LATERALUS-only firmware and wallpapers update"
-  printf -- '- Updated Firmware and Wallpapers in %s/15-LATERALUS\n' "$(display_mount_target "$DEST_DEVICE")"
+  lateralus_update_info "Done: 015-LATERALUS-only firmware and wallpapers update"
+  printf -- '- Updated Firmware and Wallpapers in %s/015-LATERALUS\n' "$(display_mount_target "$DEST_DEVICE")"
 }
 
 # Build the backup item list from top-level non-hidden $HOME folders, excluding PreRestored.
@@ -558,7 +558,7 @@ else
   ui_render
 fi
 
-# Copy missing wallpapers into the shared 15-LATERALUS/wallpapers folder on the backup device.
+# Copy missing wallpapers into the shared 015-LATERALUS/wallpapers folder on the backup device.
 if [[ -d "$WALLPAPERS_SOURCE" ]]; then
   log "Backing up missing wallpapers: $WALLPAPERS_SOURCE -> $LATERALUS_WALLPAPERS_DIR"
   ui_update_task "main-wallpapers" "RUNNING" "copying missing wallpapers"
@@ -573,7 +573,7 @@ else
   ui_render
 fi
 
-# Copy missing firmware files into the shared 15-LATERALUS/030-Firmware folder on the backup device.
+# Copy missing firmware files into the shared 015-LATERALUS/030-Firmware folder on the backup device.
 if [[ -d "$FIRMWARE_SOURCE" ]]; then
   log "Backing up missing firmware: $FIRMWARE_SOURCE -> $LATERALUS_FIRMWARE_DIR"
   ui_update_task "main-firmware" "RUNNING" "copying missing firmware"
@@ -588,7 +588,7 @@ else
   ui_render
 fi
 
-# Copy selected backup-only hidden files into the shared 15-LATERALUS folder.
+# Copy selected backup-only hidden files into the shared 015-LATERALUS folder.
 hidden_files_copied=0
 ui_update_task "main-hidden-files" "RUNNING" "copying hidden files"
 ui_render

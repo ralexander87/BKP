@@ -109,7 +109,7 @@ printf 'kde setting\n' >"$tmp/home/.config/kde.conf"
 printf 'shell setting\n' >"$tmp/home/.bashrc"
 printf 'N\n\n' | HOME="$tmp/home" ARGUS_TEST_DEVICE="$tmp/device" \
   "$tmp/project/ARGUS/argus-main.sh" --quiet >"$tmp/argus-main.out"
-argus_backup="$(find "$tmp/device/11-ARGUS/MAIN" -mindepth 1 -maxdepth 1 -type d -name 'BKP-*' -print -quit)"
+argus_backup="$(find "$tmp/device/011-ARGUS/MAIN" -mindepth 1 -maxdepth 1 -type d -name 'BKP-*' -print -quit)"
 [[ -n "$argus_backup" ]]
 [[ -f "$argus_backup/Documents/example.txt" && -f "$argus_backup/.config/kde.conf" ]]
 [[ -f "$argus_backup/.bashrc" && -f "$argus_backup/config/main.backup.conf" ]]
@@ -204,7 +204,7 @@ rm -rf "$tmp"
 printf 'restore command failure error log OK\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/device/MAIN/BKP-test/config" "$tmp/device/15-LATERALUS" "$tmp/home/.local/share/applications"
+mkdir -p "$tmp/device/MAIN/BKP-test/config" "$tmp/device/015-LATERALUS" "$tmp/home/.local/share/applications"
 cp "$PROJECT_ROOT/restore-main.sh" "$tmp/device/MAIN/BKP-test/restore-main.sh"
 cp "$PROJECT_ROOT/config/main.backup.conf" "$tmp/device/MAIN/BKP-test/config/main.backup.conf"
 chmod +x "$tmp/device/MAIN/BKP-test/restore-main.sh"
@@ -213,7 +213,7 @@ Manifest Version = 1
 Backup Type = [MAIN]
 Backup Status = [COMPLETED]
 EOF
-printf 'new desktop entry\n' >"$tmp/device/15-LATERALUS/cc.arduino.IDE2.desktop"
+printf 'new desktop entry\n' >"$tmp/device/015-LATERALUS/cc.arduino.IDE2.desktop"
 printf 'old desktop entry\n' >"$tmp/home/.local/share/applications/cc.arduino.IDE2.desktop"
 printf 'Y\n' | HOME="$tmp/home" "$tmp/device/MAIN/BKP-test/restore-main.sh" >/dev/null
 grep -Fqx 'new desktop entry' "$tmp/home/.local/share/applications/cc.arduino.IDE2.desktop"
@@ -572,8 +572,8 @@ grep -Fq "Verify Extra Flatpak: \$app" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'uca.xml' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'dracula.qbtheme' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '15-LATERALUS/algorithm.xml' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '15-LATERALUS/60-minipro.rules' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '015-LATERALUS/algorithm.xml' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '015-LATERALUS/60-minipro.rules' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "MINIPRO_ALGORITHM_TARGET=\"\${MINIPRO_ALGORITHM_TARGET:-/usr/share/minipro/algorithm.xml}\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "MINIPRO_UDEV_RULE_TARGET=\"\${MINIPRO_UDEV_RULE_TARGET:-/etc/udev/rules.d/60-minipro.rules}\"" "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq "sudo install -m 0644 \"\$algorithm_source\" \"\$MINIPRO_ALGORITHM_TARGET\"" "$PROJECT_ROOT/restore-dots.sh"
@@ -596,7 +596,7 @@ EOF
 rm -rf "$tmp"
 printf 'DOTS confirmation defaults OK\n'
 grep -Fq 'ml4w-change-shell' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '15-LATERALUS/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '015-LATERALUS/wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 if sed -n '/^restore_hypr()/,/^}/p' "$PROJECT_ROOT/restore-dots.sh" | grep -Eq 'gtk-3.0/bookmarks|waybar/modules.json|quickshell|qs (kill|-d)'; then
   printf 'Restore HYPR should not restore Settings, Waybar, or Quickshell content\n' >&2
   exit 1
@@ -662,7 +662,7 @@ mkdir -p \
   "$dots_dir/qt6ct" \
   "$dots_dir/xsettingsd" \
   "$dots_dir/ml4w/settings" \
-  "$tmp/device/15-LATERALUS" \
+  "$tmp/device/015-LATERALUS" \
   "$tmp/home"
 cp "$PROJECT_ROOT/lib/common.sh" "$dots_dir/lib/common.sh"
 awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$dots_dir/restore-dots-partial.sh"
@@ -708,9 +708,9 @@ cat >"$dots_dir/quickshell/overview/config.json" <<'EOF'
   "expressive": "Fira Sans Semibold"
 }
 EOF
-printf 'theme fixture\n' >"$tmp/device/15-LATERALUS/dracula.qbtheme"
-printf 'new algorithm fixture\n' >"$tmp/device/15-LATERALUS/algorithm.xml"
-printf 'new minipro rule fixture\n' >"$tmp/device/15-LATERALUS/60-minipro.rules"
+printf 'theme fixture\n' >"$tmp/device/015-LATERALUS/dracula.qbtheme"
+printf 'new algorithm fixture\n' >"$tmp/device/015-LATERALUS/algorithm.xml"
+printf 'new minipro rule fixture\n' >"$tmp/device/015-LATERALUS/60-minipro.rules"
 cat >>"$dots_dir/restore-dots-partial.sh" <<'EOF'
 ML4W_CONFIG_ROOT="$HOME/ml4w-config"
 RESTORE_ID="functional-test"
@@ -786,7 +786,7 @@ printf 'restore-dots split action behavior OK\n'
 
 grep -Fq '1 - Create SMB' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '5 - Restore grub theme' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq 'GRUB_THEME_SHARED_RELATIVE="15-LATERALUS/lateralus"' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq 'GRUB_THEME_SHARED_RELATIVE="015-LATERALUS/lateralus"' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "source_dir=\"\$device_root/\$GRUB_THEME_SHARED_RELATIVE\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "restore_tree_to_system \"\$source_dir\" \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo rsync -rlt --no-perms --no-owner --no-group \"\$source_dir/\" \"\$target_dir/\"" "$PROJECT_ROOT/restore-serv.sh"
@@ -802,12 +802,13 @@ grep -Fq '94 - Restore complete profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq '"/SMB/pneuma"' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq '"/SMB/pneuma"' "$PROJECT_ROOT/config/serv.restore.conf"
-grep -Fq '"/SMB/argus"' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq '"/SMB/argus"' "$PROJECT_ROOT/config/serv.restore.conf"
+for host_dir in /SMB/020-EUCLID /SMB/010-PNEUMA /SMB/011-ARGUS /SMB/015-LATERALUS; do
+  grep -Fq "\"$host_dir\"" "$PROJECT_ROOT/restore-serv.sh"
+  grep -Fq "\"$host_dir\"" "$PROJECT_ROOT/config/serv.restore.conf"
+done
+grep -Fq '"/SMB/SCP"' "$PROJECT_ROOT/config/serv.restore.conf"
 grep -Fq 'SAMBA_CREDS_PATTERN="creds-*"' "$PROJECT_ROOT/config/serv.backup.conf"
-for retired_smb_path in /SMB/argus-smb /SMB/pneuma-kali /SMB/pneuma-smb /SMB/pneuma-win; do
+for retired_smb_path in /SMB/argus-smb /SMB/pneuma-kali /SMB/pneuma-smb /SMB/pneuma-win /SMB/euclid /SMB/pneuma /SMB/argus /SMB/lateralus; do
   grep -Fq "\"$retired_smb_path\"" "$PROJECT_ROOT/restore-serv.sh"
   if grep -Fq "\"$retired_smb_path\"" "$PROJECT_ROOT/config/serv.restore.conf"; then
     printf 'retired SMB directory should not be in public restore config: %s\n' "$retired_smb_path" >&2
@@ -949,6 +950,10 @@ printf '%s\n' \
   '//old/share /SMB/pneuma-kali cifs old 0 0' \
   '//old/share /SMB/pneuma-smb cifs old 0 0' \
   '//old/share /SMB/pneuma-win cifs old 0 0' \
+  '//old/share /SMB/euclid cifs old 0 0' \
+  '//old/share /SMB/pneuma cifs old 0 0' \
+  '//old/share /SMB/argus cifs old 0 0' \
+  '//old/share /SMB/lateralus cifs old 0 0' \
   '//keep/share /SMB/keep cifs keep 0 0' >"$tmp/fstab"
 printf '%s\n' \
   '#!/usr/bin/env bash' \
@@ -977,7 +982,7 @@ if grep -Fq '//old/share' "$tmp/fstab"; then
   printf 'stale managed fstab entry was not removed\n' >&2
   exit 1
 fi
-for retired_smb_path in /SMB/argus-smb /SMB/pneuma-kali /SMB/pneuma-smb /SMB/pneuma-win; do
+for retired_smb_path in /SMB/argus-smb /SMB/pneuma-kali /SMB/pneuma-smb /SMB/pneuma-win /SMB/euclid /SMB/pneuma /SMB/argus /SMB/lateralus; do
   if grep -Fq "$retired_smb_path" "$tmp/fstab"; then
     printf 'retired fstab entry was not removed: %s\n' "$retired_smb_path" >&2
     exit 1
@@ -1094,7 +1099,7 @@ prompt_skip_home_items >/dev/null <<<'90'
 EOF
 (cd "$tmp" && bash bkp-main-partial.sh)
 rm -rf "$tmp"
-printf '15-LATERALUS-only menu selection OK: bkp-main.sh\n'
+printf '015-LATERALUS-only menu selection OK: bkp-main.sh\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/bin" "$tmp/lib" "$tmp/logs" "$tmp/home/Documents/030-Firmware" "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/ml4w/wallpapers" "$tmp/netac"
@@ -1110,20 +1115,20 @@ HOME="$PWD/home"
 DEST_DEVICE="$PWD/netac"
 DOTS_SOURCE="$HOME/.mydotfiles/com.ml4w.dotfiles.stable/.config"
 WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
-LATERALUS_WALLPAPERS_DIR="$DEST_DEVICE/15-LATERALUS/wallpapers"
+LATERALUS_WALLPAPERS_DIR="$DEST_DEVICE/015-LATERALUS/wallpapers"
 FIRMWARE_SOURCE="$HOME/Documents/030-Firmware"
-LATERALUS_FIRMWARE_DIR="$DEST_DEVICE/15-LATERALUS/030-Firmware"
+LATERALUS_FIRMWARE_DIR="$DEST_DEVICE/015-LATERALUS/030-Firmware"
 PATH="$PWD/bin:$PATH"
 update_shared_firmware_and_wallpapers
 EOF
 (cd "$tmp" && bash bkp-main-partial.sh >update-lateralus.out)
-grep -Fq '[INFO] Running 15-LATERALUS-only firmware and wallpapers update' "$tmp/update-lateralus.out"
-grep -Fq '[INFO] Updating shared wallpapers: /wallpapers -> /netac/15-LATERALUS/wallpapers' "$tmp/update-lateralus.out"
-grep -Fq '[INFO] Updating shared firmware: /Documents/030-Firmware -> /netac/15-LATERALUS/030-Firmware' "$tmp/update-lateralus.out"
-grep -Fq '[INFO] Done: 15-LATERALUS-only firmware and wallpapers update' "$tmp/update-lateralus.out"
-grep -Fq -- '- Updated Firmware and Wallpapers in /netac/15-LATERALUS' "$tmp/update-lateralus.out"
+grep -Fq '[INFO] Running 015-LATERALUS-only firmware and wallpapers update' "$tmp/update-lateralus.out"
+grep -Fq '[INFO] Updating shared wallpapers: /wallpapers -> /netac/015-LATERALUS/wallpapers' "$tmp/update-lateralus.out"
+grep -Fq '[INFO] Updating shared firmware: /Documents/030-Firmware -> /netac/015-LATERALUS/030-Firmware' "$tmp/update-lateralus.out"
+grep -Fq '[INFO] Done: 015-LATERALUS-only firmware and wallpapers update' "$tmp/update-lateralus.out"
+grep -Fq -- '- Updated Firmware and Wallpapers in /netac/015-LATERALUS' "$tmp/update-lateralus.out"
 rm -rf "$tmp"
-printf '15-LATERALUS-only update output OK: bkp-main.sh\n'
+printf '015-LATERALUS-only update output OK: bkp-main.sh\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/logs"
@@ -1149,12 +1154,12 @@ grep -Fq '90 - Update Firmware and Wallpapers' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq 'SKIPPABLE_HOME_ITEMS' "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "[[ -d \"\$DOTS_ROOT\" && -d \"\$DOTS_SOURCE\" ]]" "$PROJECT_ROOT/bkp-main.sh"
 grep -Fq "Skipping missing dotfiles root: \$DOTS_ROOT" "$PROJECT_ROOT/bkp-main.sh"
-grep -Fq 'LATERALUS_WALLPAPERS_RELATIVE="15-LATERALUS/wallpapers"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'LATERALUS_WALLPAPERS_RELATIVE="015-LATERALUS/wallpapers"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq 'FIRMWARE_HOME_RELATIVE="Documents/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
-grep -Fq 'LATERALUS_FIRMWARE_RELATIVE="15-LATERALUS/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
-grep -Fq 'LATERALUS_ARDUINO_DESKTOP_RELATIVE="15-LATERALUS/cc.arduino.IDE2.desktop"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'LATERALUS_FIRMWARE_RELATIVE="015-LATERALUS/030-Firmware"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'LATERALUS_ARDUINO_DESKTOP_RELATIVE="015-LATERALUS/cc.arduino.IDE2.desktop"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq 'ARDUINO_DESKTOP_HOME_RELATIVE=".local/share/applications/cc.arduino.IDE2.desktop"' "$PROJECT_ROOT/config/main.backup.conf"
-grep -Fq 'LATERALUS_HOME_FILES_RELATIVE="15-LATERALUS"' "$PROJECT_ROOT/config/main.backup.conf"
+grep -Fq 'LATERALUS_HOME_FILES_RELATIVE="015-LATERALUS"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".bash_history"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".zsh_history"' "$PROJECT_ROOT/config/main.backup.conf"
 grep -Fq '".zshrc"' "$PROJECT_ROOT/config/main.backup.conf"
@@ -1173,7 +1178,7 @@ grep -Fq 'discover_restore_items' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq 'RESTORE_EXCLUDED_ITEMS' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq '"backup-manifest.json"' "$PROJECT_ROOT/restore-main.sh"
 grep -Fq '"config"' "$PROJECT_ROOT/restore-main.sh"
-grep -Fq '15-LATERALUS/030-Firmware' "$PROJECT_ROOT/restore-main.sh"
+grep -Fq '015-LATERALUS/030-Firmware' "$PROJECT_ROOT/restore-main.sh"
 if grep -Fq '".bash_history"' "$PROJECT_ROOT/restore-main.sh"; then
   printf 'backup-only hidden files should not be restored by restore-main.sh\n' >&2
   exit 1
@@ -1198,10 +1203,10 @@ RUN_RESULT="complete"
 DOTS_ROOT="/home/ralexander/.mydotfiles"
 DOTS_SOURCE="$DOTS_ROOT/com.ml4w.dotfiles.stable/.config"
 WALLPAPERS_SOURCE="$DOTS_SOURCE/ml4w/wallpapers"
-LATERALUS_WALLPAPERS_DIR="$DEST_DEVICE/15-LATERALUS/wallpapers"
+LATERALUS_WALLPAPERS_DIR="$DEST_DEVICE/015-LATERALUS/wallpapers"
 FIRMWARE_SOURCE="/home/ralexander/Documents/030-Firmware"
-LATERALUS_FIRMWARE_DIR="$DEST_DEVICE/15-LATERALUS/030-Firmware"
-LATERALUS_HOME_FILES_DIR="$DEST_DEVICE/15-LATERALUS"
+LATERALUS_FIRMWARE_DIR="$DEST_DEVICE/015-LATERALUS/030-Firmware"
+LATERALUS_HOME_FILES_DIR="$DEST_DEVICE/015-LATERALUS"
 HOME_HIDDEN_FILES=(.bash_history .zsh_history .zshrc .wget-hsts)
 HOME_ITEMS=(Code Desktop Documents .themes .icons .ssh .vscode-oss)
 write_manifest
@@ -1365,7 +1370,7 @@ tmp="$(mktemp -d)"
 bash -c '
   source "$1"
   system_hostname() { printf "lateralus\n"; }
-  [[ "$(backup_storage_root "$2")" == "$2/15-LATERALUS" ]]
+  [[ "$(backup_storage_root "$2")" == "$2/015-LATERALUS" ]]
   system_hostname() { printf "other-host\n"; }
   [[ "$(backup_storage_root "$2")" == "$2" ]]
 ' _ "$PROJECT_ROOT/lib/common.sh" "$tmp/device"
@@ -1388,7 +1393,7 @@ for script in restore-main.sh restore-serv.sh restore-dots.sh; do
     suffix="/DOTS"
     ;;
   esac
-  for storage_root in "$tmp/device" "$tmp/device/15-LATERALUS"; do
+  for storage_root in "$tmp/device" "$tmp/device/015-LATERALUS"; do
     script_dir="$storage_root/$backup_type/BKP-test$suffix"
     mkdir -p "$script_dir"
     awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/$script" >"$script_dir/$script"
@@ -1406,12 +1411,12 @@ touch -d '2026-01-01' "$tmp/backups/BKP-001-new"
 awk '/^printf '\''BKP doctor/ { exit } { print }' "$PROJECT_ROOT/doctor.sh" >"$tmp/doctor-partial.sh"
 cat >>"$tmp/doctor-partial.sh" <<'EOF'
 [[ "$(latest_backup_dir "$1")" == "$1/BKP-001-new" ]]
-[[ "$(latest_backup_dir "$2/MAIN" "$2/15-LATERALUS/MAIN")" == "$2/15-LATERALUS/MAIN/BKP-new" ]]
-[[ "$(latest_backup_dir "$2/missing/MAIN" "$2/15-LATERALUS/MAIN")" == "$2/15-LATERALUS/MAIN/BKP-new" ]]
+[[ "$(latest_backup_dir "$2/MAIN" "$2/015-LATERALUS/MAIN")" == "$2/015-LATERALUS/MAIN/BKP-new" ]]
+[[ "$(latest_backup_dir "$2/missing/MAIN" "$2/015-LATERALUS/MAIN")" == "$2/015-LATERALUS/MAIN/BKP-new" ]]
 EOF
-mkdir -p "$tmp/legacy/MAIN/BKP-old" "$tmp/legacy/15-LATERALUS/MAIN/BKP-new"
+mkdir -p "$tmp/legacy/MAIN/BKP-old" "$tmp/legacy/015-LATERALUS/MAIN/BKP-new"
 touch -d '2025-01-01' "$tmp/legacy/MAIN/BKP-old"
-touch -d '2026-01-01' "$tmp/legacy/15-LATERALUS/MAIN/BKP-new"
+touch -d '2026-01-01' "$tmp/legacy/015-LATERALUS/MAIN/BKP-new"
 bash "$tmp/doctor-partial.sh" "$tmp/backups" "$tmp/legacy"
 rm -rf "$tmp"
 printf 'cross-year and nested latest backup selection OK\n'
@@ -1437,7 +1442,7 @@ rm -rf "$tmp"
 printf 'atomic backup publication OK\n'
 
 tmp="$(mktemp -d)"
-mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-legacy" "$tmp/15-LATERALUS/MAIN/BKP-nested" "$tmp/15-LATERALUS/SERV/BKP-nested" "$tmp/11-ARGUS/MAIN/BKP-argus"
+mkdir -p "$tmp/MAIN/BKP-test" "$tmp/SERV/BKP-legacy" "$tmp/015-LATERALUS/MAIN/BKP-nested" "$tmp/015-LATERALUS/SERV/BKP-nested" "$tmp/011-ARGUS/MAIN/BKP-argus"
 cat >"$tmp/MAIN/BKP-test/backup-manifest.txt" <<'EOF'
 Manifest Version = 1
 Created = 2026-08-20T12:00:00+02:00

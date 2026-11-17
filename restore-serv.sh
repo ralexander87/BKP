@@ -159,10 +159,10 @@ ACTION_FAILURE_COUNT=0
 set_service_restore_defaults() {
   SMB_DIRS=(
     "/SMB"
-    "/SMB/euclid"
-    "/SMB/pneuma"
-    "/SMB/argus"
-    "/SMB/lateralus"
+    "/SMB/020-EUCLID"
+    "/SMB/010-PNEUMA"
+    "/SMB/011-ARGUS"
+    "/SMB/015-LATERALUS"
     "/SMB/SCP"
     "/SMB/SCP/HDD-01"
     "/SMB/SCP/HDD-02"
@@ -175,13 +175,17 @@ set_service_restore_defaults() {
     "/SMB/pneuma-kali"
     "/SMB/pneuma-smb"
     "/SMB/pneuma-win"
+    "/SMB/euclid"
+    "/SMB/pneuma"
+    "/SMB/argus"
+    "/SMB/lateralus"
   )
 
   GRUB_CMDLINE_LINUX_DEFAULT_VALUE="loglevel=3 quiet splash"
   GRUB_TERMINAL_OUTPUT_VALUE="gfxterm"
   GRUB_GFXMODE_VALUE="1440x1080x32"
   GRUB_THEME_VALUE="/boot/grub/themes/lateralus/theme.txt"
-  GRUB_THEME_SHARED_RELATIVE="15-LATERALUS/lateralus"
+  GRUB_THEME_SHARED_RELATIVE="015-LATERALUS/lateralus"
 }
 
 # Return success when a mount target is retired and should be removed.
@@ -639,7 +643,7 @@ resolve_backup_device_root() {
   local root
 
   root="$(cd -- "$SCRIPT_DIR/../.." 2>/dev/null && pwd)" || return 1
-  if [[ "${root##*/}" == "15-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
+  if [[ "${root##*/}" == "015-LATERALUS" ]] && ! findmnt -rn --mountpoint "$root" >/dev/null 2>&1; then
     root="$(cd -- "$root/.." 2>/dev/null && pwd)" || return 1
   fi
   printf '%s\n' "$root"

@@ -61,7 +61,7 @@ Core backup and development commands are reported as failures when absent. Comma
 
 Public, version-controlled configuration is split by responsibility:
 
-- `config/main.backup.conf`: MAIN source paths, shared `15-LATERALUS` destinations, hidden files, and rsync exclusions
+- `config/main.backup.conf`: MAIN source paths, shared `015-LATERALUS` destinations, hidden files, and rsync exclusions
 - `ARGUS/main.backup.conf`: ARGUS MAIN hidden home folders, shell files, and rsync exclusions
 - `config/serv.backup.conf`: required SERVICE source paths and the Samba credentials pattern
 - `config/dots-extra.conf`: Arch/AUR packages, Flatpaks, and repository VLC removal behavior
@@ -71,7 +71,7 @@ Machine-local values remain under ignored `config/local/`. Relevant local config
 
 ## Backup Layout
 
-When the current hostname is `lateralus`, new MAIN and SERVICE backups and their archives are stored under `<external device>/15-LATERALUS/MAIN/` and `<external device>/15-LATERALUS/SERV/`. On `argus`, MAIN backups and optional archives are stored under `<external device>/11-ARGUS/MAIN/`. Other hosts continue to use `<external device>/MAIN/` and `<external device>/SERV/`. Shared assets such as wallpapers and firmware remain directly under `<external device>/15-LATERALUS/` on every host. The catalog and doctor recognize the ARGUS MAIN layout.
+When the current hostname is `lateralus`, new MAIN and SERVICE backups and their archives are stored under `<external device>/015-LATERALUS/MAIN/` and `<external device>/015-LATERALUS/SERV/`. On `argus`, MAIN backups and optional archives are stored under `<external device>/011-ARGUS/MAIN/`. Other hosts continue to use `<external device>/MAIN/` and `<external device>/SERV/`. Shared assets such as wallpapers and firmware remain directly under `<external device>/015-LATERALUS/` on every host. The catalog and doctor recognize the ARGUS MAIN layout.
 
 On a host named `argus`, the MAIN and SERVICE backup and restore entry points run the corresponding scripts under `ARGUS/`. ARGUS MAIN backs up discovered home folders, configured hidden KDE folders, and selected shell files. It does not include Hyprland or DOTS steps. `ARGUS/argus-serv.sh` and both ARGUS restore scripts remain placeholders for the next changes. ARGUS MAIN backups currently bundle the restore placeholder.
 
@@ -147,13 +147,14 @@ The current version is stored in `VERSION`.
 
 ### 0.6.0 (in progress)
 
-- Store new MAIN and SERVICE backups under `15-LATERALUS/` when the hostname is `lateralus`, while recognizing both layouts during restore and inspection
+- Use zero-padded `015-LATERALUS/` and `011-ARGUS/` folder names on the external device throughout backup, restore, catalog, and doctor workflows
+- Store new MAIN and SERVICE backups under `015-LATERALUS/` when the hostname is `lateralus`, while recognizing both layouts during restore and inspection
 - Route MAIN and SERVICE backup and restore entry points to `ARGUS/` on the `argus` host
-- Implement ARGUS MAIN backups under `11-ARGUS/MAIN/` with KDE home configuration and no DOTS steps
+- Implement ARGUS MAIN backups under `011-ARGUS/MAIN/` with KDE home configuration and no DOTS steps
 - Made DOTS restore action confirmations default to `Y`, with `N` available to skip an action
 - Added `hypr/conf/environments/nvidia.lua` to DOTS option `14 - Restore HYPR`
 - Excluded `$HOME/PreRestored` from MAIN backups, including folder selection and size estimates
-- Renamed the shared external backup folder from `BIG` to `15-LATERALUS` across backup, restore, doctor, and catalog-related documentation
+- Renamed the shared external backup folder from `BIG` to `015-LATERALUS` across backup, restore, doctor, and catalog-related documentation
 - Added Minipro algorithm and udev-rule restoration to DOTS option `99 - Restore Settings`
 - Reordered DOTS Install Extra into validated package, Flatpak, integration, and HyprMod phases
 - Added the `srec-git` and `minipro-git` AUR packages to DOTS option `3 - Install Extra`
@@ -161,7 +162,7 @@ The current version is stored in `VERSION`.
 - Merged the HyprMod installation into DOTS option `3 - Install Extra` and removed its separate menu action
 - Added Arduino IDE 2 to DOTS Install Extra and ensured its Micronucleus udev rule is present
 - Switched the Jefferson AUR selection to the maintained `jefferson-git` package
-- Added MAIN restore support for the shared `15-LATERALUS/cc.arduino.IDE2.desktop` launcher, including a safety snapshot of an existing launcher
+- Added MAIN restore support for the shared `015-LATERALUS/cc.arduino.IDE2.desktop` launcher, including a safety snapshot of an existing launcher
 
 ### 0.5.0
 

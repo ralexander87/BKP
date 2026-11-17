@@ -17,7 +17,7 @@ Run `make deps` from the project root for the complete dependency report.
 
 ## SERVICE Backup
 
-On the `lateralus` host, SERVICE backup folders and archives are placed under `/path/to/device/15-LATERALUS/SERV/`. Other hosts use `/path/to/device/SERV/`.
+On the `lateralus` host, SERVICE backup folders and archives are placed under `/path/to/device/015-LATERALUS/SERV/`. Other hosts use `/path/to/device/SERV/`.
 
 Run:
 
@@ -81,7 +81,7 @@ SERVICE backup safety behavior includes:
 
 ## SERVICE Restore
 
-For backups created on `lateralus` with version 0.6.0 or later, use `/path/to/device/15-LATERALUS/SERV/BKP-<timestamp>` instead of the device-root `SERV` path shown below.
+For backups created on `lateralus` with version 0.6.0 or later, use `/path/to/device/015-LATERALUS/SERV/BKP-<timestamp>` instead of the device-root `SERV` path shown below.
 
 Run from inside a completed SERVICE backup:
 
@@ -96,7 +96,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 
 - `0 - Exit`
 - `1 - Create SMB`
-  - Creates `/SMB`, `/SMB/euclid`, `/SMB/pneuma`, `/SMB/argus`, and `/SMB/lateralus`
+  - Creates `/SMB`, `/SMB/020-EUCLID`, `/SMB/010-PNEUMA`, `/SMB/011-ARGUS`, and `/SMB/015-LATERALUS`
   - Creates `/SMB/SCP/HDD-01`, `/SMB/SCP/HDD-02`, and `/SMB/SCP/HDD-03`
   - Sets ownership to the local non-root user and permissions to `750`
 - `2 - Restore samba`
@@ -120,8 +120,8 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Validates the generated table with `findmnt --verify` when available
   - Atomically installs `/etc/fstab`
 - `5 - Restore grub theme`
-  - Restores shared `15-LATERALUS/lateralus` from the backup device to `/boot/grub/themes/lateralus`
-  - Uses a restore-only shared source maintained separately on the backup device; `bkp-serv.sh` does not populate `15-LATERALUS/lateralus`
+  - Restores shared `015-LATERALUS/lateralus` from the backup device to `/boot/grub/themes/lateralus`
+  - Uses a restore-only shared source maintained separately on the backup device; `bkp-serv.sh` does not populate `015-LATERALUS/lateralus`
   - Detects the target filesystem and avoids unsupported ownership, mode, ACL, and xattr preservation on FAT-family filesystems
 - `6 - Restore GRUB`
   - Updates configured splash, terminal input/output, graphics mode, and theme values in `/etc/default/grub`
@@ -163,7 +163,7 @@ project config/serv.restore.conf
 project config/local/serv.restore.conf
 ```
 
-Later files can override earlier values. Retired `/SMB/argus-smb`, `/SMB/pneuma-kali`, `/SMB/pneuma-smb`, and `/SMB/pneuma-win` paths are pruned from loaded overrides, and matching stale fstab entries are removed.
+Later files can override earlier values. Retired `/SMB/argus-smb`, `/SMB/pneuma-kali`, `/SMB/pneuma-smb`, `/SMB/pneuma-win`, and the former unnumbered host paths are pruned from loaded overrides, and matching stale fstab entries are removed.
 
 ### Restore Safety and Rollback
 
