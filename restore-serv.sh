@@ -398,7 +398,6 @@ Select action:
   4 - Restore fstab
   5 - Restore grub theme
   6 - Restore GRUB
-  7 - Restore RAMBOX
   8 - Restore Plymouth
 ============================
   90 - Restore sharing profile
@@ -991,26 +990,6 @@ restore_grub_defaults() {
   sudo grub-mkconfig -o /boot/grub/grub.cfg
 }
 
-# Restore executable directory permissions required by Rambox.
-restore_rambox() {
-  local target_dir="/opt/rambox"
-  local previous_mode
-  local rollback_command
-
-  require_all_cmds sudo chmod stat
-  sudo test -d "$target_dir" || die "Rambox folder not found: $target_dir"
-
-  previous_mode="$(sudo stat -c '%a' "$target_dir")"
-  [[ "$previous_mode" =~ ^[0-7]{3,4}$ ]] || die "could not read Rambox folder mode: $target_dir"
-  printf -v rollback_command 'sudo chmod %q %q' "$previous_mode" "$target_dir"
-  prepend_rollback_commands "$rollback_command"
-
-  log "Setting Rambox folder permissions: $target_dir -> 755"
-  sudo chmod 755 "$target_dir"
-  [[ "$(sudo stat -c '%a' "$target_dir")" == "755" ]] || die "failed to verify Rambox folder permissions: $target_dir"
-
-}
-
 # Return a non-conflicting target path inside the PreRestored collection folder.
 unique_collect_target() {
   local collect_dir="$1"
@@ -1186,9 +1165,6 @@ while true; do
     ;;
   6)
     run_menu_action "Restore GRUB" restore_grub_defaults
-    ;;
-  7)
-    run_menu_action "Restore RAMBOX" restore_rambox
     ;;
   8)
     run_menu_action "Restore Plymouth" restore_plymouth

@@ -246,7 +246,7 @@ Select action:
   2 - Install FONTS
   3 - Install Extra
       -- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,
-         -- Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod
+         -- Rambox Pro, QRencode, sRec, Minipro, HyprMod
       -- FlatPak: VLC, Calc, ArduinoIDE
   4 - Set AutoLogin
   5 - Change SHELL
@@ -779,6 +779,15 @@ install_extra() {
     }
   fi
 
+  if pacman -Q firefox >/dev/null 2>&1; then
+    run_extra_command "Remove Firefox package" \
+      sudo pacman -R --noconfirm firefox || {
+      finalize_install_extra_log "FAILED"
+      stop_sudo_keepalive
+      return 1
+    }
+  fi
+
   if flatpak info "$ARDUINO_IDE_FLATPAK_ID" >/dev/null 2>&1; then
     if ! ensure_micronucleus_udev_rules; then
       finalize_install_extra_log "FAILED"
@@ -1199,6 +1208,8 @@ restore_settings() {
     "gtk-4.0/settings.ini"
     "qt6ct/qt6ct.conf"
     "xsettingsd/xsettingsd.conf"
+    "ml4w/settings/browser.sh"
+    "ml4w/settings/editor.sh"
     "ml4w/settings/filemanager"
     "ml4w/settings/kitty-cursor-trail.conf"
     "ml4w/settings/rofi-border-radius.rasi"
@@ -1207,6 +1218,7 @@ restore_settings() {
     "ml4w/settings/rofi_bordersize.sh"
     "ml4w/settings/screenshot-editor"
     "ml4w/settings/screenshot-folder"
+    "ml4w/settings/statusbar"
     "ml4w/settings/terminal.sh"
     "ml4w/settings/waybar-quicklinks.json"
     "ml4w/settings/waybar_quicklinks.sh"
@@ -1237,6 +1249,8 @@ restore_settings() {
   restore_config_file "Settings" "xsettingsd/xsettingsd.conf" "xsettingsd/xsettingsd.conf"
 
   # ML4W settings files.
+  restore_config_file "Settings" "ml4w/settings/browser.sh" "ml4w/settings/browser.sh"
+  restore_config_file "Settings" "ml4w/settings/editor.sh" "ml4w/settings/editor.sh"
   restore_config_file "Settings" "ml4w/settings/filemanager" "ml4w/settings/filemanager"
   restore_config_file "Settings" "ml4w/settings/kitty-cursor-trail.conf" "ml4w/settings/kitty-cursor-trail.conf"
   restore_config_file "Settings" "ml4w/settings/rofi-border-radius.rasi" "ml4w/settings/rofi-border-radius.rasi"
@@ -1245,6 +1259,7 @@ restore_settings() {
   restore_config_file "Settings" "ml4w/settings/rofi_bordersize.sh" "ml4w/settings/rofi_bordersize.sh"
   restore_config_file "Settings" "ml4w/settings/screenshot-editor" "ml4w/settings/screenshot-editor"
   restore_config_file "Settings" "ml4w/settings/screenshot-folder" "ml4w/settings/screenshot-folder"
+  restore_config_file "Settings" "ml4w/settings/statusbar" "ml4w/settings/statusbar"
   restore_config_file "Settings" "ml4w/settings/terminal.sh" "ml4w/settings/terminal.sh"
   restore_config_file "Settings" "ml4w/settings/waybar-quicklinks.json" "ml4w/settings/waybar-quicklinks.json"
   restore_config_file "Settings" "ml4w/settings/waybar_quicklinks.sh" "ml4w/settings/waybar_quicklinks.sh"

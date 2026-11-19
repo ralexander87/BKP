@@ -472,6 +472,57 @@ fi
 rm -rf "$tmp"
 printf 'sudo action keepalive OK: restore-dots.sh\n'
 
+# Exercise Firefox removal without invoking the host package manager.
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/config"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+cp "$PROJECT_ROOT/config/dots-extra.conf" "$tmp/config/dots-extra.conf"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$tmp/restore-dots-partial.sh"
+cat >>"$tmp/restore-dots-partial.sh" <<'EOF'
+start_sudo_keepalive() { return 0; }
+stop_sudo_keepalive() { printf 'stopped\n' >"$PWD/sudo-stopped"; }
+ensure_yay_installed() { return 0; }
+yay() { return 1; }
+sudo() { "$@"; }
+flatpak() { return 0; }
+ensure_micronucleus_udev_rules() { return 0; }
+install_hyprmod() { printf 'hyprmod\n' >"$PWD/hyprmod-called"; }
+pacman() {
+  case "$*" in
+  '-Q firefox') [[ "$FIREFOX_TEST_STATE" != absent ]] ;;
+  '-R --noconfirm firefox')
+    printf 'remove firefox\n' >>"$PWD/package-removals"
+    [[ "$FIREFOX_TEST_STATE" != failure ]]
+    ;;
+  '-Q vlc') return 1 ;;
+  '-Q '*) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+if install_extra; then
+  [[ "$FIREFOX_TEST_STATE" != failure ]]
+  [[ -f "$PWD/hyprmod-called" ]]
+  grep -Fqx 'Install Extra = [COMPLETED]' "$INSTALL_EXTRA_LOG"
+else
+  [[ "$FIREFOX_TEST_STATE" == failure ]]
+  [[ ! -e "$PWD/hyprmod-called" ]]
+  grep -Fqx 'Install Extra = [FAILED]' "$INSTALL_EXTRA_LOG"
+  grep -Fq 'Remove Firefox package (exit 1)' "$INSTALL_EXTRA_LOG"
+fi
+[[ -f "$PWD/sudo-stopped" ]]
+if [[ "$FIREFOX_TEST_STATE" == absent ]]; then
+  [[ ! -e "$PWD/package-removals" ]]
+else
+  grep -Fqx 'remove firefox' "$PWD/package-removals"
+fi
+EOF
+for firefox_test_state in installed absent failure; do
+  rm -f "$tmp/package-removals" "$tmp/hyprmod-called" "$tmp/sudo-stopped"
+  (cd "$tmp" && FIREFOX_TEST_STATE="$firefox_test_state" bash restore-dots-partial.sh >/dev/null)
+done
+rm -rf "$tmp"
+printf 'Install Extra Firefox removal, absence, and failure handling OK\n'
+
 grep -Fq 'RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)' "$PROJECT_ROOT/restore-dots.sh"
 if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; then
   printf 'Install Extra command output should stay in its log instead of flooding the terminal\n' >&2
@@ -480,7 +531,7 @@ fi
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '3 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- Rambox Pro, QRencode, PywalFox, sRec, Minipro, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- Rambox Pro, QRencode, sRec, Minipro, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- FlatPak: VLC, Calc, ArduinoIDE' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- ZSH' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- Keybinds, NVIDIA, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO' "$PROJECT_ROOT/restore-dots.sh"
@@ -510,7 +561,10 @@ grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'qrencode' "$PROJECT_ROOT/config/dots-extra.conf"
-grep -Fq 'python-pywalfox' "$PROJECT_ROOT/config/dots-extra.conf"
+if grep -Fq 'python-pywalfox' "$PROJECT_ROOT/config/dots-extra.conf"; then
+  printf 'Install Extra should not install Pywalfox\n' >&2
+  exit 1
+fi
 grep -Fq 'srec-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'minipro-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'org.videolan.VLC' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -723,6 +777,8 @@ for source_rel in \
   gtk-4.0/settings.ini \
   qt6ct/qt6ct.conf \
   xsettingsd/xsettingsd.conf \
+  ml4w/settings/browser.sh \
+  ml4w/settings/editor.sh \
   ml4w/settings/filemanager \
   ml4w/settings/kitty-cursor-trail.conf \
   ml4w/settings/rofi-border-radius.rasi \
@@ -731,6 +787,7 @@ for source_rel in \
   ml4w/settings/rofi_bordersize.sh \
   ml4w/settings/screenshot-editor \
   ml4w/settings/screenshot-folder \
+  ml4w/settings/statusbar \
   ml4w/settings/terminal.sh \
   ml4w/settings/waybar-quicklinks.json \
   ml4w/settings/waybar_quicklinks.sh \
@@ -807,7 +864,16 @@ find "$HOME/PreRestored" -maxdepth 1 -type d -name 'walker-pre-restore-*' \
 mkdir -p "$(dirname -- "$MINIPRO_ALGORITHM_TARGET")" "$(dirname -- "$MINIPRO_UDEV_RULE_TARGET")"
 printf 'old algorithm fixture\n' >"$MINIPRO_ALGORITHM_TARGET"
 printf 'old minipro rule fixture\n' >"$MINIPRO_UDEV_RULE_TARGET"
+mkdir -p "$ML4W_CONFIG_ROOT/ml4w/settings"
+for settings_file in browser.sh editor.sh statusbar; do
+  printf 'old setting: %s\n' "$settings_file" >"$ML4W_CONFIG_ROOT/ml4w/settings/$settings_file"
+done
 restore_settings
+for settings_file in browser.sh editor.sh statusbar; do
+  grep -Fqx "fixture: ml4w/settings/$settings_file" "$ML4W_CONFIG_ROOT/ml4w/settings/$settings_file"
+  find "$HOME/PreRestored" -maxdepth 1 -type f -name "$settings_file-pre-restore-*" \
+    -exec grep -Fqx "old setting: $settings_file" '{}' \; -print -quit | grep -q .
+done
 [[ -f "$ML4W_CONFIG_ROOT/gtk-3.0/bookmarks" ]]
 [[ -f "$ML4W_CONFIG_ROOT/xsettingsd/xsettingsd.conf" ]]
 grep -Fqx 'new algorithm fixture' "$MINIPRO_ALGORITHM_TARGET"
@@ -861,9 +927,7 @@ grep -Fq '91 - Restore boot profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '92 - Restore discovery services' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '93 - Restore smart-card service' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '94 - Restore complete profile' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq '7 - Restore RAMBOX' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '8 - Restore Plymouth' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq "sudo chmod 755 \"\$target_dir\"" "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
 for host_dir in /SMB/020-EUCLID /SMB/010-PNEUMA /SMB/011-ARGUS /SMB/015-LATERALUS; do
   grep -Fq "\"$host_dir\"" "$PROJECT_ROOT/restore-serv.sh"
@@ -913,7 +977,6 @@ assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 3 restore_ssh
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 4 restore_fstab
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 5 restore_grub_theme
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 6 restore_grub_defaults
-assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 7 restore_rambox
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 8 restore_plymouth
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 90 restore_sharing_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 91 restore_boot_profile

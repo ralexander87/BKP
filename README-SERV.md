@@ -127,9 +127,6 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Updates configured splash, terminal input/output, graphics mode, and theme values in `/etc/default/grub`
   - Atomically installs the updated file
   - Runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`
-- `7 - Restore RAMBOX`
-  - Records the previous `/opt/rambox` mode in the rollback helper
-  - Sets `/opt/rambox` to mode `755`
 - `8 - Restore Plymouth`
   - Runs `015-LATERALUS/daedric-morrowind-plymouth/install.sh` from the backup device with `sudo bash`
   - The installer selects the Plymouth theme and rebuilds the initramfs; this action is not included in the complete profile
@@ -145,7 +142,6 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Enables and refreshes Arch Linux's socket-activated `pcscd.socket`
 - `94 - Restore complete profile`
   - Runs the sharing profile, SSH restore, boot profile, discovery services, and smart-card service in sequence
-  - Leaves the separate RAMBOX permission action available as option `7`
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items from known service target locations into `$HOME/PreRestored`
   - Preserves ownership and updates rollback references to the collected paths

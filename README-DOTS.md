@@ -194,10 +194,11 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` and its build requirements when needed
   - Installs configured Arch/AUR packages first, followed by Flatpaks
-  - Current packages include `brave-bin`, `hashid`, `jefferson-git`, `minipro-git`, `python-pywalfox`, `python-ubi-reader-git`, `qrencode`, `rambox-pro-bin`, `srec-git`, and `yubico-authenticator-bin`
+  - Current packages include `brave-bin`, `hashid`, `jefferson-git`, `minipro-git`, `python-ubi-reader-git`, `qrencode`, `rambox-pro-bin`, `srec-git`, and `yubico-authenticator-bin`
   - Current Flatpaks include `cc.arduino.IDE2`, `org.gnome.Calculator`, and `org.videolan.VLC`
   - Verifies newly requested packages and Flatpaks after installation
   - Verifies Flatpak VLC before removing an installed repository VLC package
+  - Removes the repository `firefox` package when installed, after package and Flatpak installation succeeds
   - Ensures the Micronucleus udev rule exists whenever Arduino IDE 2 is installed
   - Runs the ML4W `ml4w-install-hyprmod` script as the final installation step
   - Writes package-manager details to `install-extra.log`
@@ -256,7 +257,7 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Restores `gtk-3.0/settings.ini` and `gtk-4.0/settings.ini`
   - Restores `qt6ct/qt6ct.conf`
   - Restores `xsettingsd/xsettingsd.conf`
-  - Restores selected `ml4w/settings/` files
+  - Restores selected `ml4w/settings/` files, including `browser.sh`, `editor.sh`, and `statusbar`, to the corresponding ML4W configuration paths
   - Copies `015-LATERALUS/dracula.qbtheme` to `$HOME/.config/qBittorrent/dracula.qbtheme`
   - Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when present
   - Runs bundled `config/local/restore-dots-settings.sh` when present
