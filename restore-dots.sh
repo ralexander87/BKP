@@ -246,7 +246,7 @@ Select action:
   2 - Install FONTS
   3 - Install Extra
       -- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,
-         -- Rambox Pro, QRencode, sRec, Minipro, HyprMod
+         -- Rambox Pro, QRencode, sRec, Minipro, Tabby, HyprMod
       -- FlatPak: VLC, Calc, ArduinoIDE
   4 - Set AutoLogin
   5 - Change SHELL
@@ -1203,6 +1203,7 @@ restore_settings() {
   local minipro_rule_source
   local source_rel
   local -a source_files=(
+    "btop/btop.conf"
     "gtk-3.0/bookmarks"
     "gtk-3.0/settings.ini"
     "gtk-4.0/settings.ini"
@@ -1240,6 +1241,8 @@ restore_settings() {
     log_error "Cannot continue Restore Settings because root authentication failed"
     return 1
   fi
+
+  restore_config_file "Settings" "btop/btop.conf" "btop/btop.conf"
 
   # Toolkit theme settings.
   restore_config_file "Settings" "gtk-3.0/bookmarks" "gtk-3.0/bookmarks"

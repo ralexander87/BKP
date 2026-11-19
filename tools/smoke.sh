@@ -531,7 +531,7 @@ fi
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '3 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- Rambox Pro, QRencode, sRec, Minipro, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- Rambox Pro, QRencode, sRec, Minipro, Tabby, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- FlatPak: VLC, Calc, ArduinoIDE' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- ZSH' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- Keybinds, NVIDIA, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO' "$PROJECT_ROOT/restore-dots.sh"
@@ -560,6 +560,7 @@ grep -Fq 'jefferson-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'rambox-pro-bin' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fq 'tabby-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'qrencode' "$PROJECT_ROOT/config/dots-extra.conf"
 if grep -Fq 'python-pywalfox' "$PROJECT_ROOT/config/dots-extra.conf"; then
   printf 'Install Extra should not install Pywalfox\n' >&2
@@ -752,6 +753,7 @@ mkdir -p \
   "$dots_dir/walker" \
   "$dots_dir/zshrc" \
   "$dots_dir/bashrc" \
+  "$dots_dir/btop" \
   "$dots_dir/gtk-3.0" \
   "$dots_dir/gtk-4.0" \
   "$dots_dir/qt6ct" \
@@ -772,6 +774,7 @@ for source_rel in \
   hypr/logo-2.png \
   hypr/scripts/uptime.sh \
   waybar/modules.json \
+  btop/btop.conf \
   gtk-3.0/bookmarks \
   gtk-3.0/settings.ini \
   gtk-4.0/settings.ini \
@@ -864,11 +867,16 @@ find "$HOME/PreRestored" -maxdepth 1 -type d -name 'walker-pre-restore-*' \
 mkdir -p "$(dirname -- "$MINIPRO_ALGORITHM_TARGET")" "$(dirname -- "$MINIPRO_UDEV_RULE_TARGET")"
 printf 'old algorithm fixture\n' >"$MINIPRO_ALGORITHM_TARGET"
 printf 'old minipro rule fixture\n' >"$MINIPRO_UDEV_RULE_TARGET"
+mkdir -p "$ML4W_CONFIG_ROOT/btop"
+printf 'old btop config\n' >"$ML4W_CONFIG_ROOT/btop/btop.conf"
 mkdir -p "$ML4W_CONFIG_ROOT/ml4w/settings"
 for settings_file in browser.sh editor.sh statusbar; do
   printf 'old setting: %s\n' "$settings_file" >"$ML4W_CONFIG_ROOT/ml4w/settings/$settings_file"
 done
 restore_settings
+grep -Fqx 'fixture: btop/btop.conf' "$ML4W_CONFIG_ROOT/btop/btop.conf"
+find "$HOME/PreRestored" -maxdepth 1 -type f -name 'btop.conf-pre-restore-*' \
+  -exec grep -Fqx 'old btop config' '{}' \; -print -quit | grep -q .
 for settings_file in browser.sh editor.sh statusbar; do
   grep -Fqx "fixture: ml4w/settings/$settings_file" "$ML4W_CONFIG_ROOT/ml4w/settings/$settings_file"
   find "$HOME/PreRestored" -maxdepth 1 -type f -name "$settings_file-pre-restore-*" \

@@ -194,7 +194,7 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` and its build requirements when needed
   - Installs configured Arch/AUR packages first, followed by Flatpaks
-  - Current packages include `brave-bin`, `hashid`, `jefferson-git`, `minipro-git`, `python-ubi-reader-git`, `qrencode`, `rambox-pro-bin`, `srec-git`, and `yubico-authenticator-bin`
+  - Current packages include `brave-bin`, `hashid`, `jefferson-git`, `minipro-git`, `python-ubi-reader-git`, `qrencode`, `rambox-pro-bin`, `srec-git`, `tabby-bin`, and `yubico-authenticator-bin`
   - Current Flatpaks include `cc.arduino.IDE2`, `org.gnome.Calculator`, and `org.videolan.VLC`
   - Verifies newly requested packages and Flatpaks after installation
   - Verifies Flatpak VLC before removing an installed repository VLC package
@@ -253,6 +253,7 @@ Actions ask for confirmation before changing local configuration. Restore action
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items under `$HOME` into `$HOME/PreRestored`
 - `99 - Restore Settings`
+  - Restores `btop/btop.conf` to the corresponding ML4W configuration path
   - Restores `gtk-3.0/bookmarks`
   - Restores `gtk-3.0/settings.ini` and `gtk-4.0/settings.ini`
   - Restores `qt6ct/qt6ct.conf`
