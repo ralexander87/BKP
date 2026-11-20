@@ -247,6 +247,7 @@ Select action:
   3 - Install Extra
       -- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,
          -- Rambox Pro, QRencode, sRec, Minipro, Tabby, HyprMod
+      -- Themes: Dracula GTK, Dracula Cursors, Tela Circle Dracula
       -- FlatPak: VLC, Calc, ArduinoIDE
   4 - Set AutoLogin
   5 - Change SHELL
@@ -1199,8 +1200,14 @@ restore_minipro_system_files() {
 # Restore selected desktop settings and apply local post-restore customizations.
 restore_settings() {
   local algorithm_source
+  local brave_theme_source
+  local brave_theme_target="$HOME/.config/BraveSoftware/dracula-pro-pro"
   local device_root
+  local gtksourceview_source
+  local gtksourceview_target="$HOME/.local/share/gtksourceview-5"
   local minipro_rule_source
+  local qt5_theme_source
+  local qt5_theme_target="$HOME/.config/qt5ct/colors/Dracula.conf"
   local source_rel
   local -a source_files=(
     "btop/btop.conf"
@@ -1231,6 +1238,12 @@ restore_settings() {
   done
   resolve_qbittorrent_theme_source >/dev/null
   device_root="$(resolve_backup_device_root)" || die "could not resolve backup device root from: $SCRIPT_DIR"
+  qt5_theme_source="$device_root/STATIC/Dracula.conf"
+  [[ -f "$qt5_theme_source" ]] || die "Qt5 color theme file not found: $qt5_theme_source"
+  brave_theme_source="$device_root/STATIC/dracula-pro-pro"
+  [[ -d "$brave_theme_source" ]] || die "Brave theme folder not found: $brave_theme_source"
+  gtksourceview_source="$device_root/STATIC/gtksourceview-5"
+  [[ -d "$gtksourceview_source" ]] || die "GtkSourceView folder not found: $gtksourceview_source"
   algorithm_source="$device_root/015-LATERALUS/algorithm.xml"
   minipro_rule_source="$device_root/015-LATERALUS/60-minipro.rules"
   [[ -f "$algorithm_source" ]] || die "Minipro algorithm source file not found: $algorithm_source"
@@ -1270,6 +1283,21 @@ restore_settings() {
 
   customize_thunar_custom_actions
   restore_qbittorrent_theme
+
+  log "Restoring Qt5 color theme: $qt5_theme_source -> $qt5_theme_target"
+  snapshot_existing_target "$qt5_theme_target"
+  mkdir -p "$(dirname -- "$qt5_theme_target")"
+  cp -a -- "$qt5_theme_source" "$qt5_theme_target"
+
+  log "Restoring Brave theme: $brave_theme_source -> $brave_theme_target"
+  snapshot_existing_target "$brave_theme_target"
+  mkdir -p "$(dirname -- "$brave_theme_target")"
+  cp -a -- "$brave_theme_source" "$brave_theme_target"
+
+  log "Restoring GtkSourceView: $gtksourceview_source -> $gtksourceview_target"
+  snapshot_existing_target "$gtksourceview_target"
+  mkdir -p "$(dirname -- "$gtksourceview_target")"
+  cp -a -- "$gtksourceview_source" "$gtksourceview_target"
 
   run_restore_settings_local_hook
   restore_minipro_system_files "$algorithm_source" "$minipro_rule_source"

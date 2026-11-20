@@ -96,6 +96,9 @@ Some shared assets are restore-only inputs maintained separately on the backup d
 
 - `015-LATERALUS/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
 - `STATIC/fonts/install.sh` and `STATIC/Steelfish Outline.ttf`, used by DOTS option `2`
+- `STATIC/Dracula.conf`, copied to `$HOME/.config/qt5ct/colors/Dracula.conf` by DOTS option `99`
+- `STATIC/dracula-pro-pro/`, copied to `$HOME/.config/BraveSoftware/dracula-pro-pro/` by DOTS option `99`
+- `STATIC/gtksourceview-5/`, copied to `$HOME/.local/share/gtksourceview-5/` by DOTS option `99`
 - `015-LATERALUS/dracula.qbtheme`, used by DOTS option `99`
 - `015-LATERALUS/algorithm.xml` and `015-LATERALUS/60-minipro.rules`, installed into system locations by DOTS option `99`
 
@@ -195,6 +198,7 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Installs `yay` and its build requirements when needed
   - Installs configured Arch/AUR packages first, followed by Flatpaks
   - Current packages include `brave-bin`, `hashid`, `jefferson-git`, `minipro-git`, `python-ubi-reader-git`, `qrencode`, `rambox-pro-bin`, `srec-git`, `tabby-bin`, and `yubico-authenticator-bin`
+  - Installs the themes `aur/dracula-gtk-theme`, `aur/dracula-cursors-git`, and `extra/tela-circle-icon-theme-dracula` through the same package phase
   - Current Flatpaks include `cc.arduino.IDE2`, `org.gnome.Calculator`, and `org.videolan.VLC`
   - Verifies newly requested packages and Flatpaks after installation
   - Verifies Flatpak VLC before removing an installed repository VLC package
@@ -260,6 +264,9 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Restores `xsettingsd/xsettingsd.conf`
   - Restores selected `ml4w/settings/` files, including `browser.sh`, `editor.sh`, and `statusbar`, to the corresponding ML4W configuration paths
   - Copies `015-LATERALUS/dracula.qbtheme` to `$HOME/.config/qBittorrent/dracula.qbtheme`
+  - Copies `STATIC/Dracula.conf` from the backup device to `$HOME/.config/qt5ct/colors/Dracula.conf`, preserving an existing file under `$HOME/PreRestored`
+  - Copies the complete `STATIC/dracula-pro-pro/` folder from the backup device to `$HOME/.config/BraveSoftware/dracula-pro-pro/`, preserving an existing folder under `$HOME/PreRestored`
+  - Copies the complete `STATIC/gtksourceview-5/` folder from the backup device to `$HOME/.local/share/gtksourceview-5/`, preserving an existing folder under `$HOME/PreRestored`
   - Changes Thunar custom action commands in `$HOME/.config/Thunar/uca.xml` to `kitty` when present
   - Runs bundled `config/local/restore-dots-settings.sh` when present
   - Copies `015-LATERALUS/algorithm.xml` to `/usr/share/minipro/algorithm.xml`

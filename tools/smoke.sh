@@ -556,6 +556,9 @@ grep -Fq '21 - Restore QS' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '22 - Restore WALKER' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '50 - Connect WiFi' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'brave-bin' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fxq '  dracula-gtk-theme' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fxq '  dracula-cursors-git' "$PROJECT_ROOT/config/dots-extra.conf"
+grep -Fxq '  tela-circle-icon-theme-dracula' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'jefferson-git' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'yubico-authenticator-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fq 'python-ubi-reader-git' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -760,6 +763,8 @@ mkdir -p \
   "$dots_dir/xsettingsd" \
   "$dots_dir/ml4w/settings" \
   "$tmp/device/015-LATERALUS" \
+  "$tmp/device/STATIC/dracula-pro-pro/assets" \
+  "$tmp/device/STATIC/gtksourceview-5/styles" \
   "$tmp/home"
 cp "$PROJECT_ROOT/lib/common.sh" "$dots_dir/lib/common.sh"
 awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$dots_dir/restore-dots-partial.sh"
@@ -810,6 +815,10 @@ cat >"$dots_dir/quickshell/overview/config.json" <<'EOF'
 }
 EOF
 printf 'theme fixture\n' >"$tmp/device/015-LATERALUS/dracula.qbtheme"
+printf 'qt5 theme fixture\n' >"$tmp/device/STATIC/Dracula.conf"
+printf 'brave theme fixture\n' >"$tmp/device/STATIC/dracula-pro-pro/manifest.json"
+printf 'brave asset fixture\n' >"$tmp/device/STATIC/dracula-pro-pro/assets/.theme"
+printf 'gtksourceview fixture\n' >"$tmp/device/STATIC/gtksourceview-5/styles/dracula.xml"
 printf 'new algorithm fixture\n' >"$tmp/device/015-LATERALUS/algorithm.xml"
 printf 'new minipro rule fixture\n' >"$tmp/device/015-LATERALUS/60-minipro.rules"
 cat >>"$dots_dir/restore-dots-partial.sh" <<'EOF'
@@ -869,11 +878,29 @@ printf 'old algorithm fixture\n' >"$MINIPRO_ALGORITHM_TARGET"
 printf 'old minipro rule fixture\n' >"$MINIPRO_UDEV_RULE_TARGET"
 mkdir -p "$ML4W_CONFIG_ROOT/btop"
 printf 'old btop config\n' >"$ML4W_CONFIG_ROOT/btop/btop.conf"
+mkdir -p "$HOME/.config/qt5ct/colors"
+printf 'old qt5 theme\n' >"$HOME/.config/qt5ct/colors/Dracula.conf"
+mkdir -p "$HOME/.config/BraveSoftware/dracula-pro-pro"
+printf 'old brave theme\n' >"$HOME/.config/BraveSoftware/dracula-pro-pro/old.json"
+mkdir -p "$HOME/.local/share/gtksourceview-5"
+printf 'old gtksourceview fixture\n' >"$HOME/.local/share/gtksourceview-5/old.xml"
 mkdir -p "$ML4W_CONFIG_ROOT/ml4w/settings"
 for settings_file in browser.sh editor.sh statusbar; do
   printf 'old setting: %s\n' "$settings_file" >"$ML4W_CONFIG_ROOT/ml4w/settings/$settings_file"
 done
 restore_settings
+grep -Fqx 'gtksourceview fixture' "$HOME/.local/share/gtksourceview-5/styles/dracula.xml"
+[[ ! -e "$HOME/.local/share/gtksourceview-5/old.xml" ]]
+find "$HOME/PreRestored" -maxdepth 1 -type d -name 'gtksourceview-5-pre-restore-*' \
+  -exec grep -Fqx 'old gtksourceview fixture' '{}/old.xml' \; -print -quit | grep -q .
+grep -Fqx 'brave theme fixture' "$HOME/.config/BraveSoftware/dracula-pro-pro/manifest.json"
+grep -Fqx 'brave asset fixture' "$HOME/.config/BraveSoftware/dracula-pro-pro/assets/.theme"
+[[ ! -e "$HOME/.config/BraveSoftware/dracula-pro-pro/old.json" ]]
+find "$HOME/PreRestored" -maxdepth 1 -type d -name 'dracula-pro-pro-pre-restore-*' \
+  -exec grep -Fqx 'old brave theme' '{}/old.json' \; -print -quit | grep -q .
+grep -Fqx 'qt5 theme fixture' "$HOME/.config/qt5ct/colors/Dracula.conf"
+find "$HOME/PreRestored" -maxdepth 1 -type f -name 'Dracula.conf-pre-restore-*' \
+  -exec grep -Fqx 'old qt5 theme' '{}' \; -print -quit | grep -q .
 grep -Fqx 'fixture: btop/btop.conf' "$ML4W_CONFIG_ROOT/btop/btop.conf"
 find "$HOME/PreRestored" -maxdepth 1 -type f -name 'btop.conf-pre-restore-*' \
   -exec grep -Fqx 'old btop config' '{}' \; -print -quit | grep -q .
