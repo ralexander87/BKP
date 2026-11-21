@@ -95,10 +95,11 @@ The four backup-only hidden files listed above are not restored by any restore s
 Some shared assets are restore-only inputs maintained separately on the backup device; `bkp-main.sh` does not create or update them:
 
 - `015-LATERALUS/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
-- `STATIC/fonts/install.sh` and `STATIC/Steelfish Outline.ttf`, used by DOTS option `2`
+- `STATIC/fonts/install.sh` and `STATIC/Steelfish Outline.ttf`, used by DOTS option `1`
 - `STATIC/Dracula.conf`, copied to `$HOME/.config/qt5ct/colors/Dracula.conf` by DOTS option `99`
 - `STATIC/dracula-pro-pro/`, copied to `$HOME/.config/BraveSoftware/dracula-pro-pro/` by DOTS option `99`
 - `STATIC/gtksourceview-5/`, copied to `$HOME/.local/share/gtksourceview-5/` by DOTS option `99`
+- `STATIC/hyprland.lua`, copied to `$HOME/.config/hypr/hyprland.lua` by DOTS option `51`
 - `015-LATERALUS/dracula.qbtheme`, used by DOTS option `99`
 - `015-LATERALUS/algorithm.xml` and `015-LATERALUS/60-minipro.rules`, installed into system locations by DOTS option `99`
 
@@ -184,16 +185,19 @@ Actions ask for confirmation before changing local configuration. Restore action
 ### Install Actions
 
 - `0 - Exit`
-- `1 - Install DOTS`
+- `1 - Install FONTS`
+  - Runs `STATIC/fonts/install.sh` from the backup-device root, with a local fallback lookup at `DOTS/STATIC/fonts/install.sh`
+  - Copies `STATIC/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
+  - Refreshes the font cache when `fc-cache` is available
+- `2 - Install DOTS`
   - Moves `$HOME/.config/hypr` to a safety snapshot
   - Downloads the ML4W Stable installer over HTTPS into a temporary file
   - Displays the first 20 installer lines
   - Runs the downloaded installer with Bash only after a second confirmation, also defaulting to `N`
-- `2 - Install FONTS`
-  - Runs `STATIC/fonts/install.sh` from the backup-device root, with a local fallback lookup at `DOTS/STATIC/fonts/install.sh`
-  - Copies `STATIC/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
-  - Refreshes the font cache when `fc-cache` is available
-- `3 - Install Extra`
+- `3 - Set AutoLogin`
+  - Snapshots `/usr/lib/sddm/sddm.conf.d/default.conf`
+  - Sets its `User=` line to the local non-root username using `sudo`
+- `4 - Install Extra`
   - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` and its build requirements when needed
   - Installs configured Arch/AUR packages first, followed by Flatpaks
@@ -206,10 +210,7 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Ensures the Micronucleus udev rule exists whenever Arduino IDE 2 is installed
   - Runs the ML4W `ml4w-install-hyprmod` script as the final installation step
   - Writes package-manager details to `install-extra.log`
-- `4 - Set AutoLogin`
-  - Snapshots `/usr/lib/sddm/sddm.conf.d/default.conf`
-  - Sets its `User=` line to the local non-root username using `sudo`
-- `5 - Change SHELL`
+- `5 - Change shell to ZSH`
   - Runs the ML4W `ml4w-change-shell` script
 
 ### Restore Actions
@@ -254,6 +255,9 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Creates or updates the `FeedMe-6+` connection profile with `192.168.8.15/24`, gateway and DNS `192.168.8.1`, and IPv6 disabled
   - Enables autoconnect and lets NetworkManager store the password for future connections
   - Uses infrastructure mode, no specified device MAC or cloned MAC, automatic MTU, and no proxy
+- `51 - HYPR conf`
+  - Copies the external device's `STATIC/hyprland.lua` to `$HOME/.config/hypr/hyprland.lua`, using the same steps as `STARTER/start.sh`
+  - Preserves an existing file or symlink beside it as `hyprland.lua-pre-starter-XXXXXXXX` before replacement
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items under `$HOME` into `$HOME/PreRestored`
 - `99 - Restore Settings`

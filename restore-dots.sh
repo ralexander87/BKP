@@ -242,16 +242,15 @@ show_menu() {
 Select action:
   0 - Exit
 ============================
-  1 - Install DOTS
-  2 - Install FONTS
-  3 - Install Extra
+  1 - Install FONTS
+  2 - Install DOTS
+  3 - Set AutoLogin
+  4 - Install Extra
       -- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,
          -- Rambox Pro, QRencode, sRec, Minipro, Tabby, HyprMod
       -- Themes: Dracula GTK, Dracula Cursors, Tela Circle Dracula
       -- FlatPak: VLC, Calc, ArduinoIDE
-  4 - Set AutoLogin
-  5 - Change SHELL
-      -- ZSH
+  5 - Change shell to ZSH
 ============================
   10 - Restore Wallpapers
   11 - Restore ZSHRC, BASHRC
@@ -269,6 +268,7 @@ Select action:
   22 - Restore WALKER
 ============================
   50 - Connect WiFi
+  51 - HYPR conf
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -1073,6 +1073,33 @@ connect_wifi() {
   log "Connected to $ssid with $address, gateway and DNS $gateway, and IPv6 disabled"
 }
 
+# Preserve the current config before installing the external copy, as in STARTER/start.sh.
+install_hypr_conf() {
+  local device_root source_file snapshot
+  local target_dir="$HOME/.config/hypr"
+  local target_file="$target_dir/hyprland.lua"
+
+  device_root="$(resolve_backup_device_root)" || return 1
+  source_file="$device_root/STATIC/hyprland.lua"
+  if [[ ! -f "$source_file" || ! -r "$source_file" ]]; then
+    log_error "HYPR configuration not found or unreadable: $source_file"
+    return 1
+  fi
+  confirm_action "HYPR conf" || return 0
+  mkdir -p "$target_dir" || return 1
+  if [[ -e "$target_file" || -L "$target_file" ]]; then
+    if [[ -d "$target_file" ]]; then
+      log_error "Expected a config file, found a directory: $target_file"
+      return 1
+    fi
+    snapshot="$(mktemp "$target_dir/hyprland.lua-pre-starter-XXXXXXXX")" || return 1
+    cp -a --no-dereference --remove-destination -- "$target_file" "$snapshot" || return 1
+    log "Saved existing configuration: $snapshot"
+  fi
+  cp --remove-destination -- "$source_file" "$target_file" || return 1
+  log "Installed: $target_file"
+}
+
 # Collect legacy or externally created home pre-restore snapshots.
 collect_pre_restore() {
   local collect_dir="$HOME/PreRestored"
@@ -1372,16 +1399,16 @@ while true; do
     exit 0
     ;;
   1)
-    install_dots
-    ;;
-  2)
     install_fonts
     ;;
+  2)
+    install_dots
+    ;;
   3)
-    install_extra
+    set_autologin
     ;;
   4)
-    set_autologin
+    install_extra
     ;;
   5)
     change_shell
@@ -1427,6 +1454,9 @@ while true; do
     ;;
   50)
     connect_wifi || log_error "Connect WiFi failed"
+    ;;
+  51)
+    install_hypr_conf || log_error "HYPR conf failed"
     ;;
   98)
     collect_pre_restore

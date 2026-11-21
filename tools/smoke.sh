@@ -328,7 +328,7 @@ exit 0
 EOF
 chmod +x "$tmp/bin/fc-cache"
 printf 'font data\n' >"$tmp/device/STATIC/Steelfish Outline.ttf"
-printf '2\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
+printf '1\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
   bash "$tmp/device/MAIN/BKP-test/DOTS/restore-dots.sh" >/dev/null
 grep -Fqx 'device' "$tmp/installer-used"
 grep -Fqx 'font data' "$tmp/home/.local/share/fonts/Steelfish Outline.ttf"
@@ -337,7 +337,7 @@ mkdir -p "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts"
 mv "$tmp/device/STATIC/fonts/install.sh" "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts/install.sh"
 sed -i 's/device/local/' "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts/install.sh"
 printf 'local font data\n' >"$tmp/device/MAIN/BKP-test/DOTS/STATIC/Steelfish Outline.ttf"
-printf '2\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
+printf '1\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
   bash "$tmp/device/MAIN/BKP-test/DOTS/restore-dots.sh" >/dev/null
 grep -Fqx 'local' "$tmp/installer-used"
 grep -Fqx 'local font data' "$tmp/home/.local/share/fonts/Steelfish Outline.ttf"
@@ -368,7 +368,7 @@ done
 printf '#!/usr/bin/env bash\n' >"$output"
 EOF
 chmod +x "$tmp/bin/curl"
-printf '1\nY\nN\n0\n' | (
+printf '2\nY\nN\n0\n' | (
   cd "$tmp/BKP/DOTS" && HOME="$tmp/home" PATH="$tmp/bin:$PATH" ./restore-dots.sh >/dev/null
 )
 [[ -f "$tmp/home/.config/hypr/current.conf" ]]
@@ -395,7 +395,7 @@ EOF
 chmod +x "$tmp/bin/sudo"
 printf '[Autologin]\nUser=old-user\n' >"$tmp/default.conf"
 test_user="$(id -un)"
-printf '4\nY\n0\n' | (
+printf '3\nY\n0\n' | (
   cd "$tmp/BKP/DOTS" && HOME="$tmp/home" PATH="$tmp/bin:$PATH" USER="$test_user" SDDM_CONFIG="$tmp/default.conf" ./restore-dots.sh >/dev/null
 )
 grep -Fqx "User=$test_user" "$tmp/default.conf"
@@ -529,11 +529,12 @@ if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; t
   exit 1
 fi
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '3 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '1 - Install FONTS' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '2 - Install DOTS' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- Rambox Pro, QRencode, sRec, Minipro, Tabby, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- FlatPak: VLC, Calc, ArduinoIDE' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- ZSH' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- Keybinds, NVIDIA, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font),' "$PROJECT_ROOT/restore-dots.sh"
@@ -542,8 +543,8 @@ if grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"; then
   printf 'Install HyprMod should only be available through Install Extra\n' >&2
   exit 1
 fi
-grep -Fq '4 - Set AutoLogin' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '5 - Change SHELL' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '3 - Set AutoLogin' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '5 - Change shell to ZSH' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '10 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '11 - Restore ZSHRC, BASHRC' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq '14 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
@@ -692,10 +693,10 @@ if grep -Fq 'customize_wlogout_glass_style' "$PROJECT_ROOT/restore-dots.sh"; the
   printf 'retired wlogout style customization should not remain\n' >&2
   exit 1
 fi
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_dots
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_fonts
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 install_extra
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 set_autologin
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_fonts
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_dots
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 set_autologin
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_extra
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 5 change_shell
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 10 restore_wallpapers
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 11 restore_shell_rc
@@ -711,6 +712,7 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 20 restore_wlogout
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 21 restore_qs
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 22 restore_walker
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 50 connect_wifi
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 51 install_hypr_conf
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'
@@ -819,6 +821,7 @@ printf 'qt5 theme fixture\n' >"$tmp/device/STATIC/Dracula.conf"
 printf 'brave theme fixture\n' >"$tmp/device/STATIC/dracula-pro-pro/manifest.json"
 printf 'brave asset fixture\n' >"$tmp/device/STATIC/dracula-pro-pro/assets/.theme"
 printf 'gtksourceview fixture\n' >"$tmp/device/STATIC/gtksourceview-5/styles/dracula.xml"
+printf 'hyprland config fixture\n' >"$tmp/device/STATIC/hyprland.lua"
 printf 'new algorithm fixture\n' >"$tmp/device/015-LATERALUS/algorithm.xml"
 printf 'new minipro rule fixture\n' >"$tmp/device/015-LATERALUS/60-minipro.rules"
 cat >>"$dots_dir/restore-dots-partial.sh" <<'EOF'
@@ -831,6 +834,16 @@ sudo() { "$@"; }
 udevadm() { printf '%s\n' "$*" >>"$PWD/udevadm.calls"; }
 MINIPRO_ALGORITHM_TARGET="$PWD/system/usr/share/minipro/algorithm.xml"
 MINIPRO_UDEV_RULE_TARGET="$PWD/system/etc/udev/rules.d/60-minipro.rules"
+
+mkdir -p "$HOME/.config/hypr"
+printf 'original hypr config\n' >"$HOME/original-hypr.lua"
+ln -s "$HOME/original-hypr.lua" "$HOME/.config/hypr/hyprland.lua"
+install_hypr_conf
+[[ ! -L "$HOME/.config/hypr/hyprland.lua" ]]
+grep -Fqx 'hyprland config fixture' "$HOME/.config/hypr/hyprland.lua"
+grep -Fqx 'original hypr config' "$HOME/original-hypr.lua"
+find "$HOME/.config/hypr" -maxdepth 1 -type l -name 'hyprland.lua-pre-starter-*' \
+  -lname "$HOME/original-hypr.lua" -print -quit | grep -q .
 
 mkdir -p "$ML4W_CONFIG_ROOT/zshrc" "$ML4W_CONFIG_ROOT/bashrc"
 printf 'old zshrc fixture\n' >"$ML4W_CONFIG_ROOT/zshrc/config"
