@@ -174,6 +174,29 @@ update_shared_firmware_and_wallpapers() {
   printf -- '- Updated Firmware and Wallpapers in %s/015-LATERALUS\n' "$(display_mount_target "$DEST_DEVICE")"
 }
 
+# Copy only Tabby's plugins and configuration into shared STATIC storage.
+backup_tabby() {
+  local item source_path task_id
+  local destination_dir="$DEST_DEVICE/$STATIC_TABBY_RELATIVE"
+
+  for item in plugins config.yaml; do
+    source_path="$HOME/$TABBY_HOME_RELATIVE/$item"
+    task_id="main-tabby-$item"
+    if [[ "$item" == "plugins" && -d "$source_path" ]] || [[ "$item" == "config.yaml" && -f "$source_path" ]]; then
+      log "Backing up Tabby: $source_path -> $destination_dir/"
+      ui_update_task "$task_id" "RUNNING" "copying $item"
+      ui_render
+      mkdir -p "$destination_dir"
+      ui_run_command "$task_id" "copying $item" run_rsync_main rsync_backup_copy "$source_path" "$destination_dir/"
+      ui_update_task "$task_id" "DONE" "COPIED"
+    else
+      log "Skipping missing Tabby source: $source_path"
+      ui_update_task "$task_id" "SKIPPED" "source missing"
+    fi
+    ui_render
+  done
+}
+
 # Build the backup item list from top-level non-hidden $HOME folders, excluding PreRestored.
 discover_home_items() {
   local hidden_item
@@ -208,6 +231,11 @@ estimate_backup_size_bytes() {
 
   size="$(path_size_bytes "$DOTS_SOURCE")"
   total=$((total + size))
+
+  for item in plugins config.yaml; do
+    size="$(path_size_bytes "$HOME/$TABBY_HOME_RELATIVE/$item")"
+    total=$((total + size))
+  done
 
   printf '%s\n' "$total"
 }
@@ -293,6 +321,13 @@ verify_backup_contents() {
 
   if [[ -d "$FIRMWARE_SOURCE" ]]; then
     [[ -d "$LATERALUS_FIRMWARE_DIR" ]] || die "missing expected shared firmware folder: $LATERALUS_FIRMWARE_DIR"
+  fi
+
+  if [[ -d "$HOME/$TABBY_HOME_RELATIVE/plugins" ]]; then
+    [[ -d "$DEST_DEVICE/$STATIC_TABBY_RELATIVE/plugins" ]] || die "missing expected shared Tabby plugins folder"
+  fi
+  if [[ -f "$HOME/$TABBY_HOME_RELATIVE/config.yaml" ]]; then
+    [[ -f "$DEST_DEVICE/$STATIC_TABBY_RELATIVE/config.yaml" ]] || die "missing expected shared Tabby config file"
   fi
 
   for hidden_file in "${HOME_HIDDEN_FILES[@]}"; do
@@ -452,6 +487,8 @@ ui_add_task "main-dots" "Backup DOTS"
 ui_add_task "main-wallpapers" "Backup wallpapers"
 ui_add_task "main-firmware" "Backup firmware"
 ui_add_task "main-hidden-files" "Backup hidden files"
+ui_add_task "main-tabby-plugins" "Backup Tabby plugins"
+ui_add_task "main-tabby-config.yaml" "Backup Tabby config"
 ui_add_task "main-manifest" "Write manifest"
 if [[ "$CREATE_ARCHIVE" == "true" ]]; then
   ui_add_task "main-archive" "Create archive"
@@ -609,6 +646,9 @@ else
   ui_update_task "main-hidden-files" "SKIPPED" "hidden files missing"
 fi
 ui_render
+
+# Copy backup-only Tabby content independently of the ML4W dotfiles tree.
+backup_tabby
 
 # Verify and publish the staged backup before optional compression.
 ui_update_task "main-manifest" "RUNNING" "writing manifest"

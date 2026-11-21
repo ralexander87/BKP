@@ -89,8 +89,11 @@ date +%Y-%j-%d-%m-%H-%M-%S
   - `.zsh_history`
   - `.zshrc`
   - `.wget-hsts`
+- `$HOME/.config/tabby/plugins/` and `$HOME/.config/tabby/config.yaml`, copied into shared `STATIC/tabby/`
 
 The four backup-only hidden files listed above are not restored by any restore script.
+
+Tabby content is also backup-only. MAIN backups update existing Tabby files in `STATIC/tabby/`, preserve destination files absent from the source, and skip missing sources. No restore action uses these copies.
 
 Some shared assets are restore-only inputs maintained separately on the backup device; `bkp-main.sh` does not create or update them:
 
@@ -123,7 +126,7 @@ Archives are written beside the backup folder:
 /path/to/device/MAIN/BKP-<timestamp>.tar.gz
 ```
 
-Shared `015-LATERALUS/` and `STATIC/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, the qBittorrent theme, the Arduino desktop entry, and the Minipro algorithm and udev files.
+Shared `015-LATERALUS/` and `STATIC/` content is stored outside each per-run backup and is not included in its archive. This includes wallpapers, firmware, fonts, Tabby plugins and configuration, the qBittorrent theme, the Arduino desktop entry, and the Minipro algorithm and udev files.
 
 MAIN backup safety behavior includes:
 

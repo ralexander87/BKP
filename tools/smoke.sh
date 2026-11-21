@@ -1428,6 +1428,51 @@ grep -Fq -- '- Updated Firmware and Wallpapers in /netac/015-LATERALUS' "$tmp/up
 rm -rf "$tmp"
 printf '015-LATERALUS-only update output OK: bkp-main.sh\n'
 
+# Tabby copies are independent, refresh existing files, and tolerate missing sources.
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/logs" "$tmp/config" "$tmp/home/.config/tabby/plugins/example" "$tmp/device"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+cp "$PROJECT_ROOT/config/main.backup.conf" "$tmp/config/main.backup.conf"
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/bkp-main.sh" >"$tmp/bkp-main-partial.sh"
+cat >>"$tmp/bkp-main-partial.sh" <<'EOF'
+HOME="$PWD/home"
+DEST_DEVICE="$PWD/device"
+load_main_backup_config
+ui_add_task "main-tabby-plugins" "Backup Tabby plugins"
+ui_add_task "main-tabby-config.yaml" "Backup Tabby config"
+tabby_source="$HOME/.config/tabby"
+tabby_destination="$DEST_DEVICE/STATIC/tabby"
+printf 'plugin fixture\n' >"$tabby_source/plugins/example/.plugin"
+printf 'initial config\n' >"$tabby_source/config.yaml"
+printf 'unrelated file\n' >"$tabby_source/ignored.txt"
+backup_tabby
+cmp "$tabby_source/plugins/example/.plugin" "$tabby_destination/plugins/example/.plugin"
+cmp "$tabby_source/config.yaml" "$tabby_destination/config.yaml"
+[[ ! -e "$tabby_destination/ignored.txt" ]]
+printf 'updated config fixture\n' >"$tabby_source/config.yaml"
+printf 'updated plugin fixture\n' >"$tabby_source/plugins/example/.plugin"
+printf 'keep destination file\n' >"$tabby_destination/plugins/keep.txt"
+backup_tabby
+cmp "$tabby_source/plugins/example/.plugin" "$tabby_destination/plugins/example/.plugin"
+cmp "$tabby_source/config.yaml" "$tabby_destination/config.yaml"
+[[ -f "$tabby_destination/plugins/keep.txt" ]]
+mv "$tabby_source/plugins" "$PWD/saved-plugins"
+printf 'config fixture with plugins source unavailable\n' >"$tabby_source/config.yaml"
+backup_tabby
+cmp "$tabby_source/config.yaml" "$tabby_destination/config.yaml"
+mv "$tabby_source/config.yaml" "$PWD/saved-config.yaml"
+mv "$PWD/saved-plugins" "$tabby_source/plugins"
+backup_tabby
+cmp "$PWD/saved-config.yaml" "$tabby_destination/config.yaml"
+mv "$tabby_source" "$PWD/saved-tabby"
+backup_tabby
+[[ -f "$tabby_destination/plugins/example/.plugin" ]]
+[[ -f "$tabby_destination/config.yaml" ]]
+EOF
+(cd "$tmp" && bash bkp-main-partial.sh >/dev/null)
+rm -rf "$tmp"
+printf 'backup-only Tabby STATIC copies and missing sources OK\n'
+
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/lib" "$tmp/logs"
 cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
