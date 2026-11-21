@@ -269,6 +269,7 @@ Select action:
 ============================
   50 - Connect WiFi
   51 - HYPR conf
+  52 - Pack-1
 ============================
   98 - Collect pre-restore
   99 - Restore Settings
@@ -561,6 +562,7 @@ require_extra_commands() {
 # Put the summary first and the complete process output below it.
 finalize_install_extra_log() {
   local result="${1^^}"
+  local label="${2:-Install Extra}"
   local final_temp
   local install_extra_dir
 
@@ -568,7 +570,7 @@ finalize_install_extra_log() {
   final_temp="$(mktemp "$install_extra_dir/.install-extra-log.XXXXXX")"
   register_temp_path "$final_temp"
   {
-    printf 'Install Extra = [%s]\n' "$result"
+    printf '%s = [%s]\n' "$label" "$result"
     printf 'Started = %s\n' "$INSTALL_EXTRA_STARTED"
     printf 'Finished = %s\n' "$(date --iso-8601=seconds)"
     printf 'Missing / Not Installed:\n'
@@ -587,7 +589,7 @@ finalize_install_extra_log() {
     cat "$INSTALL_EXTRA_BODY"
   } >"$final_temp"
   mv -- "$final_temp" "$INSTALL_EXTRA_LOG"
-  log "Install Extra log: $INSTALL_EXTRA_LOG"
+  log "$label log: $INSTALL_EXTRA_LOG"
 }
 
 # Install yay from its official AUR package when it is not already available.
@@ -1100,6 +1102,51 @@ install_hypr_conf() {
   log "Installed: $target_file"
 }
 
+# Install yay when needed and restore the initial keybindings and desktop settings.
+restore_pack_1() {
+  local source_rel
+  local INSTALL_EXTRA_LOG
+  local -a source_files=(
+    "hypr/conf/keybindings/default.lua"
+    "ml4w/settings/filemanager"
+    "ml4w/settings/browser.sh"
+    "ml4w/settings/statusbar"
+    "ml4w/settings/terminal.sh"
+    "ml4w/settings/kitty-cursor-trail.conf"
+  )
+
+  for source_rel in "${source_files[@]}"; do
+    if [[ ! -f "$SCRIPT_DIR/$source_rel" || ! -r "$SCRIPT_DIR/$source_rel" ]]; then
+      log_error "Pack-1 source file not found or unreadable: $SCRIPT_DIR/$source_rel"
+      return 1
+    fi
+  done
+  confirm_action "Pack-1" || return 0
+
+  if ! command -v yay >/dev/null 2>&1; then
+    INSTALL_EXTRA_LOG="$(resolve_writable_output_path "$SCRIPT_DIR/pack-1.log" "$RESTORE_STATE_ROOT/pack-1-$RESTORE_ID.log")"
+    init_install_extra_log
+    if ! start_sudo_keepalive; then
+      EXTRA_FAILED_ACTIONS+=("Authenticate sudo")
+      extra_log_message "ERROR" "Cannot continue Pack-1 because root authentication failed"
+      finalize_install_extra_log "FAILED" "Pack-1"
+      return 1
+    fi
+    if ! ensure_yay_installed; then
+      finalize_install_extra_log "FAILED" "Pack-1"
+      stop_sudo_keepalive
+      return 1
+    fi
+    finalize_install_extra_log "COMPLETED" "Pack-1"
+    stop_sudo_keepalive
+  fi
+
+  for source_rel in "${source_files[@]}"; do
+    restore_config_file "Pack-1" "$source_rel" "$source_rel" || return 1
+  done
+  log "Done: Pack-1"
+}
+
 # Collect legacy or externally created home pre-restore snapshots.
 collect_pre_restore() {
   local collect_dir="$HOME/PreRestored"
@@ -1457,6 +1504,9 @@ while true; do
     ;;
   51)
     install_hypr_conf || log_error "HYPR conf failed"
+    ;;
+  52)
+    restore_pack_1 || log_error "Pack-1 failed"
     ;;
   98)
     collect_pre_restore
