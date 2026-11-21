@@ -896,15 +896,15 @@ restore_cava() {
   log "Done: Restore CAVA"
 }
 
-# Restore the backed-up WAYBAR modules file, themes, and scripts folders.
+# Restore the backed-up WAYBAR modules file, RALEX theme, and scripts folder.
 restore_waybar() {
   [[ -f "$SCRIPT_DIR/waybar/modules.json" ]] || die "waybar modules source file not found: $SCRIPT_DIR/waybar/modules.json"
-  [[ -d "$SCRIPT_DIR/waybar/themes" ]] || die "waybar themes source folder not found: $SCRIPT_DIR/waybar/themes"
+  [[ -d "$SCRIPT_DIR/waybar/themes/RALEX" ]] || die "waybar RALEX theme source folder not found: $SCRIPT_DIR/waybar/themes/RALEX"
   [[ -d "$SCRIPT_DIR/waybar/scripts" ]] || die "waybar scripts source folder not found: $SCRIPT_DIR/waybar/scripts"
 
   confirm_action "Restore WAYBAR" || return 0
   restore_config_file "WAYBAR" "waybar/modules.json" "waybar/modules.json"
-  restore_config_folder "WAYBAR" "waybar/themes" "waybar/themes"
+  restore_config_folder "WAYBAR" "waybar/themes/RALEX" "waybar/themes/RALEX"
   restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"
   log "Done: Restore WAYBAR"
 }

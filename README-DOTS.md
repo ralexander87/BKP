@@ -235,7 +235,7 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Snapshots and restores the complete `rofi` folder
 - `16 - Restore WAYBAR`
   - Restores `waybar/modules.json`
-  - Snapshots and restores `waybar/themes/` and `waybar/scripts/`
+  - Snapshots and restores `waybar/themes/RALEX/` and `waybar/scripts/`
 - `17 - Restore MATUGEN`
   - Restores `matugen/config.toml` and the complete `matugen/templates/` folder
 - `18 - Restore CAVA`

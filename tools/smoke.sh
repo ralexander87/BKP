@@ -753,7 +753,7 @@ mkdir -p \
   "$dots_dir/hypr/conf/environments" \
   "$dots_dir/hypr/conf/windowrules" \
   "$dots_dir/hypr/scripts" \
-  "$dots_dir/waybar/themes" \
+  "$dots_dir/waybar/themes/RALEX" \
   "$dots_dir/waybar/scripts" \
   "$dots_dir/quickshell/overview" \
   "$dots_dir/walker" \
@@ -805,7 +805,8 @@ for source_rel in \
   ml4w/settings/waybar_workspaces.sh; do
   printf 'fixture: %s\n' "$source_rel" >"$dots_dir/$source_rel"
 done
-printf 'theme fixture\n' >"$dots_dir/waybar/themes/theme.css"
+printf 'theme fixture\n' >"$dots_dir/waybar/themes/RALEX/theme.css"
+printf 'other source theme\n' >"$dots_dir/waybar/themes/other.css"
 printf 'script fixture\n' >"$dots_dir/waybar/scripts/test.sh"
 printf 'walker fixture\n' >"$dots_dir/walker/config.toml"
 printf 'zshrc fixture\n' >"$dots_dir/zshrc/config"
@@ -911,9 +912,17 @@ find "$HOME/PreRestored" -maxdepth 1 -type f -name 'nvidia.lua-pre-restore-*' \
 [[ ! -e "$ML4W_CONFIG_ROOT/waybar/modules.json" ]]
 [[ ! -e "$ML4W_CONFIG_ROOT/quickshell" ]]
 
+mkdir -p "$ML4W_CONFIG_ROOT/waybar/themes/RALEX"
+printf 'old RALEX theme\n' >"$ML4W_CONFIG_ROOT/waybar/themes/RALEX/old.css"
+printf 'keep local theme\n' >"$ML4W_CONFIG_ROOT/waybar/themes/local.css"
 restore_waybar
 [[ -f "$ML4W_CONFIG_ROOT/waybar/modules.json" ]]
-[[ -f "$ML4W_CONFIG_ROOT/waybar/themes/theme.css" ]]
+grep -Fqx 'theme fixture' "$ML4W_CONFIG_ROOT/waybar/themes/RALEX/theme.css"
+[[ ! -e "$ML4W_CONFIG_ROOT/waybar/themes/RALEX/old.css" ]]
+grep -Fqx 'keep local theme' "$ML4W_CONFIG_ROOT/waybar/themes/local.css"
+[[ ! -e "$ML4W_CONFIG_ROOT/waybar/themes/other.css" ]]
+find "$HOME/PreRestored" -maxdepth 1 -type d -name 'RALEX-pre-restore-*' \
+  -exec grep -Fqx 'old RALEX theme' '{}/old.css' \; -print -quit | grep -q .
 [[ -f "$ML4W_CONFIG_ROOT/waybar/scripts/test.sh" ]]
 
 mkdir -p "$ML4W_CONFIG_ROOT/quickshell"
