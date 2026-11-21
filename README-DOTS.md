@@ -180,7 +180,9 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 
 `restore-dots.sh` supports `--quiet`. It requires the parent version 1 MAIN manifest to report a completed backup.
 
-Actions ask for confirmation before changing local configuration. Restore actions default to `Y`, so Enter starts the selected restore; answer `N` to skip it and return to the menu. Install and other configuration actions default to `N`. Option 4 becomes unattended after selection and does not add package-manager confirmation prompts.
+Enter one or more action numbers separated by spaces or commas, for example `16 17 99` or `16,17,99`. Actions run in the entered order. Invalid numbers reject the entire selection before any action starts. Option `0` exits when reached, skipping any later numbers.
+
+Actions ask for confirmation before changing local configuration. Restore actions default to `Y`, so Enter starts the selected restore; answer `N` to skip it and continue to the next selected action. The menu returns after the selected actions finish. Install and other configuration actions default to `N`. Option 4 becomes unattended after selection and does not add package-manager confirmation prompts.
 
 ### Install Actions
 
@@ -236,6 +238,7 @@ Actions ask for confirmation before changing local configuration. Restore action
 - `16 - Restore WAYBAR`
   - Restores `waybar/modules.json`
   - Snapshots and restores `waybar/themes/RALEX/` and `waybar/scripts/`
+  - Missing source files or folders are skipped with a warning; available items are still restored
 - `17 - Restore MATUGEN`
   - Restores `matugen/config.toml` and the complete `matugen/templates/` folder
 - `18 - Restore CAVA`

@@ -127,9 +127,9 @@ cd /path/to/device/SERV/BKP-<timestamp>
   - Updates configured splash, terminal input/output, graphics mode, and theme values in `/etc/default/grub`
   - Atomically installs the updated file
   - Runs `sudo grub-mkconfig -o /boot/grub/grub.cfg`
-- `8 - Restore Plymouth`
+- `7 - Restore Plymouth`
   - Runs `015-LATERALUS/daedric-morrowind-plymouth/install.sh` from the backup device with `sudo bash`
-  - The installer selects the Plymouth theme and rebuilds the initramfs; this action is not included in the complete profile
+  - The installer selects the Plymouth theme and rebuilds the initramfs; this action is included in the complete profile
 - `90 - Restore sharing profile`
   - Creates the configured SMB directory tree
   - Restores Samba configuration and credentials
@@ -141,7 +141,7 @@ cd /path/to/device/SERV/BKP-<timestamp>
 - `93 - Restore smart-card service`
   - Enables and refreshes Arch Linux's socket-activated `pcscd.socket`
 - `94 - Restore complete profile`
-  - Runs the sharing profile, SSH restore, boot profile, discovery services, and smart-card service in sequence
+  - Runs the sharing profile, SSH restore, boot profile, Plymouth restore, discovery services, and smart-card service in sequence
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items from known service target locations into `$HOME/PreRestored`
   - Preserves ownership and updates rollback references to the collected paths
@@ -193,4 +193,4 @@ Additional safeguards include:
 - A final `completed_with_errors` audit event with result `partial_failure` when any selected action failed
 - A user-state fallback for logs and rollback helpers when backup media is read-only
 
-Plymouth option `8` uses the external installer's own system changes. The SERVICE rollback helper does not reverse them; use the optional Timeshift snapshot if you need a system rollback.
+Plymouth option `7`, also run by option `94`, uses the external installer's own system changes. The SERVICE rollback helper does not reverse them; use the optional Timeshift snapshot if you need a system rollback.

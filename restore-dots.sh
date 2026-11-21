@@ -898,14 +898,22 @@ restore_cava() {
 
 # Restore the backed-up WAYBAR modules file, RALEX theme, and scripts folder.
 restore_waybar() {
-  [[ -f "$SCRIPT_DIR/waybar/modules.json" ]] || die "waybar modules source file not found: $SCRIPT_DIR/waybar/modules.json"
-  [[ -d "$SCRIPT_DIR/waybar/themes/RALEX" ]] || die "waybar RALEX theme source folder not found: $SCRIPT_DIR/waybar/themes/RALEX"
-  [[ -d "$SCRIPT_DIR/waybar/scripts" ]] || die "waybar scripts source folder not found: $SCRIPT_DIR/waybar/scripts"
-
   confirm_action "Restore WAYBAR" || return 0
-  restore_config_file "WAYBAR" "waybar/modules.json" "waybar/modules.json"
-  restore_config_folder "WAYBAR" "waybar/themes/RALEX" "waybar/themes/RALEX"
-  restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"
+  if [[ -f "$SCRIPT_DIR/waybar/modules.json" ]]; then
+    restore_config_file "WAYBAR" "waybar/modules.json" "waybar/modules.json"
+  else
+    log_warn "Skipping WAYBAR modules: source file not found: $SCRIPT_DIR/waybar/modules.json"
+  fi
+  if [[ -d "$SCRIPT_DIR/waybar/themes/RALEX" ]]; then
+    restore_config_folder "WAYBAR" "waybar/themes/RALEX" "waybar/themes/RALEX"
+  else
+    log_warn "Skipping WAYBAR RALEX theme: source folder not found: $SCRIPT_DIR/waybar/themes/RALEX"
+  fi
+  if [[ -d "$SCRIPT_DIR/waybar/scripts" ]]; then
+    restore_config_folder "WAYBAR" "waybar/scripts" "waybar/scripts"
+  else
+    log_warn "Skipping WAYBAR scripts: source folder not found: $SCRIPT_DIR/waybar/scripts"
+  fi
   log "Done: Restore WAYBAR"
 }
 
@@ -1437,85 +1445,102 @@ verify_backup_status
 # Keep showing menu until user selects Exit.
 while true; do
   show_menu
-  read -r -p "Enter selection: " selection
+  read -r -p "Enter selections in order (spaces or commas): " selection_input
+  selection_input="${selection_input//,/ }"
+  read -r -a selections <<<"$selection_input"
+  if ((${#selections[@]} == 0)); then
+    log "No actions selected"
+    continue
+  fi
 
-  # Dispatch menu options to their matching functions.
-  case "$selection" in
-  0)
-    log "Exit selected"
-    exit 0
-    ;;
-  1)
-    install_fonts
-    ;;
-  2)
-    install_dots
-    ;;
-  3)
-    set_autologin
-    ;;
-  4)
-    install_extra
-    ;;
-  5)
-    change_shell
-    ;;
-  10)
-    restore_wallpapers
-    ;;
-  11)
-    restore_shell_rc
-    ;;
-  12)
-    restore_kitty
-    ;;
-  13)
-    restore_fastfetch
-    ;;
-  14)
-    restore_hypr
-    ;;
-  15)
-    restore_rofi
-    ;;
-  16)
-    restore_waybar
-    ;;
-  17)
-    restore_matugen
-    ;;
-  18)
-    restore_cava
-    ;;
-  19)
-    restore_swaync
-    ;;
-  20)
-    restore_wlogout
-    ;;
-  21)
-    restore_qs
-    ;;
-  22)
-    restore_walker
-    ;;
-  50)
-    connect_wifi || log_error "Connect WiFi failed"
-    ;;
-  51)
-    install_hypr_conf || log_error "HYPR conf failed"
-    ;;
-  52)
-    restore_pack_1 || log_error "Pack-1 failed"
-    ;;
-  98)
-    collect_pre_restore
-    ;;
-  99)
-    restore_settings
-    ;;
-  *)
-    log "Invalid selection: $selection"
-    ;;
-  esac
+  valid_selections=true
+  for selection in "${selections[@]}"; do
+    if [[ ! "$selection" =~ ^(0|1|2|3|4|5|10|11|12|13|14|15|16|17|18|19|20|21|22|50|51|52|98|99)$ ]]; then
+      log "Invalid selection: $selection"
+      valid_selections=false
+    fi
+  done
+  [[ "$valid_selections" == "true" ]] || continue
+
+  # Run selected actions in the entered order, keeping each action's confirmation.
+  for selection in "${selections[@]}"; do
+    case "$selection" in
+    0)
+      log "Exit selected"
+      exit 0
+      ;;
+    1)
+      install_fonts
+      ;;
+    2)
+      install_dots
+      ;;
+    3)
+      set_autologin
+      ;;
+    4)
+      install_extra
+      ;;
+    5)
+      change_shell
+      ;;
+    10)
+      restore_wallpapers
+      ;;
+    11)
+      restore_shell_rc
+      ;;
+    12)
+      restore_kitty
+      ;;
+    13)
+      restore_fastfetch
+      ;;
+    14)
+      restore_hypr
+      ;;
+    15)
+      restore_rofi
+      ;;
+    16)
+      restore_waybar
+      ;;
+    17)
+      restore_matugen
+      ;;
+    18)
+      restore_cava
+      ;;
+    19)
+      restore_swaync
+      ;;
+    20)
+      restore_wlogout
+      ;;
+    21)
+      restore_qs
+      ;;
+    22)
+      restore_walker
+      ;;
+    50)
+      connect_wifi || log_error "Connect WiFi failed"
+      ;;
+    51)
+      install_hypr_conf || log_error "HYPR conf failed"
+      ;;
+    52)
+      restore_pack_1 || log_error "Pack-1 failed"
+      ;;
+    98)
+      collect_pre_restore
+      ;;
+    99)
+      restore_settings
+      ;;
+    *)
+      log "Invalid selection: $selection"
+      ;;
+    esac
+  done
 done

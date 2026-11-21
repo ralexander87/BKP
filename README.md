@@ -42,7 +42,7 @@ BKPv3 handles user and server SSH configuration in separate backup streams:
 
 - MAIN backs up `$HOME/.ssh`, excluding the transient `.ssh/agent/` directory. MAIN restore reapplies directory mode `700`, public-key mode `644`, and mode `600` to other SSH files.
 - SERVICE backs up `/etc/ssh/sshd_config` and `/etc/ssh/sshd_config.d/` when the drop-in directory exists.
-- SERVICE restore option `3` restores only SSH. Option `94` runs the complete profile, including SSH alongside the sharing, boot, discovery, and smart-card profiles.
+- SERVICE restore option `3` restores only SSH. Option `94` runs the complete profile, including SSH and Plymouth alongside the sharing, boot, discovery, and smart-card profiles.
 - SSH server configuration is validated before installation and again before `sshd.service` is refreshed. Missing host keys are generated with `ssh-keygen -A`; host keys are not copied into SERVICE backups.
 
 MAIN backups can contain private user keys. Keep the backup device and any generated archives protected.

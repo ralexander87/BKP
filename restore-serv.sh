@@ -398,7 +398,7 @@ Select action:
   4 - Restore fstab
   5 - Restore grub theme
   6 - Restore GRUB
-  8 - Restore Plymouth
+  7 - Restore Plymouth
 ============================
   90 - Restore sharing profile
   91 - Restore boot profile
@@ -817,6 +817,7 @@ restore_complete_profile() {
   restore_sharing_profile
   restore_ssh
   restore_boot_profile
+  restore_plymouth
   restore_discovery_profile
   restore_smartcard_profile
 }
@@ -1166,7 +1167,7 @@ while true; do
   6)
     run_menu_action "Restore GRUB" restore_grub_defaults
     ;;
-  8)
+  7)
     run_menu_action "Restore Plymouth" restore_plymouth
     ;;
   90)

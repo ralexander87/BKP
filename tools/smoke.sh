@@ -309,6 +309,36 @@ printf '0\n' | (cd "$tmp/BKP/DOTS" && ./restore-dots.sh >/dev/null)
 rm -rf "$tmp"
 printf 'parent status guard and exit path OK: restore-dots.sh\n'
 
+# Exercise ordered menu batches through the real prompt and action confirmations.
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/BKP/DOTS/fastfetch" "$tmp/BKP/DOTS/kitty" "$tmp/home"
+cp "$PROJECT_ROOT/restore-dots.sh" "$tmp/BKP/DOTS/restore-dots.sh"
+cat >"$tmp/BKP/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
+printf 'fastfetch fixture\n' >"$tmp/BKP/DOTS/fastfetch/test.conf"
+printf 'kitty fixture\n' >"$tmp/BKP/DOTS/kitty/test.conf"
+printf '13,12 0 16\ny\ny\n' | HOME="$tmp/home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/ordered.out"
+[[ -f "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch/test.conf" ]]
+[[ -f "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/kitty/test.conf" ]]
+awk '/Done: Restore FastFetch/ { first = 1 } /Done: Restore KITTY/ { second = first; exit } END { exit(second ? 0 : 1) }' "$tmp/ordered.out"
+if grep -Fq 'Skipping WAYBAR' "$tmp/ordered.out"; then
+  printf 'DOTS batch should stop when option 0 is reached\n' >&2
+  exit 1
+fi
+mkdir -p "$tmp/cancel-home"
+printf '13 12\nn\ny\n0\n' | HOME="$tmp/cancel-home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/cancel.out"
+[[ ! -e "$tmp/cancel-home/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch" ]]
+[[ -f "$tmp/cancel-home/.mydotfiles/com.ml4w.dotfiles.stable/.config/kitty/test.conf" ]]
+mkdir -p "$tmp/invalid-home"
+printf '\n12 invalid\n0\n' | HOME="$tmp/invalid-home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/invalid.out"
+grep -Fq 'Invalid selection: invalid' "$tmp/invalid.out"
+[[ ! -e "$tmp/invalid-home/.mydotfiles" ]]
+rm -rf "$tmp"
+printf 'DOTS ordered menu batches, cancellation, and validation OK\n'
+
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/device/MAIN/BKP-test/DOTS" "$tmp/device/STATIC/fonts" \
   "$tmp/home" "$tmp/bin"
@@ -925,6 +955,26 @@ find "$HOME/PreRestored" -maxdepth 1 -type d -name 'RALEX-pre-restore-*' \
   -exec grep -Fqx 'old RALEX theme' '{}/old.css' \; -print -quit | grep -q .
 [[ -f "$ML4W_CONFIG_ROOT/waybar/scripts/test.sh" ]]
 
+# Missing WAYBAR sources must leave their targets untouched and allow other items to restore.
+(
+  mv "$SCRIPT_DIR/waybar/scripts" "$SCRIPT_DIR/waybar/scripts-unavailable"
+  printf 'keep installed script\n' >"$ML4W_CONFIG_ROOT/waybar/scripts/test.sh"
+  printf 'restore available modules\n' >"$SCRIPT_DIR/waybar/modules.json"
+  restore_waybar
+  grep -Fqx 'restore available modules' "$ML4W_CONFIG_ROOT/waybar/modules.json"
+  grep -Fqx 'keep installed script' "$ML4W_CONFIG_ROOT/waybar/scripts/test.sh"
+
+  mv "$SCRIPT_DIR/waybar/modules.json" "$SCRIPT_DIR/waybar/modules-unavailable.json"
+  mv "$SCRIPT_DIR/waybar/themes/RALEX" "$SCRIPT_DIR/waybar/themes/RALEX-unavailable"
+  restore_waybar
+  grep -Fqx 'restore available modules' "$ML4W_CONFIG_ROOT/waybar/modules.json"
+  grep -Fqx 'theme fixture' "$ML4W_CONFIG_ROOT/waybar/themes/RALEX/theme.css"
+
+  mv "$SCRIPT_DIR/waybar/scripts-unavailable" "$SCRIPT_DIR/waybar/scripts"
+  restore_waybar
+  grep -Fqx 'script fixture' "$ML4W_CONFIG_ROOT/waybar/scripts/test.sh"
+)
+
 mkdir -p "$ML4W_CONFIG_ROOT/quickshell"
 printf 'old quickshell fixture\n' >"$ML4W_CONFIG_ROOT/quickshell/old.conf"
 restore_qs
@@ -1029,7 +1079,7 @@ grep -Fq '91 - Restore boot profile' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '92 - Restore discovery services' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '93 - Restore smart-card service' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '94 - Restore complete profile' "$PROJECT_ROOT/restore-serv.sh"
-grep -Fq '8 - Restore Plymouth' "$PROJECT_ROOT/restore-serv.sh"
+grep -Fq '7 - Restore Plymouth' "$PROJECT_ROOT/restore-serv.sh"
 grep -Fq '98 - Collect pre-restore' "$PROJECT_ROOT/restore-serv.sh"
 for host_dir in /SMB/020-EUCLID /SMB/010-PNEUMA /SMB/011-ARGUS /SMB/015-LATERALUS; do
   grep -Fq "\"$host_dir\"" "$PROJECT_ROOT/restore-serv.sh"
@@ -1067,7 +1117,7 @@ if sed -n '/^restore_sharing_profile()/,/^}/p; /^restore_boot_profile()/,/^}/p; 
   printf 'Non-SSH service profiles must not include SSH actions\n' >&2
   exit 1
 fi
-for profile_action in restore_sharing_profile restore_ssh restore_boot_profile restore_discovery_profile restore_smartcard_profile; do
+for profile_action in restore_sharing_profile restore_ssh restore_boot_profile restore_plymouth restore_discovery_profile restore_smartcard_profile; do
   sed -n '/^restore_complete_profile()/,/^}/p' "$PROJECT_ROOT/restore-serv.sh" | grep -Fq "$profile_action"
 done
 grep -Fq 'SSH_CONFIG_DROPIN_SOURCE="/etc/ssh/sshd_config.d"' "$PROJECT_ROOT/config/serv.backup.conf"
@@ -1079,7 +1129,7 @@ assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 3 restore_ssh
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 4 restore_fstab
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 5 restore_grub_theme
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 6 restore_grub_defaults
-assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 8 restore_plymouth
+assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 7 restore_plymouth
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 90 restore_sharing_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 91 restore_boot_profile
 assert_dispatch "$PROJECT_ROOT/restore-serv.sh" 92 restore_discovery_profile
