@@ -99,7 +99,7 @@ Some shared assets are restore-only inputs maintained separately on the backup d
 
 - `015-LATERALUS/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
 - `STATIC/fonts/install.sh` and `STATIC/Steelfish Outline.ttf`, used by DOTS option `3`
-- `STATIC/Dracula.conf`, copied to `$HOME/.config/qt5ct/colors/Dracula.conf` by DOTS option `99`
+- `STATIC/Dracula.conf`, copied into `$HOME/.config/qt5ct/colors/` and `$HOME/.config/qt6ct/colors/` by DOTS option `10`; option `99` also restores the Qt5 copy
 - `STATIC/dracula-pro-pro/`, copied to `$HOME/.config/BraveSoftware/dracula-pro-pro/` by DOTS option `99`
 - `STATIC/gtksourceview-5/`, copied to `$HOME/.local/share/gtksourceview-5/` by DOTS option `99`
 - `STATIC/hyprland.lua`, copied to `$HOME/.config/hypr/hyprland.lua` by DOTS option `1`
@@ -219,6 +219,7 @@ Actions ask for confirmation before changing local configuration. Restore action
 ### P2 — Install Extra
 
 - `10 - Install Extra`
+  - Skips installed packages, themes, Flatpaks, and HyprMod; installs only missing items
   - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` and its build requirements when needed
   - Installs configured Arch/AUR packages first, followed by Flatpaks
@@ -229,7 +230,8 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Verifies Flatpak VLC before removing an installed repository VLC package
   - Removes the repository `firefox` package when installed, after package and Flatpak installation succeeds
   - Ensures the Micronucleus udev rule exists whenever Arduino IDE 2 is installed
-  - Runs the ML4W `ml4w-install-hyprmod` script as the final installation step
+  - Copies the backup device's `STATIC/Dracula.conf` to `$HOME/.config/qt6ct/colors/Dracula.conf` and `$HOME/.config/qt5ct/colors/Dracula.conf`, preserving existing files in `$HOME/PreRestored`
+  - Runs the ML4W `ml4w-install-hyprmod` script as the final installation step when the `hyprmod` command is missing
   - Writes package-manager details to `install-extra.log`
 
 ### P3 — Restore Actions

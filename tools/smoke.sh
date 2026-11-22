@@ -577,6 +577,7 @@ yay() { return 1; }
 sudo() { "$@"; }
 flatpak() { return 0; }
 ensure_micronucleus_udev_rules() { return 0; }
+install_qt_color_themes() { return 0; }
 install_hyprmod() { printf 'hyprmod\n' >"$PWD/hyprmod-called"; }
 pacman() {
   case "$*" in
@@ -613,6 +614,92 @@ for firefox_test_state in installed absent failure; do
 done
 rm -rf "$tmp"
 printf 'Install Extra Firefox removal, absence, and failure handling OK\n'
+
+# Verify installed items never reach an installer, including HyprMod.
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/lib" "$tmp/config" "$tmp/ml4w/ml4w/scripts" "$tmp/device/STATIC" "$tmp/home"
+printf 'Dracula color theme fixture\n' >"$tmp/device/STATIC/Dracula.conf"
+cp "$PROJECT_ROOT/lib/common.sh" "$tmp/lib/common.sh"
+cat >"$tmp/config/dots-extra.conf" <<'EOF'
+EXTRA_PACKAGES=(brave-bin qrencode dracula-gtk-theme)
+EXTRA_FLATPAKS=(org.gnome.Calculator org.videolan.VLC)
+REMOVE_REPOSITORY_VLC=false
+EOF
+cat >"$tmp/ml4w/ml4w/scripts/ml4w-install-hyprmod" <<'EOF'
+printf 'hyprmod\n' >>"$EXTRA_INSTALL_TRACE"
+EOF
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$tmp/restore-dots-partial.sh"
+cat >>"$tmp/restore-dots-partial.sh" <<'EOF'
+ML4W_CONFIG_ROOT="$PWD/ml4w"
+resolve_backup_device_root() { printf '%s\n' "$PWD/device"; }
+start_sudo_keepalive() { return 0; }
+stop_sudo_keepalive() { :; }
+ensure_yay_installed() { return 0; }
+sudo() { return 1; }
+command() {
+  if [[ "$*" == '-v hyprmod' ]]; then
+    [[ "$EXTRA_TEST_STATE" == installed ]]
+  else
+    builtin command "$@"
+  fi
+}
+pacman() {
+  case "$*" in
+  '-Q brave-bin' | '-Q dracula-gtk-theme') return 0 ;;
+  '-Q qrencode') [[ "$EXTRA_TEST_STATE" == installed || -f "$PWD/qrencode-installed" ]] ;;
+  *) return 1 ;;
+  esac
+}
+yay() {
+  [[ "$*" == '-S --needed --noconfirm -- qrencode' ]] || return 1
+  printf 'qrencode\n' >>"$EXTRA_INSTALL_TRACE"
+  touch "$PWD/qrencode-installed"
+}
+flatpak() {
+  case "$*" in
+  'info org.gnome.Calculator') return 0 ;;
+  'info org.videolan.VLC') [[ "$EXTRA_TEST_STATE" == installed || -f "$PWD/vlc-installed" ]] ;;
+  'install --noninteractive -y org.videolan.VLC')
+    printf 'org.videolan.VLC\n' >>"$EXTRA_INSTALL_TRACE"
+    touch "$PWD/vlc-installed"
+    ;;
+  *) return 1 ;;
+  esac
+}
+install_extra
+grep -Fqx 'Install Extra = [COMPLETED]' "$INSTALL_EXTRA_LOG"
+EOF
+: >"$tmp/install-trace"
+(cd "$tmp" && HOME="$tmp/home" EXTRA_TEST_STATE=installed EXTRA_INSTALL_TRACE="$tmp/install-trace" bash restore-dots-partial.sh >/dev/null)
+[[ ! -s "$tmp/install-trace" ]]
+cmp "$tmp/device/STATIC/Dracula.conf" "$tmp/home/.config/qt6ct/colors/Dracula.conf"
+cmp "$tmp/device/STATIC/Dracula.conf" "$tmp/home/.config/qt5ct/colors/Dracula.conf"
+printf 'old Qt6 colors\n' >"$tmp/home/.config/qt6ct/colors/Dracula.conf"
+printf 'old Qt5 colors\n' >"$tmp/home/.config/qt5ct/colors/Dracula.conf"
+# Already installed HyprMod must also skip successfully without its installer file.
+mv "$tmp/ml4w/ml4w/scripts/ml4w-install-hyprmod" "$tmp/hyprmod-installer"
+(cd "$tmp" && HOME="$tmp/home" EXTRA_TEST_STATE=installed EXTRA_INSTALL_TRACE="$tmp/install-trace" bash restore-dots-partial.sh >/dev/null)
+[[ ! -s "$tmp/install-trace" ]]
+cmp "$tmp/device/STATIC/Dracula.conf" "$tmp/home/.config/qt6ct/colors/Dracula.conf"
+cmp "$tmp/device/STATIC/Dracula.conf" "$tmp/home/.config/qt5ct/colors/Dracula.conf"
+for toolkit in Qt5 Qt6; do
+  find "$tmp/home/PreRestored" -maxdepth 1 -type f -name 'Dracula.conf-pre-restore-*' \
+    -exec grep -Fqx "old $toolkit colors" '{}' \; -print -quit | grep -q .
+done
+mv "$tmp/hyprmod-installer" "$tmp/ml4w/ml4w/scripts/ml4w-install-hyprmod"
+(cd "$tmp" && HOME="$tmp/home" EXTRA_TEST_STATE=mixed EXTRA_INSTALL_TRACE="$tmp/install-trace" bash restore-dots-partial.sh >/dev/null)
+[[ "$(cat "$tmp/install-trace")" == $'qrencode\norg.videolan.VLC\nhyprmod' ]]
+mv "$tmp/device/STATIC/Dracula.conf" "$tmp/device/STATIC/Dracula-unavailable.conf"
+if (cd "$tmp" && HOME="$tmp/home" EXTRA_TEST_STATE=installed EXTRA_INSTALL_TRACE="$tmp/install-trace" bash restore-dots-partial.sh >/dev/null); then
+  printf 'Install Extra should report a missing Qt color theme as a failure\n' >&2
+  exit 1
+fi
+grep -Fqx 'Install Extra = [FAILED]' "$tmp/install-extra.log"
+cmp "$tmp/device/STATIC/Dracula-unavailable.conf" "$tmp/home/.config/qt6ct/colors/Dracula.conf"
+cmp "$tmp/device/STATIC/Dracula-unavailable.conf" "$tmp/home/.config/qt5ct/colors/Dracula.conf"
+rm -rf "$tmp"
+printf 'Install Extra skips installed items and installs only missing packages, Flatpaks, and HyprMod OK\n'
+printf 'Install Extra Qt color theme copies, snapshots, and missing source failure OK\n'
 
 grep -Fq 'RSYNC_RESTORE_ARGS=(-aAXH --numeric-ids)' "$PROJECT_ROOT/restore-dots.sh"
 if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; then

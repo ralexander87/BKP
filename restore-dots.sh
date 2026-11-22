@@ -522,6 +522,11 @@ run_extra_command() {
 install_hyprmod() {
   local installer="$ML4W_CONFIG_ROOT/ml4w/scripts/ml4w-install-hyprmod"
 
+  if command -v hyprmod >/dev/null 2>&1; then
+    extra_log_message "INFO" "Skipping HyprMod: already installed"
+    return 0
+  fi
+
   if [[ ! -f "$installer" ]]; then
     EXTRA_FAILED_ACTIONS+=("Locate HyprMod installer")
     extra_log_message "ERROR" "HyprMod installer not found: $installer"
@@ -660,6 +665,25 @@ ensure_micronucleus_udev_rules() {
     sudo udevadm trigger || return 1
 }
 
+# Copy the shared Dracula color theme into the user's Qt5 and Qt6 settings.
+install_qt_color_themes() {
+  local device_root source_file toolkit target_file
+
+  device_root="$(resolve_backup_device_root)" || return 1
+  source_file="$device_root/STATIC/Dracula.conf"
+  if [[ ! -f "$source_file" || ! -r "$source_file" ]]; then
+    log_error "Qt color theme file not found or unreadable: $source_file"
+    return 1
+  fi
+
+  for toolkit in qt6ct qt5ct; do
+    target_file="$HOME/.config/$toolkit/colors/Dracula.conf"
+    snapshot_existing_target "$target_file" || return 1
+    mkdir -p -- "$(dirname -- "$target_file")" || return 1
+    cp -a -- "$source_file" "$target_file" || return 1
+  done
+}
+
 # Install extra Arch/AUR packages and Flatpaks after showing what is missing.
 install_extra() {
   local app
@@ -710,7 +734,7 @@ install_extra() {
 
   for pkg in "${EXTRA_PACKAGES[@]}"; do
     if pacman -Q "$pkg" >/dev/null 2>&1; then
-      extra_log_message "INFO" "Extra package already installed: $pkg"
+      extra_log_message "INFO" "Skipping Extra package: already installed: $pkg"
     else
       extra_log_message "INFO" "Extra package missing: $pkg"
       EXTRA_MISSING_ITEMS+=("Package: $pkg")
@@ -720,7 +744,7 @@ install_extra() {
 
   for app in "${EXTRA_FLATPAKS[@]}"; do
     if flatpak info "$app" >/dev/null 2>&1; then
-      extra_log_message "INFO" "Extra Flatpak already installed: $app"
+      extra_log_message "INFO" "Skipping Extra Flatpak: already installed: $app"
     else
       extra_log_message "INFO" "Extra Flatpak missing: $app"
       EXTRA_MISSING_ITEMS+=("Flatpak: $app")
@@ -801,6 +825,12 @@ install_extra() {
       stop_sudo_keepalive
       return 1
     fi
+  fi
+
+  if ! run_extra_command "Install Qt5 and Qt6 Dracula color themes" install_qt_color_themes; then
+    finalize_install_extra_log "FAILED"
+    stop_sudo_keepalive
+    return 1
   fi
 
   if ! install_hyprmod; then
