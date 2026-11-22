@@ -11,7 +11,7 @@
 - `curl` for the ML4W installer and Micronucleus rule download
 - `sudo`, `pacman`, `makepkg`, `git`, `flatpak`, and `yay` for package actions
 - `udevadm` for activating restored Arduino and Minipro device rules
-- `nmcli` and NetworkManager for option `50 - Connect WiFi`
+- `nmcli` and NetworkManager for option `2 - Connect WiFi`
 - `fc-cache` for refreshing the font cache when available
 
 Run `make deps` from the project root for the complete dependency report.
@@ -98,11 +98,11 @@ Tabby content is also backup-only. MAIN backups update existing Tabby files in `
 Some shared assets are restore-only inputs maintained separately on the backup device; `bkp-main.sh` does not create or update them:
 
 - `015-LATERALUS/cc.arduino.IDE2.desktop`, restored by `restore-main.sh` to `$HOME/.local/share/applications/cc.arduino.IDE2.desktop`
-- `STATIC/fonts/install.sh` and `STATIC/Steelfish Outline.ttf`, used by DOTS option `1`
+- `STATIC/fonts/install.sh` and `STATIC/Steelfish Outline.ttf`, used by DOTS option `3`
 - `STATIC/Dracula.conf`, copied to `$HOME/.config/qt5ct/colors/Dracula.conf` by DOTS option `99`
 - `STATIC/dracula-pro-pro/`, copied to `$HOME/.config/BraveSoftware/dracula-pro-pro/` by DOTS option `99`
 - `STATIC/gtksourceview-5/`, copied to `$HOME/.local/share/gtksourceview-5/` by DOTS option `99`
-- `STATIC/hyprland.lua`, copied to `$HOME/.config/hypr/hyprland.lua` by DOTS option `51`
+- `STATIC/hyprland.lua`, copied to `$HOME/.config/hypr/hyprland.lua` by DOTS option `1`
 - `015-LATERALUS/dracula.qbtheme`, used by DOTS option `99`
 - `015-LATERALUS/algorithm.xml` and `015-LATERALUS/60-minipro.rules`, installed into system locations by DOTS option `99`
 
@@ -185,24 +185,40 @@ cd /path/to/device/MAIN/BKP-<timestamp>/DOTS
 
 Enter one or more action numbers separated by spaces or commas, for example `16 17 99` or `16,17,99`. Actions run in the entered order. Invalid numbers reject the entire selection before any action starts. Option `0` exits when reached, skipping any later numbers.
 
-Actions ask for confirmation before changing local configuration. Restore actions default to `Y`, so Enter starts the selected restore; answer `N` to skip it and continue to the next selected action. The menu returns after the selected actions finish. Install and other configuration actions default to `N`. Option 4 becomes unattended after selection and does not add package-manager confirmation prompts.
+Enter `P1` to run actions `1–6`, `P2` to run action `10`, or `P3` to run actions `15–27`, each in ascending number order. Group names also accept lowercase and can be mixed with numbers, for example `P1,P2,P3,99`. Actions `90`, `98`, and `99` are outside all groups and run only when selected explicitly. Existing action confirmations still apply. Invalid group names reject the entire selection before any action starts.
 
-### Install Actions
+Actions ask for confirmation before changing local configuration. Restore actions default to `Y`, so Enter starts the selected restore; answer `N` to skip it and continue to the next selected action. The menu returns after the selected actions finish. Install and other configuration actions default to `N`. Option 10 becomes unattended after selection and does not add package-manager confirmation prompts.
+
+### P1 — Setup
 
 - `0 - Exit`
-- `1 - Install FONTS`
+- `1 - HYPR conf`
+  - Copies the external device's `STATIC/hyprland.lua` to `$HOME/.config/hypr/hyprland.lua`, using the same steps as `STARTER/start.sh`
+  - Preserves an existing file or symlink beside it as `hyprland.lua-pre-starter-XXXXXXXX` before replacement
+- `2 - Connect WiFi`
+  - Scans NetworkManager WiFi devices for `FeedMe-6+` and asks for its password when needed
+  - Creates or updates the `FeedMe-6+` connection profile with `192.168.8.15/24`, gateway and DNS `192.168.8.1`, and IPv6 disabled
+  - Enables autoconnect and lets NetworkManager store the password for future connections
+  - Uses infrastructure mode, no specified device MAC or cloned MAC, automatic MTU, and no proxy
+  - Skips NetworkManager’s optional IPv6 and proxy questions by applying these settings directly; password prompts remain enabled when connecting
+- `3 - Install FONTS`
   - Runs `STATIC/fonts/install.sh` from the backup-device root, with a local fallback lookup at `DOTS/STATIC/fonts/install.sh`
   - Copies `STATIC/Steelfish Outline.ttf` into `$HOME/.local/share/fonts/`
   - Refreshes the font cache when `fc-cache` is available
-- `2 - Install DOTS`
+- `4 - Install DOTS`
   - Moves `$HOME/.config/hypr` to a safety snapshot
   - Downloads the ML4W Stable installer over HTTPS into a temporary file
   - Displays the first 20 installer lines
   - Runs the downloaded installer with Bash only after a second confirmation, also defaulting to `N`
-- `3 - Set AutoLogin`
+- `5 - Set AutoLogin`
   - Snapshots `/usr/lib/sddm/sddm.conf.d/default.conf`
   - Sets its `User=` line to the local non-root username using `sudo`
-- `4 - Install Extra`
+- `6 - Change shell to ZSH`
+  - Runs the ML4W `ml4w-change-shell` script
+
+### P2 — Install Extra
+
+- `10 - Install Extra`
   - Requests root authentication once and keeps it valid until the action finishes
   - Installs `yay` and its build requirements when needed
   - Installs configured Arch/AUR packages first, followed by Flatpaks
@@ -215,55 +231,52 @@ Actions ask for confirmation before changing local configuration. Restore action
   - Ensures the Micronucleus udev rule exists whenever Arduino IDE 2 is installed
   - Runs the ML4W `ml4w-install-hyprmod` script as the final installation step
   - Writes package-manager details to `install-extra.log`
-- `5 - Change shell to ZSH`
-  - Runs the ML4W `ml4w-change-shell` script
 
-### Restore Actions
+### P3 — Restore Actions
 
-- `10 - Restore Wallpapers`
+- `15 - Restore Wallpapers`
   - Snapshots the current wallpapers folder
   - Copies shared `015-LATERALUS/wallpapers/` into the ML4W wallpapers folder
-- `11 - Restore ZSHRC, BASHRC`
+- `16 - Restore ZSHRC, BASHRC`
   - Snapshots and restores the complete `zshrc` and `bashrc` folders
-- `12 - Restore KITTY`
+- `17 - Restore KITTY`
   - Snapshots and restores the complete `kitty` folder
-- `13 - Restore FASTFETCH`
+- `18 - Restore FASTFETCH`
   - Snapshots and restores the complete `fastfetch` folder
-- `14 - Restore HYPR`
+- `19 - Restore HYPR`
   - Restores `hypr/conf/keybindings/default.lua`
   - Restores `hypr/conf/environments/nvidia.lua`
   - Restores `hypr/conf/monitor.lua`
   - Restores `hypr/conf/windowrules/default.lua`
   - Restores `hypr/hypridle.conf`, `hypr/hyprlock.conf`, `hypr/hyprland-gui.lua`, and `hypr/logo-2.png`
   - Restores `hypr/scripts/uptime.sh`
-- `15 - Restore ROFI`
+- `20 - Restore ROFI`
   - Snapshots and restores the complete `rofi` folder
-- `16 - Restore WAYBAR`
+- `21 - Restore WAYBAR`
   - Restores `waybar/modules.json`
+  - Restores `ml4w/settings/waybar-theme.sh` into the matching ML4W configuration path, preserving an existing file in `$HOME/PreRestored`
   - Snapshots and restores `waybar/themes/RALEX/` and `waybar/scripts/`
   - Missing source files or folders are skipped with a warning; available items are still restored
-- `17 - Restore MATUGEN`
+- `22 - Restore MATUGEN`
   - Restores `matugen/config.toml` and the complete `matugen/templates/` folder
-- `18 - Restore CAVA`
+- `23 - Restore CAVA`
   - Snapshots and restores the complete `cava` folder
   - Creates `$HOME/.config/cava` as a symlink to the restored ML4W folder
   - Preserves a conflicting local CAVA path as a safety snapshot
-- `19 - Restore SWAYNC`
+- `24 - Restore SWAYNC`
   - Snapshots and restores the complete `swaync` folder
-- `20 - Restore WLOGOUT`
+- `25 - Restore WLOGOUT`
   - Snapshots and restores the complete `wlogout` folder
-- `21 - Restore QS`
+- `26 - Restore QS`
   - Snapshots and restores the complete `quickshell` folder
-- `22 - Restore WALKER`
+- `27 - Restore WALKER`
   - Snapshots and restores the complete `walker` folder
-- `50 - Connect WiFi`
-  - Scans NetworkManager WiFi devices for `FeedMe-6+` and asks for its password when needed
-  - Creates or updates the `FeedMe-6+` connection profile with `192.168.8.15/24`, gateway and DNS `192.168.8.1`, and IPv6 disabled
-  - Enables autoconnect and lets NetworkManager store the password for future connections
-  - Uses infrastructure mode, no specified device MAC or cloned MAC, automatic MTU, and no proxy
-- `51 - HYPR conf`
-  - Copies the external device's `STATIC/hyprland.lua` to `$HOME/.config/hypr/hyprland.lua`, using the same steps as `STARTER/start.sh`
-  - Preserves an existing file or symlink beside it as `hyprland.lua-pre-starter-XXXXXXXX` before replacement
+
+### Additional Actions
+
+- `90 - Restore MAIN`
+  - Runs `restore-main.sh` from the parent BKP folder, preserving its own confirmation and forwarding `--quiet` when enabled
+  - Returns to the DOTS menu after completion; missing scripts and failed runs are reported as errors
 - `98 - Collect pre-restore`
   - Collects legacy `*-pre-restore-*` items under `$HOME` into `$HOME/PreRestored`
 - `99 - Restore Settings`

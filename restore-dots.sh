@@ -242,34 +242,39 @@ show_menu() {
 Select action:
   0 - Exit
 ============================
-  1 - Install FONTS
-  2 - Install DOTS
-  3 - Set AutoLogin
-  4 - Install Extra
-      -- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,
-         -- Rambox Pro, QRencode, sRec, Minipro, Tabby, HyprMod
-      -- Themes: Dracula GTK, Dracula Cursors, Tela Circle Dracula
-      -- FlatPak: VLC, Calc, ArduinoIDE
-  5 - Change shell to ZSH
+- P1 -
+  1 - HYPR conf
+  2 - Connect WiFi
+  3 - Install FONTS
+  4 - Install DOTS
+  5 - Set AutoLogin
+  6 - Change shell to ZSH
 ============================
-  10 - Restore Wallpapers
-  11 - Restore ZSHRC, BASHRC
-  12 - Restore KITTY
-  13 - Restore FASTFETCH
-  14 - Restore HYPR
-      -- Keybinds, NVIDIA, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO
-  15 - Restore ROFI
-  16 - Restore WAYBAR
-  17 - Restore MATUGEN
-  18 - Restore CAVA
-  19 - Restore SWAYNC
-  20 - Restore WLOGOUT
-  21 - Restore QS
-  22 - Restore WALKER
+- P2 -
+  10 - Install Extra
+   - AUR: Jefferson, Brave, Yubico, hashId, pyUbi,
+      -- Rambox, QRencode, sRec, Minipro, Tabby, HyprMod
+   - Dracula Themes
+   - FlatPak: VLC, Calc, ArduinoIDE
 ============================
-  50 - Connect WiFi
-  51 - HYPR conf
+- P3 -
+  15 - Restore Wallpapers
+  16 - Restore ZSHRC, BASHRC
+  17 - Restore KITTY
+  18 - Restore FASTFETCH
+  19 - Restore HYPR
+      -- Keybinds, NVIDIA, Monitor, Window Rules,
+      -- HyprIdle, HyprLock, Hyprland, UpTime, LOGO
+  20 - Restore ROFI
+  21 - Restore WAYBAR
+  22 - Restore MATUGEN
+  23 - Restore CAVA
+  24 - Restore SWAYNC
+  25 - Restore WLOGOUT
+  26 - Restore QS
+  27 - Restore WALKER
 ============================
+  90 - Restore MAIN
   98 - Collect pre-restore
   99 - Restore Settings
       -- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro
@@ -895,13 +900,18 @@ restore_cava() {
   log "Done: Restore CAVA"
 }
 
-# Restore the backed-up WAYBAR modules file, RALEX theme, and scripts folder.
+# Restore the backed-up WAYBAR modules, theme setting, RALEX theme, and scripts.
 restore_waybar() {
   confirm_action "Restore WAYBAR" || return 0
   if [[ -f "$SCRIPT_DIR/waybar/modules.json" ]]; then
     restore_config_file "WAYBAR" "waybar/modules.json" "waybar/modules.json"
   else
     log_warn "Skipping WAYBAR modules: source file not found: $SCRIPT_DIR/waybar/modules.json"
+  fi
+  if [[ -f "$SCRIPT_DIR/ml4w/settings/waybar-theme.sh" ]]; then
+    restore_config_file "WAYBAR" "ml4w/settings/waybar-theme.sh" "ml4w/settings/waybar-theme.sh"
+  else
+    log_warn "Skipping WAYBAR theme setting: source file not found: $SCRIPT_DIR/ml4w/settings/waybar-theme.sh"
   fi
   if [[ -d "$SCRIPT_DIR/waybar/themes/RALEX" ]]; then
     restore_config_folder "WAYBAR" "waybar/themes/RALEX" "waybar/themes/RALEX"
@@ -1042,8 +1052,10 @@ connect_wifi() {
     return 1
   fi
 
+  # Configure explicit settings without the optional IPv6/proxy questionnaire.
+  # Keep --ask for activation below so NetworkManager can request the password.
   if nmcli connection show "$profile" >/dev/null 2>&1; then
-    if ! nmcli --ask connection modify "$profile" \
+    if ! nmcli connection modify "$profile" \
       connection.interface-name "$wifi_device" \
       connection.autoconnect yes \
       802-11-wireless.ssid "$ssid" \
@@ -1059,7 +1071,7 @@ connect_wifi() {
       log_error "Could not update WiFi profile $profile"
       return 1
     fi
-  elif ! nmcli --ask connection add type wifi ifname "$wifi_device" \
+  elif ! nmcli connection add type wifi ifname "$wifi_device" \
     con-name "$profile" ssid "$ssid" autoconnect yes -- \
     802-11-wireless.mode infrastructure \
     802-11-wireless.mac-address "" \
@@ -1382,6 +1394,23 @@ install_fonts() {
   log "Done: Install fonts"
 }
 
+# Run the MAIN restore bundled beside this backup's DOTS folder.
+restore_main() {
+  local main_script="$SCRIPT_DIR/../restore-main.sh"
+  local -a restore_args=()
+
+  if [[ ! -f "$main_script" || ! -r "$main_script" ]]; then
+    log_error "MAIN restore script not found or unreadable: $main_script"
+    return 1
+  fi
+  [[ "$QUIET" != "true" ]] || restore_args+=(--quiet)
+  log "Running MAIN restore: $main_script"
+  (
+    cd -- "$SCRIPT_DIR/.." || exit 1
+    bash ./restore-main.sh "${restore_args[@]}"
+  )
+}
+
 parse_common_args "$@"
 if [[ "${SCRIPT_ARGS[0]:-}" == "-h" || "${SCRIPT_ARGS[0]:-}" == "--help" ]]; then
   usage
@@ -1399,7 +1428,7 @@ verify_backup_status
 # Keep showing menu until user selects Exit.
 while true; do
   show_menu
-  read -r -p "Enter selections in order (spaces or commas): " selection_input
+  read -r -p "Enter numbers or P1/P2/P3 in order (spaces or commas): " selection_input
   selection_input="${selection_input//,/ }"
   read -r -a selections <<<"$selection_input"
   if ((${#selections[@]} == 0)); then
@@ -1408,80 +1437,93 @@ while true; do
   fi
 
   valid_selections=true
+  expanded_selections=()
   for selection in "${selections[@]}"; do
-    if [[ ! "$selection" =~ ^(0|1|2|3|4|5|10|11|12|13|14|15|16|17|18|19|20|21|22|50|51|98|99)$ ]]; then
-      log "Invalid selection: $selection"
-      valid_selections=false
-    fi
+    case "${selection^^}" in
+    P1) expanded_selections+=(1 2 3 4 5 6) ;;
+    P2) expanded_selections+=(10) ;;
+    P3) expanded_selections+=(15 16 17 18 19 20 21 22 23 24 25 26 27) ;;
+    *)
+      if [[ "$selection" =~ ^(0|1|2|3|4|5|6|10|15|16|17|18|19|20|21|22|23|24|25|26|27|90|98|99)$ ]]; then
+        expanded_selections+=("$selection")
+      else
+        log "Invalid selection: $selection"
+        valid_selections=false
+      fi
+      ;;
+    esac
   done
   [[ "$valid_selections" == "true" ]] || continue
 
   # Run selected actions in the entered order, keeping each action's confirmation.
-  for selection in "${selections[@]}"; do
+  for selection in "${expanded_selections[@]}"; do
     case "$selection" in
     0)
       log "Exit selected"
       exit 0
       ;;
     1)
-      install_fonts
+      install_hypr_conf || log_error "HYPR conf failed"
       ;;
     2)
-      install_dots
+      connect_wifi || log_error "Connect WiFi failed"
       ;;
     3)
-      set_autologin
+      install_fonts
       ;;
     4)
-      install_extra
+      install_dots
       ;;
     5)
+      set_autologin
+      ;;
+    6)
       change_shell
       ;;
     10)
-      restore_wallpapers
-      ;;
-    11)
-      restore_shell_rc
-      ;;
-    12)
-      restore_kitty
-      ;;
-    13)
-      restore_fastfetch
-      ;;
-    14)
-      restore_hypr
+      install_extra
       ;;
     15)
-      restore_rofi
+      restore_wallpapers
       ;;
     16)
-      restore_waybar
+      restore_shell_rc
       ;;
     17)
-      restore_matugen
+      restore_kitty
       ;;
     18)
-      restore_cava
+      restore_fastfetch
       ;;
     19)
-      restore_swaync
+      restore_hypr
       ;;
     20)
-      restore_wlogout
+      restore_rofi
       ;;
     21)
-      restore_qs
+      restore_waybar
       ;;
     22)
+      restore_matugen
+      ;;
+    23)
+      restore_cava
+      ;;
+    24)
+      restore_swaync
+      ;;
+    25)
+      restore_wlogout
+      ;;
+    26)
+      restore_qs
+      ;;
+    27)
       restore_walker
       ;;
-    50)
-      connect_wifi || log_error "Connect WiFi failed"
-      ;;
-    51)
-      install_hypr_conf || log_error "HYPR conf failed"
+    90)
+      restore_main || log_error "Restore MAIN failed"
       ;;
     98)
       collect_pre_restore

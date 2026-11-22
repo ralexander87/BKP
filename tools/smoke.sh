@@ -320,7 +320,7 @@ Backup Status = [COMPLETED]
 EOF
 printf 'fastfetch fixture\n' >"$tmp/BKP/DOTS/fastfetch/test.conf"
 printf 'kitty fixture\n' >"$tmp/BKP/DOTS/kitty/test.conf"
-printf '13,12 0 16\ny\ny\n' | HOME="$tmp/home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/ordered.out"
+printf '18,17 0 21\ny\ny\n' | HOME="$tmp/home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/ordered.out"
 [[ -f "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch/test.conf" ]]
 [[ -f "$tmp/home/.mydotfiles/com.ml4w.dotfiles.stable/.config/kitty/test.conf" ]]
 awk '/Done: Restore FastFetch/ { first = 1 } /Done: Restore KITTY/ { second = first; exit } END { exit(second ? 0 : 1) }' "$tmp/ordered.out"
@@ -329,15 +329,76 @@ if grep -Fq 'Skipping WAYBAR' "$tmp/ordered.out"; then
   exit 1
 fi
 mkdir -p "$tmp/cancel-home"
-printf '13 12\nn\ny\n0\n' | HOME="$tmp/cancel-home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/cancel.out"
+printf '18 17\nn\ny\n0\n' | HOME="$tmp/cancel-home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/cancel.out"
 [[ ! -e "$tmp/cancel-home/.mydotfiles/com.ml4w.dotfiles.stable/.config/fastfetch" ]]
 [[ -f "$tmp/cancel-home/.mydotfiles/com.ml4w.dotfiles.stable/.config/kitty/test.conf" ]]
 mkdir -p "$tmp/invalid-home"
-printf '\n12 invalid\n0\n' | HOME="$tmp/invalid-home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/invalid.out"
+printf '\n17 invalid\n0\n' | HOME="$tmp/invalid-home" bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/invalid.out"
 grep -Fq 'Invalid selection: invalid' "$tmp/invalid.out"
 [[ ! -e "$tmp/invalid-home/.mydotfiles" ]]
 rm -rf "$tmp"
 printf 'DOTS ordered menu batches, cancellation, and validation OK\n'
+
+# Exercise group expansion through the real menu with harmless action handlers.
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/BKP/DOTS" "$tmp/home"
+cat >"$tmp/BKP/backup-manifest.txt" <<'EOF'
+Manifest Version = 1
+Backup Type = [MAIN]
+Backup Status = [COMPLETED]
+EOF
+awk '/^parse_common_args / { exit } { print }' "$PROJECT_ROOT/restore-dots.sh" >"$tmp/BKP/DOTS/restore-dots.sh"
+for action in install_hypr_conf connect_wifi install_fonts install_dots set_autologin change_shell \
+  install_extra restore_wallpapers restore_shell_rc restore_kitty restore_fastfetch restore_hypr \
+  restore_rofi restore_waybar restore_matugen restore_cava restore_swaync restore_wlogout \
+  restore_qs restore_walker collect_pre_restore restore_settings; do
+  # The generated handler expands the trace path when it runs.
+  # shellcheck disable=SC2016
+  printf '%s() { printf "%%s\\n" "%s" >>"$DOTS_ACTION_TRACE"; }\n' "$action" "$action" >>"$tmp/BKP/DOTS/restore-dots.sh"
+done
+awk '/^parse_common_args / { main = 1 } main { print }' "$PROJECT_ROOT/restore-dots.sh" >>"$tmp/BKP/DOTS/restore-dots.sh"
+cat >"$tmp/BKP/restore-main.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'restore_main\n' >>"$DOTS_ACTION_TRACE"
+printf '%s\n' "$PWD" >"$PWD/main-cwd"
+printf '%s\n' "$@" >"$PWD/main-args"
+[[ ! -f "$PWD/main-fail" ]]
+EOF
+run_dots_group_test() {
+  local input="$1" expected="$2"
+  : >"$tmp/actions"
+  printf '%s\n0\n' "$input" | HOME="$tmp/home" DOTS_ACTION_TRACE="$tmp/actions" \
+    bash "$tmp/BKP/DOTS/restore-dots.sh" >"$tmp/group.out"
+  [[ "$(cat "$tmp/actions")" == "$expected" ]] || {
+    printf 'Unexpected DOTS group dispatch for: %s\n' "$input" >&2
+    return 1
+  }
+}
+p1_expected=$'install_hypr_conf\nconnect_wifi\ninstall_fonts\ninstall_dots\nset_autologin\nchange_shell'
+p3_expected=$'restore_wallpapers\nrestore_shell_rc\nrestore_kitty\nrestore_fastfetch\nrestore_hypr\nrestore_rofi\nrestore_waybar\nrestore_matugen\nrestore_cava\nrestore_swaync\nrestore_wlogout\nrestore_qs\nrestore_walker'
+run_dots_group_test P1 "$p1_expected"
+run_dots_group_test P2 install_extra
+run_dots_group_test P3 "$p3_expected"
+run_dots_group_test 'p2,17 P1 98 99' "$(printf 'install_extra\nrestore_kitty\n%s\ncollect_pre_restore\nrestore_settings' "$p1_expected")"
+run_dots_group_test 'P3,P2,P1' "$(printf '%s\ninstall_extra\n%s' "$p3_expected" "$p1_expected")"
+run_dots_group_test 'P1 P4' ''
+grep -Fq 'Invalid selection: P4' "$tmp/group.out"
+run_dots_group_test '0 P1 P2 P3 90 98 99' ''
+run_dots_group_test '90 99' $'restore_main\nrestore_settings'
+[[ "$(cat "$tmp/BKP/main-cwd")" == "$tmp/BKP" ]]
+[[ ! -s "$tmp/BKP/main-args" || "$(cat "$tmp/BKP/main-args")" == '' ]]
+printf '90 0\n' | HOME="$tmp/home" DOTS_ACTION_TRACE="$tmp/actions" \
+  bash "$tmp/BKP/DOTS/restore-dots.sh" --quiet >"$tmp/quiet-main.out"
+grep -Fxq -- '--quiet' "$tmp/BKP/main-args"
+touch "$tmp/BKP/main-fail"
+run_dots_group_test '90 99' $'restore_main\nrestore_settings'
+grep -Fq 'Restore MAIN failed' "$tmp/group.out"
+mv "$tmp/BKP/restore-main.sh" "$tmp/BKP/restore-main-unavailable.sh"
+run_dots_group_test '90 99' restore_settings
+grep -Fq 'MAIN restore script not found or unreadable' "$tmp/group.out"
+rm -rf "$tmp"
+printf 'DOTS group order, mixed selections, validation, and standalone 98/99 OK\n'
+printf 'DOTS MAIN restore launch, quiet forwarding, failure, and missing script OK\n'
 
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/device/MAIN/BKP-test/DOTS" "$tmp/device/STATIC/fonts" \
@@ -358,7 +419,7 @@ exit 0
 EOF
 chmod +x "$tmp/bin/fc-cache"
 printf 'font data\n' >"$tmp/device/STATIC/Steelfish Outline.ttf"
-printf '1\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
+printf '3\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
   bash "$tmp/device/MAIN/BKP-test/DOTS/restore-dots.sh" >/dev/null
 grep -Fqx 'device' "$tmp/installer-used"
 grep -Fqx 'font data' "$tmp/home/.local/share/fonts/Steelfish Outline.ttf"
@@ -367,7 +428,7 @@ mkdir -p "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts"
 mv "$tmp/device/STATIC/fonts/install.sh" "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts/install.sh"
 sed -i 's/device/local/' "$tmp/device/MAIN/BKP-test/DOTS/STATIC/fonts/install.sh"
 printf 'local font data\n' >"$tmp/device/MAIN/BKP-test/DOTS/STATIC/Steelfish Outline.ttf"
-printf '1\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
+printf '3\nY\n0\n' | HOME="$tmp/home" FONT_TEST_MARKER="$tmp/installer-used" PATH="$tmp/bin:$PATH" \
   bash "$tmp/device/MAIN/BKP-test/DOTS/restore-dots.sh" >/dev/null
 grep -Fqx 'local' "$tmp/installer-used"
 grep -Fqx 'local font data' "$tmp/home/.local/share/fonts/Steelfish Outline.ttf"
@@ -398,7 +459,7 @@ done
 printf '#!/usr/bin/env bash\n' >"$output"
 EOF
 chmod +x "$tmp/bin/curl"
-printf '2\nY\nN\n0\n' | (
+printf '4\nY\nN\n0\n' | (
   cd "$tmp/BKP/DOTS" && HOME="$tmp/home" PATH="$tmp/bin:$PATH" ./restore-dots.sh >/dev/null
 )
 [[ -f "$tmp/home/.config/hypr/current.conf" ]]
@@ -425,7 +486,7 @@ EOF
 chmod +x "$tmp/bin/sudo"
 printf '[Autologin]\nUser=old-user\n' >"$tmp/default.conf"
 test_user="$(id -un)"
-printf '3\nY\n0\n' | (
+printf '5\nY\n0\n' | (
   cd "$tmp/BKP/DOTS" && HOME="$tmp/home" PATH="$tmp/bin:$PATH" USER="$test_user" SDDM_CONFIG="$tmp/default.conf" ./restore-dots.sh >/dev/null
 )
 grep -Fqx "User=$test_user" "$tmp/default.conf"
@@ -559,33 +620,33 @@ if grep -Fq "tee -a \"\$INSTALL_EXTRA_BODY\"" "$PROJECT_ROOT/restore-dots.sh"; t
   exit 1
 fi
 grep -Fq '99 - Restore Settings' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '1 - Install FONTS' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '2 - Install DOTS' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '4 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- AUR: Jefferson, Brave, Yubico Auth, hashId, pyUbi Reader,' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- Rambox Pro, QRencode, sRec, Minipro, Tabby, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- FlatPak: VLC, Calc, ArduinoIDE' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq -- '-- Keybinds, NVIDIA, Monitor, Window Rules, HyprIdle, HyprLock, HyprlandGUI, UpTime, LOGO' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '3 - Install FONTS' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '4 - Install DOTS' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '10 - Install Extra' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '- AUR: Jefferson, Brave, Yubico, hashId, pyUbi,' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- Rambox, QRencode, sRec, Minipro, Tabby, HyprMod' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '- FlatPak: VLC, Calc, ArduinoIDE' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq -- '-- Keybinds, NVIDIA, Monitor, Window Rules,' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- GTK 3/4, QT6, xSettings, qBittorrent, Thunar TERM, miniPro' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- ML4W: Filemanager, Kitty cursor, ROFI (border, radius, font),' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq -- '-- Screenshot, Terminal, Waybar (quicklink, workspace)' "$PROJECT_ROOT/restore-dots.sh"
-if grep -Fq '3 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"; then
+if grep -Fq '5 - Install HyprMod' "$PROJECT_ROOT/restore-dots.sh"; then
   printf 'Install HyprMod should only be available through Install Extra\n' >&2
   exit 1
 fi
-grep -Fq '3 - Set AutoLogin' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '5 - Change shell to ZSH' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '10 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '11 - Restore ZSHRC, BASHRC' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '14 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '17 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '5 - Set AutoLogin' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '6 - Change shell to ZSH' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '15 - Restore Wallpapers' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '16 - Restore ZSHRC, BASHRC' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '19 - Restore HYPR' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '22 - Restore MATUGEN' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'restore_config_folder "MATUGEN" "matugen/templates" "matugen/templates"' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '18 - Restore CAVA' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '19 - Restore SWAYNC' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '20 - Restore WLOGOUT' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '21 - Restore QS' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '22 - Restore WALKER' "$PROJECT_ROOT/restore-dots.sh"
-grep -Fq '50 - Connect WiFi' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '23 - Restore CAVA' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '24 - Restore SWAYNC' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '25 - Restore WLOGOUT' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '26 - Restore QS' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '27 - Restore WALKER' "$PROJECT_ROOT/restore-dots.sh"
+grep -Fq '2 - Connect WiFi' "$PROJECT_ROOT/restore-dots.sh"
 grep -Fq 'brave-bin' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fxq '  dracula-gtk-theme' "$PROJECT_ROOT/config/dots-extra.conf"
 grep -Fxq '  dracula-cursors-git' "$PROJECT_ROOT/config/dots-extra.conf"
@@ -723,26 +784,27 @@ if grep -Fq 'customize_wlogout_glass_style' "$PROJECT_ROOT/restore-dots.sh"; the
   printf 'retired wlogout style customization should not remain\n' >&2
   exit 1
 fi
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_fonts
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 install_dots
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 set_autologin
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_extra
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 5 change_shell
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 10 restore_wallpapers
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 11 restore_shell_rc
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 12 restore_kitty
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 13 restore_fastfetch
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 14 restore_hypr
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 15 restore_rofi
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 16 restore_waybar
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 17 restore_matugen
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 18 restore_cava
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 19 restore_swaync
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 20 restore_wlogout
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 21 restore_qs
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 22 restore_walker
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 50 connect_wifi
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 51 install_hypr_conf
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 3 install_fonts
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 4 install_dots
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 5 set_autologin
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 10 install_extra
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 6 change_shell
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 15 restore_wallpapers
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 16 restore_shell_rc
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 17 restore_kitty
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 18 restore_fastfetch
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 19 restore_hypr
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 20 restore_rofi
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 21 restore_waybar
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 22 restore_matugen
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 23 restore_cava
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 24 restore_swaync
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 25 restore_wlogout
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 26 restore_qs
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 27 restore_walker
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 2 connect_wifi
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 1 install_hypr_conf
+assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 90 restore_main
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'
@@ -758,8 +820,8 @@ nmcli() {
   '-t -f DEVICE,TYPE device status') printf 'wlan0:wifi\n' ;;
   '-t -f SSID device wifi list ifname wlan0 --rescan yes') printf 'Other\nFeedMe-6+\n' ;;
   'connection show FeedMe-6+') [[ -e "$NMCLI_TEST_PROFILE" ]] ;;
-  '--ask connection add '*) touch "$NMCLI_TEST_PROFILE" ;;
-  '--ask connection modify '* | '--ask connection up '*) : ;;
+  'connection add '*) touch "$NMCLI_TEST_PROFILE" ;;
+  'connection modify '* | '--ask connection up '*) : ;;
   *) return 1 ;;
   esac
 }
@@ -768,8 +830,8 @@ connect_wifi
 EOF
 NMCLI_TEST_LOG="$tmp/nmcli.log" NMCLI_TEST_PROFILE="$tmp/profile" HOME="$tmp" \
   bash "$tmp/restore-dots-partial.sh" >/dev/null
-grep -Fq -- '--ask|connection|add|type|wifi|ifname|wlan0|con-name|FeedMe-6+|ssid|FeedMe-6+|autoconnect|yes|--|802-11-wireless.mode|infrastructure|802-11-wireless.mac-address||802-11-wireless.cloned-mac-address||802-11-wireless.mtu|0|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|0|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|proxy.method|none|' "$tmp/nmcli.log"
-grep -Fq -- '--ask|connection|modify|FeedMe-6+|connection.interface-name|wlan0|connection.autoconnect|yes|802-11-wireless.ssid|FeedMe-6+|802-11-wireless.mode|infrastructure|802-11-wireless.mac-address||802-11-wireless.cloned-mac-address||802-11-wireless.mtu|0|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|0|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|proxy.method|none|' "$tmp/nmcli.log"
+grep -Fq -- 'connection|add|type|wifi|ifname|wlan0|con-name|FeedMe-6+|ssid|FeedMe-6+|autoconnect|yes|--|802-11-wireless.mode|infrastructure|802-11-wireless.mac-address||802-11-wireless.cloned-mac-address||802-11-wireless.mtu|0|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|0|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|proxy.method|none|' "$tmp/nmcli.log"
+grep -Fq -- 'connection|modify|FeedMe-6+|connection.interface-name|wlan0|connection.autoconnect|yes|802-11-wireless.ssid|FeedMe-6+|802-11-wireless.mode|infrastructure|802-11-wireless.mac-address||802-11-wireless.cloned-mac-address||802-11-wireless.mtu|0|802-11-wireless-security.key-mgmt|wpa-psk|802-11-wireless-security.psk-flags|0|ipv4.method|manual|ipv4.addresses|192.168.8.15/24|ipv4.gateway|192.168.8.1|ipv4.dns|192.168.8.1|ipv6.method|disabled|proxy.method|none|' "$tmp/nmcli.log"
 grep -Fq -- '--ask|connection|up|FeedMe-6+|ifname|wlan0|' "$tmp/nmcli.log"
 rm -rf "$tmp"
 printf 'Connect WiFi profile and activation OK\n'
@@ -829,6 +891,7 @@ for source_rel in \
   ml4w/settings/screenshot-folder \
   ml4w/settings/statusbar \
   ml4w/settings/terminal.sh \
+  ml4w/settings/waybar-theme.sh \
   ml4w/settings/waybar-quicklinks.json \
   ml4w/settings/waybar_quicklinks.sh \
   ml4w/settings/waybar_workspaces.sh; do
@@ -898,10 +961,15 @@ find "$HOME/PreRestored" -maxdepth 1 -type f -name 'nvidia.lua-pre-restore-*' \
 [[ ! -e "$ML4W_CONFIG_ROOT/quickshell" ]]
 
 mkdir -p "$ML4W_CONFIG_ROOT/waybar/themes/RALEX"
+mkdir -p "$ML4W_CONFIG_ROOT/ml4w/settings"
+printf 'old waybar theme setting\n' >"$ML4W_CONFIG_ROOT/ml4w/settings/waybar-theme.sh"
 printf 'old RALEX theme\n' >"$ML4W_CONFIG_ROOT/waybar/themes/RALEX/old.css"
 printf 'keep local theme\n' >"$ML4W_CONFIG_ROOT/waybar/themes/local.css"
 restore_waybar
 [[ -f "$ML4W_CONFIG_ROOT/waybar/modules.json" ]]
+cmp "$SCRIPT_DIR/ml4w/settings/waybar-theme.sh" "$ML4W_CONFIG_ROOT/ml4w/settings/waybar-theme.sh"
+find "$HOME/PreRestored" -maxdepth 1 -type f -name 'waybar-theme.sh-pre-restore-*' \
+  -exec grep -Fqx 'old waybar theme setting' '{}' \; -print -quit | grep -q .
 grep -Fqx 'theme fixture' "$ML4W_CONFIG_ROOT/waybar/themes/RALEX/theme.css"
 [[ ! -e "$ML4W_CONFIG_ROOT/waybar/themes/RALEX/old.css" ]]
 grep -Fqx 'keep local theme' "$ML4W_CONFIG_ROOT/waybar/themes/local.css"
@@ -912,10 +980,13 @@ find "$HOME/PreRestored" -maxdepth 1 -type d -name 'RALEX-pre-restore-*' \
 
 # Missing WAYBAR sources must leave their targets untouched and allow other items to restore.
 (
+  mv "$SCRIPT_DIR/ml4w/settings/waybar-theme.sh" "$SCRIPT_DIR/ml4w/settings/waybar-theme-unavailable.sh"
+  printf 'keep installed theme setting\n' >"$ML4W_CONFIG_ROOT/ml4w/settings/waybar-theme.sh"
   mv "$SCRIPT_DIR/waybar/scripts" "$SCRIPT_DIR/waybar/scripts-unavailable"
   printf 'keep installed script\n' >"$ML4W_CONFIG_ROOT/waybar/scripts/test.sh"
   printf 'restore available modules\n' >"$SCRIPT_DIR/waybar/modules.json"
   restore_waybar
+  grep -Fqx 'keep installed theme setting' "$ML4W_CONFIG_ROOT/ml4w/settings/waybar-theme.sh"
   grep -Fqx 'restore available modules' "$ML4W_CONFIG_ROOT/waybar/modules.json"
   grep -Fqx 'keep installed script' "$ML4W_CONFIG_ROOT/waybar/scripts/test.sh"
 

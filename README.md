@@ -155,6 +155,7 @@ The current version is stored in `VERSION`.
 
 ### 0.6.0 (in progress)
 
+- Group the DOTS menu into P1 setup (1–6), P2 Install Extra (10), and P3 restores (15–27); keep actions 98 and 99
 - Stop installing Pywalfox in DOTS Install Extra and remove the repository Firefox package when installed
 - Add SERVICE option `8 - Restore Plymouth` to run the shared Daedric Morrowind installer as root
 - Keep bundled SERVICE restore settings authoritative when the project configuration has changed
@@ -162,20 +163,20 @@ The current version is stored in `VERSION`.
 - Add an on-host WiFi profile check and checkpointed reconnect test for `FeedMe-6+`
 - Removed restore, catalog, and doctor support for pre-0.4 status files and key/value manifests; version 1 manifests remain supported in both device layouts
 - Removed duplicate `Run Result` fields from new text and JSON backup manifests
-- Added DOTS option `50 - Connect WiFi` for the `FeedMe-6+` network with a manual IPv4 address, gateway DNS, and IPv6 disabled
+- Added DOTS option `2 - Connect WiFi` for the `FeedMe-6+` network with a manual IPv4 address, gateway DNS, and IPv6 disabled
 - Use zero-padded `015-LATERALUS/` and `011-ARGUS/` folder names on the external device throughout backup, restore, catalog, and doctor workflows
 - Store new MAIN and SERVICE backups under `015-LATERALUS/` when the hostname is `lateralus`, while recognizing both layouts during restore and inspection
 - Route MAIN and SERVICE backup and restore entry points to `ARGUS/` on the `argus` host
 - Implement ARGUS MAIN backups under `011-ARGUS/MAIN/` with KDE home configuration and no DOTS steps
 - Made DOTS restore action confirmations default to `Y`, with `N` available to skip an action
-- Added `hypr/conf/environments/nvidia.lua` to DOTS option `14 - Restore HYPR`
+- Added `hypr/conf/environments/nvidia.lua` to DOTS option `19 - Restore HYPR`
 - Excluded `$HOME/PreRestored` from MAIN backups, including folder selection and size estimates
 - Renamed the shared external backup folder from `BIG` to `015-LATERALUS` across backup, restore, doctor, and catalog-related documentation
 - Added Minipro algorithm and udev-rule restoration to DOTS option `99 - Restore Settings`
 - Reordered DOTS Install Extra into validated package, Flatpak, integration, and HyprMod phases
-- Added the `srec-git` and `minipro-git` AUR packages to DOTS option `3 - Install Extra`
-- Added Brave Browser through the `brave-bin` AUR package in DOTS option `3 - Install Extra`
-- Merged the HyprMod installation into DOTS option `3 - Install Extra` and removed its separate menu action
+- Added the `srec-git` and `minipro-git` AUR packages to DOTS option `10 - Install Extra`
+- Added Brave Browser through the `brave-bin` AUR package in DOTS option `10 - Install Extra`
+- Merged the HyprMod installation into DOTS option `10 - Install Extra` and removed its separate menu action
 - Added Arduino IDE 2 to DOTS Install Extra and ensured its Micronucleus udev rule is present
 - Switched the Jefferson AUR selection to the maintained `jefferson-git` package
 - Added MAIN restore support for the shared `015-LATERALUS/cc.arduino.IDE2.desktop` launcher, including a safety snapshot of an existing launcher
