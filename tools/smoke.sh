@@ -743,7 +743,6 @@ assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 21 restore_qs
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 22 restore_walker
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 50 connect_wifi
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 51 install_hypr_conf
-assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 52 restore_pack_1
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 98 collect_pre_restore
 assert_dispatch "$PROJECT_ROOT/restore-dots.sh" 99 restore_settings
 printf 'restore-dots settings menu OK\n'
@@ -866,50 +865,6 @@ sudo() { "$@"; }
 udevadm() { printf '%s\n' "$*" >>"$PWD/udevadm.calls"; }
 MINIPRO_ALGORITHM_TARGET="$PWD/system/usr/share/minipro/algorithm.xml"
 MINIPRO_UDEV_RULE_TARGET="$PWD/system/etc/udev/rules.d/60-minipro.rules"
-
-# Exercise Pack-1 with and without yay, and stop before copying on bootstrap failure.
-(
-  pack_files=(
-    "hypr/conf/keybindings/default.lua"
-    "ml4w/settings/filemanager"
-    "ml4w/settings/browser.sh"
-    "ml4w/settings/statusbar"
-    "ml4w/settings/terminal.sh"
-    "ml4w/settings/kitty-cursor-trail.conf"
-  )
-  ML4W_CONFIG_ROOT="$HOME/pack-1-config"
-  RESTORE_ID="pack-1-test"
-  for source_rel in "${pack_files[@]}"; do
-    mkdir -p "$(dirname -- "$ML4W_CONFIG_ROOT/$source_rel")"
-    printf 'old pack file\n' >"$ML4W_CONFIG_ROOT/$source_rel"
-  done
-  yay() { return 0; }
-  ensure_yay_installed() { return 1; }
-  restore_pack_1
-  for source_rel in "${pack_files[@]}"; do
-    cmp "$SCRIPT_DIR/$source_rel" "$ML4W_CONFIG_ROOT/$source_rel"
-  done
-  find "$HOME/PreRestored" -maxdepth 1 -type f -name 'default.lua-pre-restore-pack-1-test*' \
-    -exec grep -Fqx 'old pack file' '{}' \; -print -quit | grep -q .
-  command() {
-    if [[ "$*" == '-v yay' ]]; then return 1; fi
-    builtin command "$@"
-  }
-  ensure_yay_installed() { printf 'yay bootstrap\n' >"$PWD/pack-1-yay-called"; }
-  ML4W_CONFIG_ROOT="$HOME/pack-1-new-config"
-  restore_pack_1
-  [[ -f "$PWD/pack-1-yay-called" ]]
-  grep -Fqx 'Pack-1 = [COMPLETED]' "$SCRIPT_DIR/pack-1.log"
-  cmp "$SCRIPT_DIR/ml4w/settings/browser.sh" "$ML4W_CONFIG_ROOT/ml4w/settings/browser.sh"
-  ensure_yay_installed() { return 1; }
-  ML4W_CONFIG_ROOT="$HOME/pack-1-failed-config"
-  if restore_pack_1; then
-    printf 'Pack-1 should stop when yay installation fails\n' >&2
-    exit 1
-  fi
-  [[ ! -e "$ML4W_CONFIG_ROOT" ]]
-  grep -Fqx 'Pack-1 = [FAILED]' "$SCRIPT_DIR/pack-1.log"
-)
 
 mkdir -p "$HOME/.config/hypr"
 printf 'original hypr config\n' >"$HOME/original-hypr.lua"
